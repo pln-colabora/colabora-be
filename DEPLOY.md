@@ -10,7 +10,12 @@ Production deploy target: a self-managed VPS running Docker + the Compose plugin
    - `VPS_HOST` — VPS IP or hostname
    - `VPS_USER` — the deploy user
    - `VPS_SSH_KEY` — the matching private key
-4. `mkdir -p /opt/colabora-be` on the VPS.
+4. As root/sudo (not the deploy user), create the deploy directory and hand it to the deploy user:
+   ```bash
+   sudo mkdir -p /opt/colabora-be
+   sudo chown "$VPS_USER":"$VPS_USER" /opt/colabora-be
+   ```
+   This step is required because `/opt` is root-owned by default — the CI deploy step (`appleboy/scp-action`) connects as `VPS_USER` over SSH and will fail with `create folder /opt/colabora-be: ... Process exited with status 1` if this directory doesn't already exist and isn't owned by that user.
 5. Create `/opt/colabora-be/.env` by hand on the VPS (copy from this repo's `.env.example`, fill in real `DB_*`, `JWT_SECRET`, `SMTP_*`, and set `APP_ENV=production`, `NGINX_PORT`). **Never commit this file.**
 6. If the `ghcr.io/pln-colabora/colabora-be` package is private (default), the VPS needs pull access: run `docker login ghcr.io -u <github-username>` once on the VPS using a PAT with `read:packages` scope. Simpler alternative: make the package public in GitHub (`Settings → Packages`), which needs no VPS-side login at all.
 7. In Cloudflare, point `api-colabora.anargya.fun` (proxied, orange cloud is fine) at the VPS's IP, and set SSL/TLS mode to **Flexible** (`SSL/TLS → Overview`). Flexible means Cloudflare terminates HTTPS for visitors and talks to the VPS over plain HTTP — the origin nginx (`docker/nginx/default.conf`) is already configured for plain HTTP only, with no certbot/TLS on the origin. Do **not** add an HTTP→HTTPS redirect at the origin — with Flexible mode, Cloudflare always connects to origin over HTTP, so an origin-side redirect causes a redirect loop.
