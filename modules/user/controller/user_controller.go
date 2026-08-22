@@ -3,12 +3,12 @@ package controller
 import (
 	"net/http"
 
-	"github.com/Caknoooo/go-gin-clean-starter/modules/user/dto"
-	"github.com/Caknoooo/go-gin-clean-starter/modules/user/query"
-	"github.com/Caknoooo/go-gin-clean-starter/modules/user/service"
-	"github.com/Caknoooo/go-gin-clean-starter/modules/user/validation"
-	"github.com/Caknoooo/go-gin-clean-starter/pkg/constants"
-	"github.com/Caknoooo/go-gin-clean-starter/pkg/utils"
+	"github.com/pln-colabora/colabora-be/modules/user/dto"
+	"github.com/pln-colabora/colabora-be/modules/user/query"
+	"github.com/pln-colabora/colabora-be/modules/user/service"
+	"github.com/pln-colabora/colabora-be/modules/user/validation"
+	"github.com/pln-colabora/colabora-be/pkg/constants"
+	"github.com/pln-colabora/colabora-be/pkg/utils"
 	"github.com/Caknoooo/go-pagination"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/do"

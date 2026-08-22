@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Caknoooo/go-gin-clean-starter/database/entities"
+	"github.com/pln-colabora/colabora-be/database/entities"
 	"gorm.io/gorm"
 )
 
@@ -354,8 +354,8 @@ func (%s *%s) BeforeCreate(tx *gorm.DB) (err error) {
 		migrationTemplate = fmt.Sprintf(`package migrations
 
 import (
-	"github.com/Caknoooo/go-gin-clean-starter/database"
-	"github.com/Caknoooo/go-gin-clean-starter/database/entities"
+	"github.com/pln-colabora/colabora-be/database"
+	"github.com/pln-colabora/colabora-be/database/entities"
 	"gorm.io/gorm"
 )
 
@@ -375,7 +375,7 @@ func Down%s(db *gorm.DB) error {
 		migrationTemplate = fmt.Sprintf(`package migrations
 
 import (
-	"github.com/Caknoooo/go-gin-clean-starter/database"
+	"github.com/pln-colabora/colabora-be/database"
 	"gorm.io/gorm"
 )
 

@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"github.com/Caknoooo/go-gin-clean-starter/modules/auth/controller"
+	"github.com/pln-colabora/colabora-be/modules/auth/controller"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/do"
 )

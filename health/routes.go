@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Caknoooo/go-gin-clean-starter/pkg/constants"
-	"github.com/Caknoooo/go-gin-clean-starter/pkg/utils"
+	"github.com/pln-colabora/colabora-be/pkg/constants"
+	"github.com/pln-colabora/colabora-be/pkg/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/do"
 	"gorm.io/gorm"

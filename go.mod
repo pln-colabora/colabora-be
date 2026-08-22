@@ -1,4 +1,4 @@
-module github.com/Caknoooo/go-gin-clean-starter
+module github.com/pln-colabora/colabora-be
 
 go 1.26.0
 

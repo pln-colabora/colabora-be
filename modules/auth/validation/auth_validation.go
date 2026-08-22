@@ -1,8 +1,8 @@
 package validation
 
 import (
-	"github.com/Caknoooo/go-gin-clean-starter/modules/auth/dto"
-	userDto "github.com/Caknoooo/go-gin-clean-starter/modules/user/dto"
+	"github.com/pln-colabora/colabora-be/modules/auth/dto"
+	userDto "github.com/pln-colabora/colabora-be/modules/user/dto"
 	"github.com/go-playground/validator/v10"
 )
 

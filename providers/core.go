@@ -1,14 +1,14 @@
 package providers
 
 import (
-	"github.com/Caknoooo/go-gin-clean-starter/config"
-	authController "github.com/Caknoooo/go-gin-clean-starter/modules/auth/controller"
-	authRepo "github.com/Caknoooo/go-gin-clean-starter/modules/auth/repository"
-	authService "github.com/Caknoooo/go-gin-clean-starter/modules/auth/service"
-	userController "github.com/Caknoooo/go-gin-clean-starter/modules/user/controller"
-	"github.com/Caknoooo/go-gin-clean-starter/modules/user/repository"
-	userService "github.com/Caknoooo/go-gin-clean-starter/modules/user/service"
-	"github.com/Caknoooo/go-gin-clean-starter/pkg/constants"
+	"github.com/pln-colabora/colabora-be/config"
+	authController "github.com/pln-colabora/colabora-be/modules/auth/controller"
+	authRepo "github.com/pln-colabora/colabora-be/modules/auth/repository"
+	authService "github.com/pln-colabora/colabora-be/modules/auth/service"
+	userController "github.com/pln-colabora/colabora-be/modules/user/controller"
+	"github.com/pln-colabora/colabora-be/modules/user/repository"
+	userService "github.com/pln-colabora/colabora-be/modules/user/service"
+	"github.com/pln-colabora/colabora-be/pkg/constants"
 	"github.com/samber/do"
 	"gorm.io/gorm"
 )

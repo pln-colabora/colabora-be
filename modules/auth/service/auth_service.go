@@ -3,13 +3,13 @@ package service
 import (
 	"context"
 
-	"github.com/Caknoooo/go-gin-clean-starter/database/entities"
-	"github.com/Caknoooo/go-gin-clean-starter/modules/auth/dto"
-	authRepo "github.com/Caknoooo/go-gin-clean-starter/modules/auth/repository"
-	userDto "github.com/Caknoooo/go-gin-clean-starter/modules/user/dto"
-	"github.com/Caknoooo/go-gin-clean-starter/modules/user/repository"
-	"github.com/Caknoooo/go-gin-clean-starter/pkg/helpers"
-	"github.com/Caknoooo/go-gin-clean-starter/pkg/utils"
+	"github.com/pln-colabora/colabora-be/database/entities"
+	"github.com/pln-colabora/colabora-be/modules/auth/dto"
+	authRepo "github.com/pln-colabora/colabora-be/modules/auth/repository"
+	userDto "github.com/pln-colabora/colabora-be/modules/user/dto"
+	"github.com/pln-colabora/colabora-be/modules/user/repository"
+	"github.com/pln-colabora/colabora-be/pkg/helpers"
+	"github.com/pln-colabora/colabora-be/pkg/utils"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )

@@ -1,8 +1,8 @@
 package entities
 
 import (
-	"github.com/Caknoooo/go-gin-clean-starter/pkg/constants"
-	"github.com/Caknoooo/go-gin-clean-starter/pkg/helpers"
+	"github.com/pln-colabora/colabora-be/pkg/constants"
+	"github.com/pln-colabora/colabora-be/pkg/helpers"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )

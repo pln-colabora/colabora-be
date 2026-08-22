@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -15,9 +16,8 @@ func RunExtension(db *gorm.DB) {
 }
 
 func SetUpDatabaseConnection() *gorm.DB {
-	err := godotenv.Load(".env")
-	if err != nil {
-		panic(err)
+	if err := godotenv.Load(".env"); err != nil {
+		log.Printf("no .env file found, relying on process environment variables: %v", err)
 	}
 
 	dbUser := os.Getenv("DB_USER")

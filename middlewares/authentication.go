@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Caknoooo/go-gin-clean-starter/modules/auth/service"
-	"github.com/Caknoooo/go-gin-clean-starter/modules/user/dto"
-	"github.com/Caknoooo/go-gin-clean-starter/pkg/utils"
+	"github.com/pln-colabora/colabora-be/modules/auth/service"
+	"github.com/pln-colabora/colabora-be/modules/user/dto"
+	"github.com/pln-colabora/colabora-be/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
 

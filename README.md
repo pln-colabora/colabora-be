@@ -2,7 +2,7 @@
 
 You can join in the development (Open Source). **Let's Go!!!**
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/Caknoooo/go-gin-clean-starter)](https://goreportcard.com/report/github.com/Caknoooo/go-gin-clean-starter) [![Go Reference](https://pkg.go.dev/badge/github.com/Caknoooo/go-gin-clean-starter.svg)](https://pkg.go.dev/github.com/Caknoooo/go-gin-clean-starter) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Release](https://img.shields.io/badge/release-v2.2.0-green.svg)](https://github.com/Caknoooo/go-gin-clean-starter/releases) <img align="right" width="200" height="200" alt="Go Gin Clean Architecture" src="https://github.com/user-attachments/assets/b7e2f353-bb6b-4ef1-88e9-6ab9bf2b8327" />
+[![Go Report Card](https://goreportcard.com/badge/github.com/pln-colabora/colabora-be)](https://goreportcard.com/report/github.com/pln-colabora/colabora-be) [![Go Reference](https://pkg.go.dev/badge/github.com/pln-colabora/colabora-be.svg)](https://pkg.go.dev/github.com/pln-colabora/colabora-be) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Release](https://img.shields.io/badge/release-v2.2.0-green.svg)](https://github.com/pln-colabora/colabora-be/releases) <img align="right" width="200" height="200" alt="Go Gin Clean Architecture" src="https://github.com/user-attachments/assets/b7e2f353-bb6b-4ef1-88e9-6ab9bf2b8327" />
 
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.20-blue.svg)](https://golang.org/) [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-%3E%3D%2015.0-blue.svg)](https://www.postgresql.org/) [![Docker](https://img.shields.io/badge/Docker-Supported-blue.svg)](https://www.docker.com/) [![Gin](https://img.shields.io/badge/Gin-Web%20Framework-red.svg)](https://gin-gonic.com/) [![GORM](https://img.shields.io/badge/GORM-ORM-green.svg)](https://gorm.io/)
 
@@ -20,7 +20,7 @@ You can join in the development (Open Source). **Let's Go!!!**
 ### Installation
 1. Clone the repository or **Use This Template**
    ```bash
-   git clone https://github.com/Caknoooo/go-gin-clean-starter.git
+   git clone https://github.com/pln-colabora/colabora-be.git
    ```
 2. Navigate to the project directory:
    ```bash
@@ -238,7 +238,7 @@ We welcome contributions! The repository includes templates for issues and pull 
 
 ## 🌟 Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Caknoooo/go-gin-clean-starter&type=date&legend=top-left)](https://www.star-history.com/#Caknoooo/go-gin-clean-starter&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=pln-colabora/colabora-be&type=date&legend=top-left)](https://www.star-history.com/#pln-colabora/colabora-be&type=date&legend=top-left)
 
 ## 📄 License
 

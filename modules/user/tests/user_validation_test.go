@@ -3,8 +3,8 @@ package tests
 import (
 	"testing"
 
-	"github.com/Caknoooo/go-gin-clean-starter/modules/user/dto"
-	"github.com/Caknoooo/go-gin-clean-starter/modules/user/validation"
+	"github.com/pln-colabora/colabora-be/modules/user/dto"
+	"github.com/pln-colabora/colabora-be/modules/user/validation"
 	"github.com/stretchr/testify/assert"
 )
 

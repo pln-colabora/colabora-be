@@ -1,14 +1,14 @@
 package script
 
 import (
-	_ "github.com/Caknoooo/go-gin-clean-starter/database/migrations"
+	_ "github.com/pln-colabora/colabora-be/database/migrations"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/Caknoooo/go-gin-clean-starter/database"
-	"github.com/Caknoooo/go-gin-clean-starter/pkg/constants"
+	"github.com/pln-colabora/colabora-be/database"
+	"github.com/pln-colabora/colabora-be/pkg/constants"
 	"github.com/samber/do"
 	"gorm.io/gorm"
 )

@@ -1,7 +1,7 @@
 package database
 
 import (
-	"github.com/Caknoooo/go-gin-clean-starter/database/seeders/seeds"
+	"github.com/pln-colabora/colabora-be/database/seeders/seeds"
 	"gorm.io/gorm"
 )
 

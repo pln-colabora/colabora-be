@@ -1,10 +1,10 @@
 package user
 
 import (
-	"github.com/Caknoooo/go-gin-clean-starter/middlewares"
-	"github.com/Caknoooo/go-gin-clean-starter/modules/auth/service"
-	"github.com/Caknoooo/go-gin-clean-starter/modules/user/controller"
-	"github.com/Caknoooo/go-gin-clean-starter/pkg/constants"
+	"github.com/pln-colabora/colabora-be/middlewares"
+	"github.com/pln-colabora/colabora-be/modules/auth/service"
+	"github.com/pln-colabora/colabora-be/modules/user/controller"
+	"github.com/pln-colabora/colabora-be/pkg/constants"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/do"
 )
