@@ -4,6 +4,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/Caknoooo/go-gin-clean-starter/docs"
+	"github.com/Caknoooo/go-gin-clean-starter/health"
 	"github.com/Caknoooo/go-gin-clean-starter/middlewares"
 	"github.com/Caknoooo/go-gin-clean-starter/modules/auth"
 	"github.com/Caknoooo/go-gin-clean-starter/modules/user"
@@ -39,7 +41,7 @@ func run(server *gin.Engine) {
 		serve = ":" + port
 	}
 
-	myFigure := figure.NewColorFigure("Caknoo", "", "green", true)
+	myFigure := figure.NewColorFigure("COLABORA", "", "green", true)
 	myFigure.Print()
 
 	if err := server.Run(serve); err != nil {
@@ -64,6 +66,8 @@ func main() {
 	// Register module routes
 	user.RegisterRoutes(server, injector)
 	auth.RegisterRoutes(server, injector)
+	docs.RegisterRoutes(server)
+	health.RegisterRoutes(server, injector)
 
 	run(server)
 }

@@ -1,0 +1,261 @@
+openapi: 3.0.3
+info:
+  title: COLABORA API — Auth
+  description: Registration, login, tokens, email verification, password reset. See `modules/auth`.
+  version: "1.0.0"
+servers:
+  - url: http://localhost:8888
+    description: Local (default GOLANG_PORT)
+tags:
+  - name: Auth
+    description: Registration, login, tokens, email verification, password reset
+paths:
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 100 }
+                email: { type: string, format: email }
+                password: { type: string, format: password, minLength: 8 }
+                telp_number: { type: string, minLength: 8, maxLength: 20 }
+                image: { type: string, format: binary }
+      responses:
+        "200":
+          description: User created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/UserResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in and receive an access/refresh token pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/TokenResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Exchange a refresh token for a new access/refresh token pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string }
+      responses:
+        "200":
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/TokenResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke the current user's refresh token(s)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/auth/send-verification-email:
+    post:
+      tags: [Auth]
+      summary: Send an email verification token to the given email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "200":
+          description: Verification email sent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/auth/verify-email:
+    post:
+      tags: [Auth]
+      summary: Verify an email using the token sent by send-verification-email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        "200":
+          description: Email verified
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/VerifyEmailResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/auth/send-password-reset:
+    post:
+      tags: [Auth]
+      summary: Send a password reset token to the given email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "200":
+          description: Password reset email sent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset a password using the token from send-password-reset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, new_password]
+              properties:
+                token: { type: string }
+                new_password: { type: string, format: password, minLength: 8 }
+      responses:
+        "200":
+          description: Password reset
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: Request failed validation or business logic
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiResponse" }
+    Unauthorized:
+      description: Missing, invalid, or expired token
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiResponse" }
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        status: { type: boolean }
+        message: { type: string }
+        error:
+          nullable: true
+          description: Present only when status is false
+          oneOf:
+            - type: string
+            - type: object
+        data:
+          nullable: true
+    UserResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        telp_number: { type: string }
+        role: { type: string }
+        image_url: { type: string }
+        is_verified: { type: boolean }
+    TokenResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        role: { type: string }
+    VerifyEmailResponse:
+      type: object
+      properties:
+        email: { type: string, format: email }
+        is_verified: { type: boolean }

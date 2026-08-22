@@ -1,0 +1,190 @@
+openapi: 3.0.3
+info:
+  title: COLABORA API — User
+  description: User listing and self-service profile management. See `modules/user`.
+  version: "1.0.0"
+servers:
+  - url: http://localhost:8888
+    description: Local (default GOLANG_PORT)
+tags:
+  - name: User
+    description: User listing and self-service profile management
+paths:
+  /api/user:
+    get:
+      tags: [User]
+      summary: List users (paginated)
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, default: 10 }
+        - name: search
+          in: query
+          description: Matches against name
+          schema: { type: string }
+        - name: sort
+          in: query
+          schema: { type: string, default: id }
+        - name: order
+          in: query
+          schema: { type: string, enum: [asc, desc] }
+      responses:
+        "200":
+          description: Paginated user list
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaginatedUserResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/user/me:
+    get:
+      tags: [User]
+      summary: Get the authenticated user's profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/UserResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/user/{id}:
+    put:
+      tags: [User]
+      summary: Update the authenticated user's profile
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 2, maxLength: 100 }
+                telp_number: { type: string, minLength: 8, maxLength: 20 }
+                email: { type: string, format: email }
+      responses:
+        "200":
+          description: User updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/UserUpdateResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      tags: [User]
+      summary: Delete the authenticated user's account
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: User deleted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: Request failed validation or business logic
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiResponse" }
+    Unauthorized:
+      description: Missing, invalid, or expired token
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiResponse" }
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        status: { type: boolean }
+        message: { type: string }
+        error:
+          nullable: true
+          description: Present only when status is false
+          oneOf:
+            - type: string
+            - type: object
+        data:
+          nullable: true
+    UserResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        telp_number: { type: string }
+        role: { type: string }
+        image_url: { type: string }
+        is_verified: { type: boolean }
+    UserUpdateResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        telp_number: { type: string }
+        role: { type: string }
+        email: { type: string, format: email }
+        is_verified: { type: boolean }
+    PaginationMeta:
+      description: Shape produced by github.com/Caknoooo/go-pagination's PaginationResponse
+      type: object
+      properties:
+        page: { type: integer }
+        per_page: { type: integer }
+        max_page: { type: integer }
+        total: { type: integer }
+    PaginatedUserResponse:
+      description: Shape produced by github.com/Caknoooo/go-pagination's PaginatedResponse
+      type: object
+      properties:
+        code: { type: integer }
+        status: { type: string }
+        message: { type: string }
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/UserResponse" }
+        pagination: { $ref: "#/components/schemas/PaginationMeta" }

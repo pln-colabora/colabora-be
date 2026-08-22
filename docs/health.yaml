@@ -1,0 +1,59 @@
+openapi: 3.0.3
+info:
+  title: COLABORA API — Health
+  description: Service health check, served from the top-level `health` package.
+  version: "1.0.0"
+servers:
+  - url: http://localhost:8888
+    description: Local (default GOLANG_PORT)
+tags:
+  - name: Health
+    description: Service health check
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Check whether the service and its database connection are up
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/HealthResponse" }
+        "503":
+          description: Unhealthy (e.g. database unreachable)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/HealthResponse" }
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        database:
+          type: string
+          enum: [up, down]
+    ApiResponse:
+      type: object
+      properties:
+        status: { type: boolean }
+        message: { type: string }
+        error:
+          nullable: true
+          description: Present only when status is false
+          oneOf:
+            - type: string
+            - type: object
+        data:
+          nullable: true

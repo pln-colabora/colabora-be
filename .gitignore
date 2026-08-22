@@ -1,0 +1,16 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+/main
+/tmp
+coverage.out
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
