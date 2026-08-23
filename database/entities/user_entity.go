@@ -14,6 +14,7 @@ type User struct {
 	TelpNumber string    `gorm:"type:varchar(20);index" json:"telp_number"`
 	Password   string    `gorm:"type:varchar(255);not null" json:"password"`
 	Role       string    `gorm:"type:varchar(50);not null;default:'user'" json:"role"`
+	Unit       string    `gorm:"type:varchar(50)" json:"unit"`
 	ImageUrl   string    `gorm:"type:varchar(255)" json:"image_url"`
 	IsVerified bool      `gorm:"default:false" json:"is_verified"`
 

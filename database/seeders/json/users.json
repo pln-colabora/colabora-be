@@ -14,5 +14,122 @@
     "password": "user1234",
     "role": "user",
     "is_verified": true
+  },
+  {
+    "name": "super.user",
+    "telp_number": "08123456789",
+    "email": "super.user@pln.com",
+    "password": "demo1234",
+    "role": "super-user",
+    "unit": "",
+    "is_verified": true
+  },
+  {
+    "name": "teknik.taman",
+    "telp_number": "08123456789",
+    "email": "teknik.taman@pln.com",
+    "password": "demo1234",
+    "role": "teknik",
+    "unit": "ULP Taman",
+    "is_verified": true
+  },
+  {
+    "name": "pelayanan.pilang",
+    "telp_number": "08123456789",
+    "email": "pelayanan.pilang@pln.com",
+    "password": "demo1234",
+    "role": "pelayanan-pelanggan",
+    "unit": "ULP Karang Pilang",
+    "is_verified": true
+  },
+  {
+    "name": "teknik.menganti",
+    "telp_number": "08123456789",
+    "email": "teknik.menganti@pln.com",
+    "password": "demo1234",
+    "role": "teknik",
+    "unit": "ULP Menganti",
+    "is_verified": true
+  },
+  {
+    "name": "perencanaan.up",
+    "telp_number": "08123456789",
+    "email": "perencanaan.up@pln.com",
+    "password": "demo1234",
+    "role": "perencanaan",
+    "unit": "UP3",
+    "is_verified": true
+  },
+  {
+    "name": "nps.up",
+    "telp_number": "08123456789",
+    "email": "nps.up@pln.com",
+    "password": "demo1234",
+    "role": "nps",
+    "unit": "UP3",
+    "is_verified": true
+  },
+  {
+    "name": "konstruksi.up",
+    "telp_number": "08123456789",
+    "email": "konstruksi.up@pln.com",
+    "password": "demo1234",
+    "role": "konstruksi",
+    "unit": "UP3",
+    "is_verified": true
+  },
+  {
+    "name": "transaksi.up",
+    "telp_number": "08123456789",
+    "email": "transaksi.up@pln.com",
+    "password": "demo1234",
+    "role": "transaksi-energi",
+    "unit": "UP3",
+    "is_verified": true
+  },
+  {
+    "name": "jaringan.up",
+    "telp_number": "08123456789",
+    "email": "jaringan.up@pln.com",
+    "password": "demo1234",
+    "role": "jaringan",
+    "unit": "UP3",
+    "is_verified": true
+  },
+  {
+    "name": "vendor.tiang",
+    "telp_number": "08123456789",
+    "email": "vendor.tiang@pln.com",
+    "password": "demo1234",
+    "role": "vendor-tiang",
+    "unit": "PT Tiang Nusantara Jaya",
+    "is_verified": true
+  },
+  {
+    "name": "pdkb.up",
+    "telp_number": "08123456789",
+    "email": "pdkb.up@pln.com",
+    "password": "demo1234",
+    "role": "pdkb",
+    "unit": "UP3",
+    "is_verified": true
+  },
+  {
+    "name": "vendor.konstruksi",
+    "telp_number": "08123456789",
+    "email": "vendor.konstruksi@pln.com",
+    "password": "demo1234",
+    "role": "vendor-konstruksi",
+    "unit": "CV Cahaya Listrik Sejahtera",
+    "is_verified": true
+  },
+  {
+    "name": "vendor.srapp",
+    "telp_number": "08123456789",
+    "email": "vendor.srapp@pln.com",
+    "password": "demo1234",
+    "role": "vendor-sr-app",
+    "unit": "CV Sinar Meter Abadi",
+    "is_verified": true
   }
 ]
