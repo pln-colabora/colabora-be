@@ -4,6 +4,8 @@ info:
   description: User listing and self-service profile management. See `modules/user`.
   version: "1.0.0"
 servers:
+  - url: https://api-colabora.anargya.fun
+    description: Production
   - url: http://localhost:8888
     description: Local (default GOLANG_PORT)
 tags:

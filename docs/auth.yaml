@@ -4,6 +4,8 @@ info:
   description: Registration, login, tokens, email verification, password reset. See `modules/auth`.
   version: "1.0.0"
 servers:
+  - url: https://api-colabora.anargya.fun
+    description: Production
   - url: http://localhost:8888
     description: Local (default GOLANG_PORT)
 tags:

@@ -23,19 +23,18 @@ const referenceHTML = `<!doctype html>
     <script>
       Scalar.createApiReference('#app', {
         hideModels: true,
-        sources: [
-          { title: 'Health', slug: 'health', url: '/docs/health.yaml', default: true },
-          { title: 'Auth', slug: 'auth', url: '/docs/auth.yaml' },
-          { title: 'User', slug: 'user', url: '/docs/user.yaml' },
-        ],
+        url: '/docs/openapi.yaml',
       })
     </script>
   </body>
 </html>`
 
 // RegisterRoutes serves one OpenAPI document per module (each self-contained,
-// not sharing $ref'd components across files) and a single Scalar-powered API
-// reference page that lets you switch between them via the `sources` config.
+// not sharing $ref'd components across files), a combined document merging
+// all of them at /docs/openapi.yaml (see buildMergedOpenAPI), and a single
+// Scalar-powered API reference page pointed at that combined document so
+// every module shows up as its own sidebar section in one flat list instead
+// of a dropdown you have to switch between.
 // See https://scalar.com/products/api-references/getting-started and
 // https://scalar.com/products/api-references/configuration.
 //
@@ -46,7 +45,8 @@ const referenceHTML = `<!doctype html>
 // Adding a new module's docs: add its own `docs/<module>.yaml` (self-contained
 // — copy the small ApiResponse/BadRequest/Unauthorized boilerplate from an
 // existing file rather than trying to share it across documents) plus one
-// `server.StaticFile` line and one `sources` entry below.
+// `server.StaticFile` line below and one entry in `moduleDocFiles`
+// (openapi_merge.go).
 //
 // The CDN script is pinned to a specific @scalar/api-reference version with a
 // matching SRI hash instead of the unversioned "latest" tag, so a compromised
@@ -57,6 +57,15 @@ func RegisterRoutes(server *gin.Engine) {
 	server.StaticFile("/docs/health.yaml", "./docs/health.yaml")
 	server.StaticFile("/docs/auth.yaml", "./docs/auth.yaml")
 	server.StaticFile("/docs/user.yaml", "./docs/user.yaml")
+
+	server.GET("/docs/openapi.yaml", func(ctx *gin.Context) {
+		body, err := buildMergedOpenAPI()
+		if err != nil {
+			ctx.Data(http.StatusInternalServerError, "text/plain; charset=utf-8", []byte(err.Error()))
+			return
+		}
+		ctx.Data(http.StatusOK, "application/yaml; charset=utf-8", body)
+	})
 
 	server.GET("/docs", func(ctx *gin.Context) {
 		ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(referenceHTML))
