@@ -10,5 +10,9 @@ func Seeder(db *gorm.DB) error {
 		return err
 	}
 
+	if err := seeds.ListSLARuleSeeder(db); err != nil {
+		return err
+	}
+
 	return nil
 }

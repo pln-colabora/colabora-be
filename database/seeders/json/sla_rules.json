@@ -1,0 +1,450 @@
+[
+  {
+    "activity_number": 1,
+    "activity_name": "Permohonan PB/PD",
+    "jenis_sambungan": "JTR",
+    "offset_days": 0,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 1,
+    "activity_name": "Permohonan PB/PD",
+    "jenis_sambungan": "JTM/Gardu",
+    "offset_days": 0,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 1,
+    "activity_name": "Permohonan PB/PD",
+    "jenis_sambungan": "PLG TM <5 GWNG",
+    "offset_days": 0,
+    "reference_point": "G"
+  },
+  {
+    "activity_number": 1,
+    "activity_name": "Permohonan PB/PD",
+    "jenis_sambungan": "PLG TM >5 GWNG",
+    "offset_days": 0,
+    "reference_point": "G"
+  },
+  {
+    "activity_number": 2,
+    "activity_name": "Survei Perluasan Jaringan",
+    "jenis_sambungan": "JTR",
+    "offset_days": 2,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 2,
+    "activity_name": "Survei Perluasan Jaringan",
+    "jenis_sambungan": "JTM/Gardu",
+    "offset_days": 2,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 2,
+    "activity_name": "Survei Perluasan Jaringan",
+    "jenis_sambungan": "PLG TM <5 GWNG",
+    "offset_days": 2,
+    "reference_point": "G"
+  },
+  {
+    "activity_number": 2,
+    "activity_name": "Survei Perluasan Jaringan",
+    "jenis_sambungan": "PLG TM >5 GWNG",
+    "offset_days": 2,
+    "reference_point": "G"
+  },
+  {
+    "activity_number": 3,
+    "activity_name": "Perhitungan RAB, KKO & KKF",
+    "jenis_sambungan": "JTR",
+    "offset_days": 2,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 3,
+    "activity_name": "Perhitungan RAB, KKO & KKF",
+    "jenis_sambungan": "JTM/Gardu",
+    "offset_days": 2,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 3,
+    "activity_name": "Perhitungan RAB, KKO & KKF",
+    "jenis_sambungan": "PLG TM <5 GWNG",
+    "offset_days": 2,
+    "reference_point": "G"
+  },
+  {
+    "activity_number": 3,
+    "activity_name": "Perhitungan RAB, KKO & KKF",
+    "jenis_sambungan": "PLG TM >5 GWNG",
+    "offset_days": 2,
+    "reference_point": "G"
+  },
+  {
+    "activity_number": 4,
+    "activity_name": "Permohonan Perluasan",
+    "jenis_sambungan": "JTR",
+    "offset_days": 2,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 4,
+    "activity_name": "Permohonan Perluasan",
+    "jenis_sambungan": "JTM/Gardu",
+    "offset_days": 2,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 4,
+    "activity_name": "Permohonan Perluasan",
+    "jenis_sambungan": "PLG TM <5 GWNG",
+    "offset_days": 0,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 4,
+    "activity_name": "Permohonan Perluasan",
+    "jenis_sambungan": "PLG TM >5 GWNG",
+    "offset_days": 0,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 6,
+    "activity_name": "WO Vendor Tiang",
+    "jenis_sambungan": "JTR",
+    "offset_days": 2,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 6,
+    "activity_name": "WO Vendor Tiang",
+    "jenis_sambungan": "JTM/Gardu",
+    "offset_days": 2,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 6,
+    "activity_name": "WO Vendor Tiang",
+    "jenis_sambungan": "PLG TM <5 GWNG",
+    "offset_days": 1,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 6,
+    "activity_name": "WO Vendor Tiang",
+    "jenis_sambungan": "PLG TM >5 GWNG",
+    "offset_days": 1,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 7,
+    "activity_name": "WO Vendor Konstruksi",
+    "jenis_sambungan": "JTR",
+    "offset_days": 2,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 7,
+    "activity_name": "WO Vendor Konstruksi",
+    "jenis_sambungan": "JTM/Gardu",
+    "offset_days": 2,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 7,
+    "activity_name": "WO Vendor Konstruksi",
+    "jenis_sambungan": "PLG TM <5 GWNG",
+    "offset_days": 1,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 7,
+    "activity_name": "WO Vendor Konstruksi",
+    "jenis_sambungan": "PLG TM >5 GWNG",
+    "offset_days": 1,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 8,
+    "activity_name": "WO Vendor APP",
+    "jenis_sambungan": "JTR",
+    "offset_days": 2,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 8,
+    "activity_name": "WO Vendor APP",
+    "jenis_sambungan": "JTM/Gardu",
+    "offset_days": 2,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 8,
+    "activity_name": "WO Vendor APP",
+    "jenis_sambungan": "PLG TM <5 GWNG",
+    "offset_days": 1,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 8,
+    "activity_name": "WO Vendor APP",
+    "jenis_sambungan": "PLG TM >5 GWNG",
+    "offset_days": 1,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 9,
+    "activity_name": "Reservasi Material",
+    "jenis_sambungan": "JTR",
+    "offset_days": 2,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 9,
+    "activity_name": "Reservasi Material",
+    "jenis_sambungan": "JTM/Gardu",
+    "offset_days": 2,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 9,
+    "activity_name": "Reservasi Material",
+    "jenis_sambungan": "PLG TM <5 GWNG",
+    "offset_days": 2,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 9,
+    "activity_name": "Reservasi Material",
+    "jenis_sambungan": "PLG TM >5 GWNG",
+    "offset_days": 2,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 10,
+    "activity_name": "Perakitan dan Tera APP",
+    "jenis_sambungan": "JTR",
+    "offset_days": 3,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 10,
+    "activity_name": "Perakitan dan Tera APP",
+    "jenis_sambungan": "JTM/Gardu",
+    "offset_days": 3,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 10,
+    "activity_name": "Perakitan dan Tera APP",
+    "jenis_sambungan": "PLG TM <5 GWNG",
+    "offset_days": 2,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 10,
+    "activity_name": "Perakitan dan Tera APP",
+    "jenis_sambungan": "PLG TM >5 GWNG",
+    "offset_days": 2,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 11,
+    "activity_name": "Pelaksanaan Pemasangan Tiang",
+    "jenis_sambungan": "JTR",
+    "offset_days": 6,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 11,
+    "activity_name": "Pelaksanaan Pemasangan Tiang",
+    "jenis_sambungan": "JTM/Gardu",
+    "offset_days": 8,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 11,
+    "activity_name": "Pelaksanaan Pemasangan Tiang",
+    "jenis_sambungan": "PLG TM <5 GWNG",
+    "offset_days": 8,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 11,
+    "activity_name": "Pelaksanaan Pemasangan Tiang",
+    "jenis_sambungan": "PLG TM >5 GWNG",
+    "offset_days": 12,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 12,
+    "activity_name": "Pelaksanaan Konstruksi",
+    "jenis_sambungan": "JTR",
+    "offset_days": 8,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 12,
+    "activity_name": "Pelaksanaan Konstruksi",
+    "jenis_sambungan": "JTM/Gardu",
+    "offset_days": 12,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 12,
+    "activity_name": "Pelaksanaan Konstruksi",
+    "jenis_sambungan": "PLG TM <5 GWNG",
+    "offset_days": 19,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 12,
+    "activity_name": "Pelaksanaan Konstruksi",
+    "jenis_sambungan": "PLG TM >5 GWNG",
+    "offset_days": 49,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 13,
+    "activity_name": "Pengoperasian Jaringan Listrik",
+    "jenis_sambungan": "JTR",
+    "offset_days": 9,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 13,
+    "activity_name": "Pengoperasian Jaringan Listrik",
+    "jenis_sambungan": "JTM/Gardu",
+    "offset_days": 13,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 13,
+    "activity_name": "Pengoperasian Jaringan Listrik",
+    "jenis_sambungan": "PLG TM <5 GWNG",
+    "offset_days": 20,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 13,
+    "activity_name": "Pengoperasian Jaringan Listrik",
+    "jenis_sambungan": "PLG TM >5 GWNG",
+    "offset_days": 50,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 14,
+    "activity_name": "Pemasangan SR/APP dan Penyalaan",
+    "jenis_sambungan": "JTR",
+    "offset_days": 10,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 14,
+    "activity_name": "Pemasangan SR/APP dan Penyalaan",
+    "jenis_sambungan": "JTM/Gardu",
+    "offset_days": 14,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 14,
+    "activity_name": "Pemasangan SR/APP dan Penyalaan",
+    "jenis_sambungan": "PLG TM <5 GWNG",
+    "offset_days": 20,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 14,
+    "activity_name": "Pemasangan SR/APP dan Penyalaan",
+    "jenis_sambungan": "PLG TM >5 GWNG",
+    "offset_days": 50,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 15,
+    "activity_name": "Entri dan Mutasi PDL",
+    "jenis_sambungan": "JTR",
+    "offset_days": 10,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 15,
+    "activity_name": "Entri dan Mutasi PDL",
+    "jenis_sambungan": "JTM/Gardu",
+    "offset_days": 10,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 15,
+    "activity_name": "Entri dan Mutasi PDL",
+    "jenis_sambungan": "PLG TM <5 GWNG",
+    "offset_days": 20,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 15,
+    "activity_name": "Entri dan Mutasi PDL",
+    "jenis_sambungan": "PLG TM >5 GWNG",
+    "offset_days": 50,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 16,
+    "activity_name": "Arsip AIL-Updating DIJ",
+    "jenis_sambungan": "JTR",
+    "offset_days": 10,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 16,
+    "activity_name": "Arsip AIL-Updating DIJ",
+    "jenis_sambungan": "JTM/Gardu",
+    "offset_days": 14,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 16,
+    "activity_name": "Arsip AIL-Updating DIJ",
+    "jenis_sambungan": "PLG TM <5 GWNG",
+    "offset_days": 20,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 16,
+    "activity_name": "Arsip AIL-Updating DIJ",
+    "jenis_sambungan": "PLG TM >5 GWNG",
+    "offset_days": 50,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 17,
+    "activity_name": "Selesai",
+    "jenis_sambungan": "JTR",
+    "offset_days": 10,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 17,
+    "activity_name": "Selesai",
+    "jenis_sambungan": "JTM/Gardu",
+    "offset_days": 14,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 17,
+    "activity_name": "Selesai",
+    "jenis_sambungan": "PLG TM <5 GWNG",
+    "offset_days": 20,
+    "reference_point": "H"
+  },
+  {
+    "activity_number": 17,
+    "activity_name": "Selesai",
+    "jenis_sambungan": "PLG TM >5 GWNG",
+    "offset_days": 50,
+    "reference_point": "H"
+  }
+]
