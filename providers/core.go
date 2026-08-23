@@ -5,6 +5,9 @@ import (
 	authController "github.com/pln-colabora/colabora-be/modules/auth/controller"
 	authRepo "github.com/pln-colabora/colabora-be/modules/auth/repository"
 	authService "github.com/pln-colabora/colabora-be/modules/auth/service"
+	permohonanController "github.com/pln-colabora/colabora-be/modules/permohonan/controller"
+	permohonanRepo "github.com/pln-colabora/colabora-be/modules/permohonan/repository"
+	permohonanService "github.com/pln-colabora/colabora-be/modules/permohonan/service"
 	userController "github.com/pln-colabora/colabora-be/modules/user/controller"
 	"github.com/pln-colabora/colabora-be/modules/user/repository"
 	userService "github.com/pln-colabora/colabora-be/modules/user/service"
@@ -31,9 +34,12 @@ func RegisterDependencies(injector *do.Injector) {
 
 	userRepository := repository.NewUserRepository(db)
 	refreshTokenRepository := authRepo.NewRefreshTokenRepository(db)
+	permohonanRepository := permohonanRepo.NewPermohonanRepository(db)
+	slaRuleRepository := permohonanRepo.NewSLARuleRepository(db)
 
 	userService := userService.NewUserService(userRepository, db)
 	authService := authService.NewAuthService(userRepository, refreshTokenRepository, jwtService, db)
+	permohonanService := permohonanService.NewPermohonanService(permohonanRepository, slaRuleRepository, userRepository, db)
 
 	do.Provide(
 		injector, func(i *do.Injector) (userController.UserController, error) {
@@ -44,6 +50,12 @@ func RegisterDependencies(injector *do.Injector) {
 	do.Provide(
 		injector, func(i *do.Injector) (authController.AuthController, error) {
 			return authController.NewAuthController(i, authService), nil
+		},
+	)
+
+	do.Provide(
+		injector, func(i *do.Injector) (permohonanController.PermohonanController, error) {
+			return permohonanController.NewPermohonanController(i, permohonanService), nil
 		},
 	)
 }

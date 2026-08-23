@@ -1,0 +1,226 @@
+openapi: 3.0.3
+info:
+  title: COLABORA API — Permohonan
+  description: >-
+    Core permohonan aggregate: create (Activity #1 only), dashboard list, and
+    detail. See `modules/permohonan`.
+  version: "1.0.0"
+servers:
+  - url: https://api-colabora.anargya.fun
+    description: Production
+  - url: http://localhost:8888
+    description: Local (default GOLANG_PORT)
+tags:
+  - name: Permohonan
+    description: Core permohonan aggregate — create, dashboard list, detail
+paths:
+  /api/permohonan:
+    get:
+      tags: [Permohonan]
+      summary: Dashboard list of permohonan (paginated, filtered)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, default: 10 }
+        - name: search
+          in: query
+          description: Matches against no_permohonan or pelanggan_nama
+          schema: { type: string }
+        - name: sort
+          in: query
+          schema: { type: string, default: created_at }
+        - name: order
+          in: query
+          schema: { type: string, enum: [asc, desc] }
+        - name: ulp
+          in: query
+          description: Filter by UlpUnit
+          schema: { type: string }
+        - name: jenis_sambungan
+          in: query
+          schema:
+            type: string
+            enum: ["JTR", "JTM/Gardu", "PLG TM <5 GWNG", "PLG TM >5 GWNG"]
+        - name: stage
+          in: query
+          description: Filter by CurrentStage (1-7)
+          schema: { type: integer }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: sla
+          in: query
+          description: Buckets by the permohonan's single in-progress activity deadline
+          schema: { type: string, enum: [ontime, duesoon, overdue] }
+        - name: scope
+          in: query
+          description: mine = rows the caller's role/unit currently owns ("Tugas Saya")
+          schema: { type: string, enum: [mine, all], default: all }
+      responses:
+        "200":
+          description: Paginated permohonan list
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaginatedPermohonanResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Permohonan]
+      summary: Open a new permohonan (Activity #1)
+      description: >-
+        Only `pelayanan-pelanggan` may call this. `ulp_unit` is taken from the
+        caller's own `Unit`, not accepted in the request body. Submission
+        immediately advances the permohonan to Stage 2 (Survei).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jenis_permohonan, jenis_sambungan, pelanggan_nama, pelanggan_alamat, pelanggan_no_hp]
+              properties:
+                jenis_permohonan:
+                  type: string
+                  enum: ["Pasang Baru (PB)", "Perubahan Daya (PD)"]
+                jenis_sambungan:
+                  type: string
+                  enum: ["JTR", "JTM/Gardu", "PLG TM <5 GWNG", "PLG TM >5 GWNG"]
+                pelanggan_nama: { type: string, minLength: 2, maxLength: 150 }
+                pelanggan_alamat: { type: string, minLength: 2, maxLength: 255 }
+                pelanggan_no_hp: { type: string, minLength: 8, maxLength: 20 }
+      responses:
+        "201":
+          description: Permohonan created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/PermohonanResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Caller is not pelayanan-pelanggan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+
+  /api/permohonan/{id}:
+    get:
+      tags: [Permohonan]
+      summary: Get permohonan detail
+      description: >-
+        `can_act` is the server-side equivalent of the mockup's
+        `colaboraOwnsStage()` — whether the caller's role/unit currently owns
+        this permohonan's stage.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Permohonan detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/PermohonanResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Permohonan not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: Request failed validation or business logic
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiResponse" }
+    Unauthorized:
+      description: Missing, invalid, or expired token
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiResponse" }
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        status: { type: boolean }
+        message: { type: string }
+        error:
+          nullable: true
+          description: Present only when status is false
+          oneOf:
+            - type: string
+            - type: object
+        data:
+          nullable: true
+    PermohonanResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        no_permohonan: { type: string, example: "PBPD-2026-0001" }
+        jenis_permohonan: { type: string }
+        jenis_sambungan: { type: string }
+        ulp_unit: { type: string }
+        pelanggan_nama: { type: string }
+        pelanggan_alamat: { type: string }
+        pelanggan_no_hp: { type: string }
+        request_date: { type: string, format: date }
+        current_stage: { type: integer }
+        status: { type: string }
+        kebutuhan_tiang: { type: boolean, nullable: true }
+        nps_keputusan: { type: string, nullable: true }
+        perlu_pdkb: { type: boolean, nullable: true }
+        owner_fn_override: { type: string }
+        created_by: { type: string, format: uuid }
+        can_act:
+          type: boolean
+          description: Whether the caller currently owns this permohonan's stage
+    PaginationMeta:
+      description: Shape produced by github.com/Caknoooo/go-pagination's PaginationResponse
+      type: object
+      properties:
+        page: { type: integer }
+        per_page: { type: integer }
+        max_page: { type: integer }
+        total: { type: integer }
+    PaginatedPermohonanResponse:
+      description: Shape produced by github.com/Caknoooo/go-pagination's PaginatedResponse
+      type: object
+      properties:
+        code: { type: integer }
+        status: { type: string }
+        message: { type: string }
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/PermohonanResponse" }
+        pagination: { $ref: "#/components/schemas/PaginationMeta" }
