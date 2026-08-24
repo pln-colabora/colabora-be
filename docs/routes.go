@@ -58,6 +58,7 @@ func RegisterRoutes(server *gin.Engine) {
 	server.StaticFile("/docs/auth.yaml", "./docs/auth.yaml")
 	server.StaticFile("/docs/user.yaml", "./docs/user.yaml")
 	server.StaticFile("/docs/permohonan.yaml", "./docs/permohonan.yaml")
+	server.StaticFile("/docs/document.yaml", "./docs/document.yaml")
 
 	server.GET("/docs/openapi.yaml", func(ctx *gin.Context) {
 		body, err := buildMergedOpenAPI()

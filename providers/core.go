@@ -1,10 +1,17 @@
 package providers
 
 import (
+	"os"
+
+	awsS3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/pln-colabora/colabora-be/config"
 	authController "github.com/pln-colabora/colabora-be/modules/auth/controller"
 	authRepo "github.com/pln-colabora/colabora-be/modules/auth/repository"
 	authService "github.com/pln-colabora/colabora-be/modules/auth/service"
+	documentController "github.com/pln-colabora/colabora-be/modules/document/controller"
+	documentRepo "github.com/pln-colabora/colabora-be/modules/document/repository"
+	documentService "github.com/pln-colabora/colabora-be/modules/document/service"
+	documentStorage "github.com/pln-colabora/colabora-be/modules/document/storage"
 	permohonanController "github.com/pln-colabora/colabora-be/modules/permohonan/controller"
 	permohonanRepo "github.com/pln-colabora/colabora-be/modules/permohonan/repository"
 	permohonanService "github.com/pln-colabora/colabora-be/modules/permohonan/service"
@@ -22,8 +29,15 @@ func InitDatabase(injector *do.Injector) {
 	})
 }
 
+func InitStorage(injector *do.Injector) {
+	do.ProvideNamed(injector, constants.Storage, func(i *do.Injector) (*awsS3.Client, error) {
+		return config.SetUpStorageClient(), nil
+	})
+}
+
 func RegisterDependencies(injector *do.Injector) {
 	InitDatabase(injector)
+	InitStorage(injector)
 
 	do.ProvideNamed(injector, constants.JWTService, func(i *do.Injector) (authService.JWTService, error) {
 		return authService.NewJWTService(), nil
@@ -31,15 +45,19 @@ func RegisterDependencies(injector *do.Injector) {
 
 	db := do.MustInvokeNamed[*gorm.DB](injector, constants.DB)
 	jwtService := do.MustInvokeNamed[authService.JWTService](injector, constants.JWTService)
+	storageClientRaw := do.MustInvokeNamed[*awsS3.Client](injector, constants.Storage)
+	storageClient := documentStorage.NewS3Client(storageClientRaw, os.Getenv("GARAGE_BUCKET"))
 
 	userRepository := repository.NewUserRepository(db)
 	refreshTokenRepository := authRepo.NewRefreshTokenRepository(db)
 	permohonanRepository := permohonanRepo.NewPermohonanRepository(db)
 	slaRuleRepository := permohonanRepo.NewSLARuleRepository(db)
+	documentRepository := documentRepo.NewDocumentRepository(db)
 
 	userService := userService.NewUserService(userRepository, db)
 	authService := authService.NewAuthService(userRepository, refreshTokenRepository, jwtService, db)
 	permohonanService := permohonanService.NewPermohonanService(permohonanRepository, slaRuleRepository, userRepository, db)
+	documentService := documentService.NewDocumentService(documentRepository, permohonanRepository, userRepository, storageClient, db)
 
 	do.Provide(injector, func(i *do.Injector) (repository.UserRepository, error) {
 		return userRepository, nil
@@ -64,6 +82,12 @@ func RegisterDependencies(injector *do.Injector) {
 	do.Provide(
 		injector, func(i *do.Injector) (permohonanController.PermohonanController, error) {
 			return permohonanController.NewPermohonanController(i, permohonanService), nil
+		},
+	)
+
+	do.Provide(
+		injector, func(i *do.Injector) (documentController.DocumentController, error) {
+			return documentController.NewDocumentController(i, documentService), nil
 		},
 	)
 }

@@ -40,8 +40,24 @@ services:
     networks:
       - app-network
 
+  garage:
+    hostname: garage
+    container_name: ${APP_NAME:-colabora-be}-garage
+    image: dxflrs/garage:v2.3.0
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./docker/garage/garage.toml:/etc/garage.toml
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    networks:
+      - app-network
+
 volumes:
   db-data:
+  garage-meta:
+  garage-data:
 
 networks:
   app-network:

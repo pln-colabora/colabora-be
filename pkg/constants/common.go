@@ -12,4 +12,5 @@ const (
 
 	DB         = "db"
 	JWTService = "JWTService"
+	Storage    = "Storage"
 )

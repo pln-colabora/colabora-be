@@ -78,6 +78,12 @@ create-db:
 init-uuid:
 	docker exec -it ${POSTGRES_CONTAINER_NAME} /bin/sh -c "psql -U ${DB_USER} -d ${DB_NAME} -c 'CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";'"
 
+# Garage (evidence document storage) commands — see PHASE5_DOCUMENTS.md for the one-time
+# bootstrap procedure (layout assign/apply, key create, bucket create/allow) run via
+# `make container-garage`.
+container-garage:
+	docker exec -it ${APP_NAME}-garage /bin/sh
+
 # Docker commands
 init-docker:
 	docker compose up -d --build

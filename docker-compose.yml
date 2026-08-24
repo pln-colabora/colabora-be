@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile
-    container_name: ${APP_NAME:-go-gin-clean-starter}-app
+    container_name: ${APP_NAME:-colabora-be}-app
     volumes:
       - .:/app
     ports:
@@ -13,9 +13,9 @@ services:
 
   nginx:
     image: nginx:latest
-    container_name: ${APP_NAME:-go-gin-clean-starter}-nginx
+    container_name: ${APP_NAME:-colabora-be}-nginx
     ports:
-      - ${NGINX_PORT:-81}:80
+      - ${NGINX_PORT:-80}:80
     volumes:
       - .:/var/www/html
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
@@ -26,8 +26,8 @@ services:
 
   postgres:
     hostname: postgres
-    container_name: ${APP_NAME:-go-gin-clean-starter}-db
-    image: postgres:latest
+    container_name: ${APP_NAME:-colabora-be}-db
+    image: postgres:16-alpine
     ports:
       - ${DB_PORT}:5432
     volumes:
@@ -40,8 +40,27 @@ services:
     networks:
       - app-network
 
+  garage:
+    hostname: garage
+    container_name: ${APP_NAME:-colabora-be}-garage
+    image: dxflrs/garage:v2.3.0
+    ports:
+      # Published to the host (unlike prod) so `make run`'s on-host Go process — the same
+      # pattern DB_PORT already follows — can reach it at GARAGE_S3_ENDPOINT=http://localhost:3900.
+      - ${GARAGE_S3_PORT:-3900}:3900
+    environment:
+      - GARAGE_RPC_SECRET=${GARAGE_RPC_SECRET}
+    volumes:
+      - ./docker/garage/garage.toml:/etc/garage.toml
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    networks:
+      - app-network
+
 volumes:
   app-data:
+  garage-meta:
+  garage-data:
 
 networks:
   app-network:

@@ -1,0 +1,170 @@
+openapi: 3.0.3
+info:
+  title: COLABORA API — Document
+  description: >-
+    Upload-first evidence storage: POST /api/documents uploads a raw file
+    standalone and returns an id; it gets attached to a specific permohonan +
+    activity later (DocumentService.AttachToActivity), by whichever Phase 4
+    activity endpoint references that id when the activity form is submitted
+    — not yet exposed as its own HTTP endpoint. See `modules/document` and
+    `PHASE5_DOCUMENTS.md`.
+  version: "1.0.0"
+servers:
+  - url: https://api-colabora.anargya.fun
+    description: Production
+  - url: http://localhost:8888
+    description: Local (default GOLANG_PORT)
+tags:
+  - name: Document
+    description: Standalone evidence upload, plus per-permohonan list/download once attached
+paths:
+  /api/documents:
+    post:
+      tags: [Document]
+      summary: Upload a raw evidence file (standalone, not yet attached to any permohonan)
+      description: >-
+        No RBAC/ownership check here — there's no permohonan/activity context
+        yet to check ownership against. Max 10MB; application/pdf,
+        image/jpeg, or image/png only. The returned id is later attached to a
+        permohonan + activity by an activity-submission endpoint.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, type]
+              properties:
+                file: { type: string, format: binary }
+                type:
+                  type: string
+                  description: Business document category, e.g. "evidence"
+      responses:
+        "201":
+          description: Document uploaded, unattached
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/DocumentResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/permohonan/{id}/documents:
+    get:
+      tags: [Document]
+      summary: List documents attached to a permohonan
+      description: Detail page's "Dokumen Terunggah" panel. Only ever returns attached documents.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: activity_number
+          in: query
+          description: Filter to one activity's evidence
+          schema: { type: integer, minimum: 1, maximum: 17 }
+      responses:
+        "200":
+          description: Documents for this permohonan
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/DocumentResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/permohonan/{id}/documents/{doc_id}:
+    get:
+      tags: [Document]
+      summary: Download a document
+      description: >-
+        Redirects (302) to a short-lived (15 minute) presigned URL. 404s if
+        the document doesn't exist, isn't attached to this permohonan, or
+        isn't attached to any permohonan yet.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: doc_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "302":
+          description: Redirect to a presigned download URL
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Document not found (or not attached to this permohonan)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: Request failed validation or business logic
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiResponse" }
+    Unauthorized:
+      description: Missing, invalid, or expired token
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiResponse" }
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        status: { type: boolean }
+        message: { type: string }
+        error:
+          nullable: true
+          description: Present only when status is false
+          oneOf:
+            - type: string
+            - type: object
+        data:
+          nullable: true
+    DocumentResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, example: "evidence" }
+        permohonan_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null until attached
+        activity_number:
+          type: integer
+          nullable: true
+          description: Null until attached
+        uploaded_by: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }

@@ -8,6 +8,7 @@ import (
 	"github.com/pln-colabora/colabora-be/health"
 	"github.com/pln-colabora/colabora-be/middlewares"
 	"github.com/pln-colabora/colabora-be/modules/auth"
+	"github.com/pln-colabora/colabora-be/modules/document"
 	"github.com/pln-colabora/colabora-be/modules/permohonan"
 	"github.com/pln-colabora/colabora-be/modules/user"
 	"github.com/pln-colabora/colabora-be/providers"
@@ -68,6 +69,7 @@ func main() {
 	user.RegisterRoutes(server, injector)
 	auth.RegisterRoutes(server, injector)
 	permohonan.RegisterRoutes(server, injector)
+	document.RegisterRoutes(server, injector)
 	docs.RegisterRoutes(server)
 	health.RegisterRoutes(server, injector)
 

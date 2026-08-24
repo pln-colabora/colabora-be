@@ -17,6 +17,7 @@ var moduleDocFiles = []string{
 	"./docs/auth.yaml",
 	"./docs/user.yaml",
 	"./docs/permohonan.yaml",
+	"./docs/document.yaml",
 }
 
 // buildMergedOpenAPI combines the per-module OpenAPI documents into a single
