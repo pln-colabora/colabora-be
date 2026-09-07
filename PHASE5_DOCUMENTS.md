@@ -2,7 +2,7 @@
 
 ## Context
 
-Every activity in the COLABORA workflow requires the responsible role to upload evidence (photo/PDF) before the permohonan can advance (`PRD.md` §1, §6; `DATA_MODEL.md`'s `Document` entity; `API_SPEC.md`'s "Documents" endpoint group). `ROADMAP.md` Phase 5 asks to build this now, picking one storage backend deliberately rather than leaving it configurable.
+Every workflow completion requires the responsible role to upload its specified evidence before the permohonan can advance (`PRD.md` §5; `DATA_MODEL.md`'s `Document` entity; `API_SPEC.md`'s "Documents" section).
 
 Two things ROADMAP.md assumes aren't true, discovered during investigation:
 - **Phase 4 (the 13+ activity-submission endpoints) doesn't exist in code at all** — only Phase 1–3 are built (`permohonan` create/list/detail, RBAC middleware unused by any route). ROADMAP.md wanted the document-module-vs-folded decision made "based on how Phase 4 shaped `permohonan`'s repository," which isn't available. **Decision: standalone `document` module**, matching `API_SPEC.md`'s already-written dedicated endpoints (`POST/GET /api/permohonan/:id/documents`, `GET .../documents/:doc_id`) and keeping the storage-client concern out of `permohonan`'s service.
@@ -25,7 +25,9 @@ Two things ROADMAP.md assumes aren't true, discovered during investigation:
 The document lifecycle is two-phase, not "upload = attach":
 
 1. `POST /api/documents` (top-level, no permohonan in the path) — uploads a raw file standalone. `Document.PermohonanID`/`ActivityNumber` are **nullable** and left `NULL` here. No RBAC check happens at this step — there's no permohonan/activity context yet to check ownership against.
-2. `DocumentService.AttachToActivity(ctx, userId, permohonanId, activityNumber, documentIds []string)` — links previously-uploaded document(s) to a specific permohonan + activity via one bulk `UPDATE ... WHERE id IN (?) AND permohonan_id IS NULL`. This is where `rbac.OwnsActivity(...)` runs (moved here from upload, since it needs the now-known permohonan's `JenisSambungan`/`UlpUnit`/`OwnerFnOverride`). The `permohonan_id IS NULL` guard is the safety net against hijacking — attaching an already-attached document silently fails (rows-affected mismatch → `ErrDocumentAlreadyAttached`), not a partial success.
+2. `DocumentService.AttachToActivity(ctx, userId, permohonanId, activityNumber, documentIds []string)` — the currently implemented method links uploaded documents to one permohonan/activity and authorizes through the legacy stage-derived `rbac.OwnsActivity(...)`. The `permohonan_id IS NULL` guard prevents attaching an already-owned document.
+
+The workflow refactor replaces this integration contract with workflow-node attachment and `OwnsWorkflowNode(...)`. `activity_number` remains optional reporting/SLA metadata; it is not sufficient authorization identity for 3b, PK Vendor, or PDKB supporting nodes. See `DATA_MODEL.md` and `API_SPEC.md` for the target shape.
 
 **Not wired to any HTTP endpoint yet** — `AttachToActivity` is built ahead of its caller, same pattern as `HasEvidence`, for Phase 4's activity-submission endpoints (`document_ids: []` in their request body) to call once they exist.
 
@@ -72,7 +74,7 @@ Also done: `docs/document.yaml` (registered in `docs/routes.go` and `docs/openap
 
 Flagged by automated security review as an IDOR; consciously not patched here because:
 - Fixing documents alone wouldn't close the actual exposure — the same customer PII is already readable via `GetById`.
-- Neither `RBAC.md` nor `DATA_MODEL.md` defines a "who can view a permohonan" model (only write-ownership via `OwnsActivity`/`OwnsStage`), so there's no spec to implement against.
+- The target `RBAC.md` now separates read access from workflow-node write ownership, but the exact participant/view matrix still needs to be implemented consistently for permohonan and documents.
 - The obvious-looking shortcuts are wrong: `UlpUnit` matching would incorrectly lock out non-ULP-scoped roles (`konstruksi`, `transaksi-energi`, `nps`, all `vendor-*` — see `ulpScopedRoles` in `pkg/rbac/stage_owners.go`), and `rbac.OwnsStage` would incorrectly lock out `super-user` (RBAC.md's read-only cross-unit monitoring role — `CanViewAll` isn't even implemented on `User` yet) and anyone reviewing a now-completed earlier stage.
 
 **Follow-up**: define a real "view" authorization model (in `RBAC.md`) and apply it to `GetById` and the `document` endpoints together, not just one of them.

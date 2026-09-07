@@ -1,51 +1,54 @@
 # RBAC.md — Backend Authorization Model
 
-Ports `hifi-colabora/assets/rbac.js`'s client-side simulation into server-enforced authorization. The mockup's version is explicitly a demo shortcut (`localStorage`, bypassable via devtools — see `hifi-colabora/DEVELOPMENT.md` §6/§9); this document describes the real version.
+Authorization is evaluated per workflow node. Stage ownership from the hifi prototype is useful for display, but is too coarse for write authorization because several roles can own different parallel nodes in one stage.
 
-## Roles (`fn`)
+The living ownership source is `hifi-colabora/workflow/jtr-jtm.html` plus `hifi-colabora/workflow/plg-tm.html`. Update this document whenever those diagrams change.
 
-Same 12 functional roles as `COLABORA_ROLES` in the mockup. Store as the existing `User.Role varchar(50)` column (already free-form, no schema change needed — see `DATA_MODEL.md`):
+## Roles
 
-`pelayanan-pelanggan`, `teknik`, `perencanaan`, `konstruksi`, `transaksi-energi`, `jaringan`, `nps`, `pdkb`, `vendor-tiang`, `vendor-konstruksi`, `vendor-sr-app`, `super-user`.
+`pelayanan-pelanggan`, `teknik`, `perencanaan`, `konstruksi`, `transaksi-energi`, `jaringan`, `nps`, `pdkb`, `vendor-tiang`, `vendor-konstruksi`, `vendor-sr-app`, and `super-user`.
 
-`super-user` is never a stage owner — it's the read-only cross-unit monitoring role (`CanViewAll = true` on `User`, see `DATA_MODEL.md`). Never grant it write access to any activity endpoint, no matter how "convenient" that seems for an admin/superuser shortcut.
+`super-user` has cross-unit read access and no workflow write access.
 
-## Stage ownership table
+## Node ownership
 
-Direct port of `COLABORA_STAGE_OWNERS`. Keep this as a Go constant map (e.g. `pkg/constants/stage_owners.go` or a small `pkg/rbac` package) — **single source of truth**, don't scatter role checks across controllers.
-
-| Stage | Owner(s) | Notes |
+| Node(s) | JTR/JTM owner | PLG TM owner |
 |---|---|---|
-| 1 | `pelayanan-pelanggan` | opens the permohonan |
-| 2 | `teknik` | survey |
-| 3 | `teknik` \| `perencanaan` (RAB/KKO/KKF, split by `JenisSambungan`) **+** `nps` (Permohonan Perluasan/Persetujuan) | co-owned; narrow per-permohonan via `OwnerFnOverride` (see below) — `teknik`/`perencanaan`'s RAB work and `nps`'s approval are different tasks that happen to share a stage number |
-| 4 | `perencanaan` (#6 Tiang) \| `konstruksi` (#7 Konstruksi + PDKB decision + PK Vendor + WO PDKB) \| `transaksi-energi` (#8 APP) | co-owned, one WO variant each |
-| 5 | `vendor-tiang` (#11) \| `vendor-konstruksi` (#12) \| `pdkb` (optional docs) | co-owned; `konstruksi` has **no** ownership here — its part ended at Stage 4 |
-| 6 | `teknik` \| `jaringan` (#13, split by `JenisSambungan`) \| `vendor-sr-app` \| `vendor-konstruksi` (#14, split by `JenisSambungan`) | co-owned; `konstruksi` has no ownership here either |
-| 7 | `pelayanan-pelanggan` | closing |
+| `permohonan` | `pelayanan-pelanggan` | `nps` |
+| `survei` | `teknik` | `perencanaan` |
+| `rab_kko_kkf`, `kebutuhan_tiang` | `teknik` | `perencanaan` |
+| `permohonan_perluasan`, `nps_delegation` | `nps` | `nps` |
+| `wo_tiang` | `perencanaan` | `perencanaan` |
+| `wo_konstruksi`, `pk_vendor`, `wo_pdkb` | `konstruksi` | `konstruksi` |
+| `wo_app`, `reservasi_material`, `tera_app` | `transaksi-energi` | `transaksi-energi` |
+| `pemasangan_tiang` | `vendor-tiang` | `vendor-tiang` |
+| `pelaksanaan_konstruksi` | `vendor-konstruksi` | `vendor-konstruksi` |
+| `pdkb_documentation` | `pdkb` | `pdkb` |
+| `energize_jaringan` | `teknik` | `jaringan` |
+| `pemasangan_sr_app` | `vendor-sr-app` | `vendor-konstruksi` |
+| `entri_mutasi_pdl`, `arsip_ail`, `selesai` | `pelayanan-pelanggan` | `pelayanan-pelanggan` |
 
-## Per-permohonan owner override
+## Authorization rules
 
-A co-owned stage is shared at the *stage* level, but a given permohonan is normally blocked on exactly one role (e.g. Stage 3 is `teknik`+`perencanaan`+`nps`, but a specific permohonan waiting on NPS approval shouldn't show as actionable to `perencanaan`). Port `Permohonan.OwnerFnOverride` (comma-separated `fn` list, see `DATA_MODEL.md`) directly from the mockup's `CURRENT_STAGE_OWNERS`/`data-owner-fn` pattern: when set, authorization checks against this list instead of the full stage-wide owner list; when empty, fall back to the stage-wide list.
+A write is allowed only when all conditions hold:
 
-## `JenisSambungan`-conditional ownership
+1. The workflow node exists and is currently `available` or `in_progress`.
+2. The caller's role matches the node owner resolved for `JenisSambungan`.
+3. For ULP-scoped roles (`pelayanan-pelanggan`, `teknik`), caller unit equals `Permohonan.UlpUnit`.
+4. Conditional applicability is true; skipped/locked/completed nodes reject writes.
+5. The aggregate is `in_progress`; completed and returned requests are immutable.
 
-Stage 3 and Stage 6 split ownership by connection type, not just by stage:
-- Stage 3 RAB/KKO/KKF: `teknik` owns it for `JTR`/`JTM-Gardu`, `perencanaan` owns it for `PLG TM <5 GWNG`/`PLG TM >5 GWNG`.
-- Stage 6 energize (#13): `teknik` for JTR/JTM, `jaringan` for PLG TM.
-- Stage 6 SR/APP (#14): `vendor-sr-app` for JTR/JTM, `vendor-konstruksi` for PLG TM.
+Activity 1 is special because the aggregate does not yet exist:
 
-Any authorization check for these activities must read `Permohonan.JenisSambungan`, not just the activity number.
+- JTR/JTM creation requires `pelayanan-pelanggan`; `ulp_unit` is taken from the caller.
+- PLG TM creation requires `nps`; a valid target `ulp_unit` is required in the request.
 
-## Unit scoping (new — not in the mockup)
+## Implementation target
 
-The mockup's demo data always has the logged-in ULP role matching the permohonan's ULP unit, so it never needed to check this. A real multi-tenant backend should also verify `User.Unit == Permohonan.UlpUnit` for ULP roles (`pelayanan-pelanggan`, `teknik`) before granting write access — otherwise a `teknik` at ULP Taman could act on a Karang Pilang permohonan just by having the right `fn`. See `PRD.md` §2.
+- Replace stage-derived `OwnsActivity` checks with a central `OwnsWorkflowNode(user, permohonan, nodeCode)` policy.
+- `RequireWorkflowNodeOwner(nodeCode)` returns 403 for the wrong owner and 409 when the node is owned by the role but is not actionable.
+- Retire `OwnerFnOverride` as an authorization source. Available owners derive from node state.
+- `scope=mine` means at least one available node is owned by the caller, rather than matching `CurrentStage`.
+- Detail responses expose `available_actions`; a single `can_act` boolean is insufficient for parallel work.
 
-## Implementation shape
-
-Recommend a middleware/helper pair mirroring the mockup's two functions:
-
-- `colaboraOwnsStage(session, stage, ownerOverride)` → a Go function `OwnsActivity(user, permohonan, activityNumber) bool` that: looks up the activity's stage from the constant map, resolves the effective owner list (override if set, else stage-wide, filtered by `JenisSambungan` where applicable), checks `user.Role` is in it, and — for ULP roles — checks `user.Unit == permohonan.UlpUnit`.
-- `colaboraApplyFormGuard([...])` → a Gin middleware, e.g. `middlewares.RequireActivityOwner(activityNumber)`, applied per-route in each module's `routes.go` the same way `middlewares.Authenticate(jwtService)` already is — reject with 403 (not a silently-disabled button) before the controller runs, since this is a real API, not a client-rendered form.
-
-Don't reimplement the ownership check inline in each controller — one shared function/middleware, same as the mockup's single `rbac.js`.
+Read authorization remains broader than write ownership. The existing document/permohonan read-access gap remains tracked in `PHASE5_DOCUMENTS.md` and must be resolved consistently across both modules.

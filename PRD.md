@@ -1,77 +1,94 @@
 # PRD.md — COLABORA Backend Product Requirements
 
-This is the product spec for building the real backend behind **COLABORA**, PLN's workflow-tracking tool for **Permohonan PB/PD** (new electricity connection / power-change requests). The canonical UI/UX and domain spec already exists as a static hifi mockup at [`hifi-colabora/`](./hifi-colabora/) — see [`hifi-colabora/DEVELOPMENT.md`](./hifi-colabora/DEVELOPMENT.md) for the full source diagrams, the 17-activity SLA table, and the screen inventory. **Treat that file as the source of truth for exact SLA day-offsets and screen-to-role mapping; don't let it drift out of sync with this PRD.** This document translates that spec into what the Go backend (`colabora-be`, this repo) needs to implement, replacing the mockup's `localStorage`-simulated state and RBAC with real persistence and server-enforced authorization.
+COLABORA is a workflow-tracking backend for PLN Permohonan PB/PD. It persists process progress, evidence, SLA state, authorization, and audit history across ULP, UP3, and vendor roles.
 
-Companion docs (read alongside this one):
-- [`DATA_MODEL.md`](./DATA_MODEL.md) — entities, fields, and the JSONB-vs-typed-column tradeoff for the 13 process forms.
-- [`API_SPEC.md`](./API_SPEC.md) — REST endpoints, one per screen/form.
-- [`RBAC.md`](./RBAC.md) — role/permission model, ported from `hifi-colabora/assets/rbac.js`.
-- [`ROADMAP.md`](./ROADMAP.md) — build order, phased against this repo's module-generator workflow.
+## Source-of-truth hierarchy
 
-## 1. What we're building
+1. [`hifi-colabora/workflow/jtr-jtm.html`](./hifi-colabora/workflow/jtr-jtm.html) and [`hifi-colabora/workflow/plg-tm.html`](./hifi-colabora/workflow/plg-tm.html) are the living source of truth for process order, dependencies, branches, and role ownership. Agents must inspect both before changing workflow behavior.
+2. This PRD translates those diagrams into backend behavior. When the diagrams change, update this PRD and its companion documents before implementing code.
+3. `hifi-colabora/DEVELOPMENT.md` carries supporting domain and SLA detail. The remaining hifi forms/detail pages are illustrative prototypes, may lag the workflow diagrams, and may be retired when detailed production forms are specified. Do not infer backend behavior from their filenames or hardcoded demo state.
+4. `docs/*.yaml` describes APIs that are actually implemented. [`API_SPEC.md`](./API_SPEC.md) describes the target contract.
 
-A single aggregate — **Permohonan** — moves through **7 UI-level stages** grouping **17 numbered swimlane activities**, starting at a local unit (ULP) and ending at the area office (UP3), touching internal PLN roles and external vendors along the way. Every activity has an SLA deadline (calendar days from the request date, varying by connection type) and requires the responsible role to upload evidence before the process can advance. Today this handoff is untracked across disconnected teams; COLABORA gives every role one place to act on their step and management one place to see bottlenecks and SLA breaches.
+Companion documents: [`DATA_MODEL.md`](./DATA_MODEL.md), [`API_SPEC.md`](./API_SPEC.md), [`RBAC.md`](./RBAC.md), and [`ROADMAP.md`](./ROADMAP.md).
 
-This backend must:
-1. Persist permohonan, their 17-activity progress, uploaded evidence, and an audit trail — replacing the mockup's per-page hardcoded state.
-2. Enforce **stage ownership** server-side (a role can only submit the form for the activity/activities it owns) — replacing `assets/rbac.js`'s client-only `colaboraOwnsStage()`/`colaboraApplyFormGuard()`, which anyone can bypass via devtools.
-3. Compute SLA deadlines and status (not started / in progress / done / overdue) from real dates, not hardcoded per detail page.
-4. Serve the dashboard list with the same filters the mockup already validates (ULP unit, jenis sambungan, stage, status, SLA urgency, "Tugas Saya" vs "Semua Permohonan").
-5. Support the two decision branches and the mandatory NPS approval step (§3 below) as first-class state, not free text.
+## 1. Product behavior
 
-Out of scope for the backend MVP (mirrors `hifi-colabora/DEVELOPMENT.md` §9): actual PDF/image storage can start as local disk / any S3-compatible bucket behind `pkg/utils`'s existing file helpers — pick one, don't build a custom DAM. Real-time push notifications, SLA-breach alerting/paging, and a mobile app are not implied by the mockup and are not in scope unless separately requested.
+A `Permohonan` follows 17 numbered business activities grouped into 7 presentation stages. The activities are not a simple counter: the process contains decisions, optional work, parallel branches, and join gates. The backend must evaluate explicit workflow-node prerequisites rather than incrementing an activity or stage number.
 
-## 2. Actors & roles
+The backend must:
 
-Same functional roles (`fn`) as the mockup's `COLABORA_ROLES`. See [`RBAC.md`](./RBAC.md) for the full mapping to backend authorization; summarized here:
+1. Persist the request, applicable workflow nodes, evidence, SLA deadlines, and audit events.
+2. Resolve authorization per workflow node, connection type, and ULP scope.
+3. Expose every action currently available to the caller, including parallel actions.
+4. Compute presentation stage and SLA state from node state.
+5. Preserve terminal returned/completed requests for reporting and audit.
 
-| Lane | Role (`fn`) | Owns (stage) |
-|---|---|---|
-| ULP | `pelayanan-pelanggan` | Stage 1 (open), Stage 7 (closing) |
-| ULP | `teknik` | Stage 2 (survei), Stage 3 for JTR/JTM (RAB/KKO/KKF), Stage 6 for JTR/JTM (energize) |
-| UP3 | `perencanaan` | Stage 3 for PLG TM (RAB/KKO/KKF), Stage 4 (WO Vendor Tiang) |
-| UP3 | `konstruksi` | Stage 4 (WO Vendor Konstruksi, PK Vendor, WO PDKB decision) |
-| UP3 | `transaksi-energi` | Stage 4 (WO Vendor APP), reservasi material & tera |
-| UP3 | `jaringan` | Stage 6 for PLG TM (energize) |
-| UP3 | `nps` | Stage 3 (Permohonan Perluasan + Persetujuan — **mandatory for every permohonan**) |
-| UP3 | `pdkb` | Stage 5, only when Kebutuhan PDKB = Ya |
-| Vendor | `vendor-tiang` | Stage 5 (pemasangan tiang) |
-| Vendor | `vendor-konstruksi` | Stage 5 (konstruksi) & Stage 6 for PLG TM (SR/APP) |
-| Vendor | `vendor-sr-app` | Stage 6 for JTR/JTM (SR/APP) |
-| — | `super-user` | none — read-only cross-unit monitoring (`canViewAll`) |
+## 2. Roles and connection-type ownership
 
-ULP roles are further scoped to one of 3 units (Taman, Karang Pilang, Menganti); a permohonan belongs to exactly one ULP unit and that scoping must be enforced too (a `teknik` at Taman shouldn't act on a Karang Pilang permohonan) — the mockup doesn't model this restriction explicitly since demo data always matches the logged-in unit, but a real multi-tenant backend should.
+| Role (`fn`) | Responsibility |
+|---|---|
+| `pelayanan-pelanggan` | Creates JTR/JTM requests for its own ULP and completes closing activities |
+| `teknik` | Surveys and prepares RAB for JTR/JTM in its own ULP; operates JTR/JTM networks |
+| `nps` | Creates PLG TM requests, chooses their target ULP, and delegates or returns all requests after planning |
+| `perencanaan` | Surveys and prepares RAB for PLG TM; issues applicable WO Vendor Tiang |
+| `konstruksi` | Issues WO Vendor Konstruksi, PK Vendor, and conditional WO PDKB |
+| `transaksi-energi` | Issues WO Vendor APP, reserves material, and completes APP assembly/tera |
+| `jaringan` | Operates PLG TM networks |
+| `pdkb` | Uploads conditional PDKB execution documentation |
+| `vendor-tiang` | Installs poles when required |
+| `vendor-konstruksi` | Executes network construction and PLG TM SR/APP work |
+| `vendor-sr-app` | Executes JTR/JTM SR/APP work |
+| `super-user` | Read-only cross-unit monitoring; never owns a write action |
 
-## 3. Process flow — 17 activities, 7 stages
+ULP roles (`pelayanan-pelanggan`, `teknik`) may act only when `User.Unit == Permohonan.UlpUnit`. An NPS-created PLG TM request must explicitly provide a valid target `ulp_unit`; it is never inferred from the NPS user's UP3 unit.
 
-Full SLA table (day-offsets per connection type) lives in `hifi-colabora/DEVELOPMENT.md` §3 — reproduce it into `DATA_MODEL.md`'s SLA rule seed data, don't hand-copy it a third time. The stage grouping and decision points that affect backend state machine design:
+## 3. Canonical workflow dependencies
 
-| Stage | Activities | Gate to advance |
-|---|---|---|
-| 1 | #1 Permohonan PB/PD | Eviden permohonan uploaded |
-| 2 | #2 Survei Perluasan Jaringan | Eviden survei uploaded |
-| 3 | #3/#3b RAB/KKO/KKF (+ Kebutuhan Tiang? decision) **and** #4/#5 Permohonan Perluasan + Persetujuan NPS (mandatory) | Both RAB/KKO/KKF evidence **and** NPS `Disetujui` decision present |
-| 4 | #6 WO Vendor Tiang (conditional on Kebutuhan Tiang), #7 WO Vendor Konstruksi (+ Perlu PDKB? decision), #8 WO Vendor APP | All applicable WOs issued |
-| 5 | #11 Pemasangan Tiang, #12 Pelaksanaan Konstruksi, PDKB docs (conditional on Perlu PDKB) | Construction evidence uploaded (+ PDKB docs if required) |
-| 6 | #13 Pengoperasian Jaringan Listrik, #14 Pemasangan SR/APP + Penyalaan | Both energize and SR/APP evidence uploaded |
-| 7 | #15 Entri/Mutasi PDL, #16 Arsip AIL, #17 Selesai | Closing archive uploaded → permohonan marked `selesai` |
+Stages are visual groupings, not global barriers. A later-stage node may become available while another independent branch remains in an earlier stage. `CurrentStage` is therefore a derived dashboard projection only.
 
-**Decision branches the state machine must model explicitly (not free text):**
-- **Kebutuhan Tiang? (Ya/Tidak)**, decided inside the RAB/KKO/KKF step (`forms/04-rab-kko-kkf.html`) by `teknik` (JTR/JTM) or `perencanaan` (PLG TM). Gates whether Activity #6 (WO Vendor Tiang) is required before Stage 4 can complete.
-- **Permohonan Perluasan → Persetujuan NPS (Disetujui/Ditolak)**, mandatory for every permohonan, decided by `nps` in `forms/03-permohonan-perluasan.html`. `Ditolak` should stop the process (exact rejection handling — hold vs. hard-close — needs a product decision before building; the mockup doesn't demo a rejected permohonan).
-- **Perlu PDKB? (Ya/Tidak)**, decided by `konstruksi` right after issuing WO Vendor Konstruksi (`forms/05-wo-vendor.html`). Gates whether WO PDKB (`forms/07b-wo-pdkb.html`) and PDKB documentation (`forms/08b-pdkb-dokumentasi.html`) are required in Stages 4–5.
-- **Jenis Sambungan** (JTR / JTM-Gardu / PLG TM <5 GWNG / PLG TM >5 GWNG), set once at Activity #1, determines which SLA column applies for every later activity and which role owns Stage 3/Stage 6 (`teknik` vs `perencanaan`/`jaringan`).
+| Node | Display activity | Owner | Prerequisites / applicability |
+|---|---|---|---|
+| `permohonan` | #1 Permohonan PB/PD | `pelayanan-pelanggan` for JTR/JTM; `nps` for PLG TM | Entry node |
+| `survei` | #2 Survei | `teknik` for JTR/JTM; `perencanaan` for PLG TM | `permohonan` completed |
+| `rab_kko_kkf` | #3 RAB/KKO/KKF | `teknik` for JTR/JTM; `perencanaan` for PLG TM | `survei` completed |
+| `kebutuhan_tiang` | #3b decision | Same owner as #3 | Completed with the RAB submission |
+| `permohonan_perluasan` | #4 Permohonan Perluasan | `nps` | RAB and pole decision completed |
+| `nps_delegation` | #5 Delegasi Perintah Kerja NPS | `nps` | Activity #4 completed; outcome is `delegated` or `returned` |
+| `wo_tiang` | #6 WO Vendor Tiang | `perencanaan` | NPS delegated and `kebutuhan_tiang = true`; otherwise skipped |
+| `wo_konstruksi` | #7 WO Vendor Konstruksi | `konstruksi` | NPS delegated |
+| `wo_app` | #8 WO Vendor APP | `transaksi-energi` | NPS delegated |
+| `reservasi_material` | #9 Reservasi Material | `transaksi-energi` | WO APP completed |
+| `tera_app` | #10 Perakitan dan Tera APP | `transaksi-energi` | Reservasi material completed |
+| `pk_vendor` | Supporting workflow node | `konstruksi` | WO Konstruksi completed |
+| `wo_pdkb` | Conditional supporting node | `konstruksi` | WO Konstruksi completed and `perlu_pdkb = true`; otherwise skipped |
+| `pemasangan_tiang` | #11 Pemasangan Tiang | `vendor-tiang` | WO Tiang completed; skipped when poles are not required |
+| `pelaksanaan_konstruksi` | #12 Pelaksanaan Konstruksi | `vendor-konstruksi` | WO Konstruksi and PK Vendor completed, plus WO PDKB when required |
+| `pdkb_documentation` | Conditional supporting node | `pdkb` | Construction completed and `perlu_pdkb = true`; otherwise skipped |
+| `energize_jaringan` | #13 Pengoperasian Jaringan | `teknik` for JTR/JTM; `jaringan` for PLG TM | Construction, applicable pole work, and applicable PDKB documentation completed |
+| `pemasangan_sr_app` | #14 Pemasangan SR/APP | `vendor-sr-app` for JTR/JTM; `vendor-konstruksi` for PLG TM | Construction and APP tera completed |
+| `entri_mutasi_pdl` | #15 Entri dan Mutasi PDL | `pelayanan-pelanggan` | Activities #13 and #14 completed |
+| `arsip_ail` | #16 Arsip AIL / Updating DIJ | `pelayanan-pelanggan` | Activity #15 completed |
+| `selesai` | #17 Selesai | `pelayanan-pelanggan` | Activity #16 completed; marks aggregate completed |
 
-## 4. Status & SLA model
+The filenames `forms/03-permohonan-perluasan.html` and `forms/04-rab-kko-kkf.html` do not represent execution order. Activity #3 always precedes Activities #4–5.
 
-Per-activity status: `not_started` (upstream incomplete) → `in_progress` (owning role can act) → `done` (evidence uploaded, advanced) → `overdue` (past `request_date + H_offset(activity, jenis_sambungan)`, not done). SLA deadlines must be **computed from real dates**, not hardcoded per row — see `DATA_MODEL.md`'s `SLARule` table for how the 17×4 offset table becomes seed data instead of per-page copies.
+### Branch outcomes
 
-## 5. Screens → backend surface
+- `kebutuhan_tiang = false` marks `wo_tiang` and `pemasangan_tiang` as skipped.
+- `perlu_pdkb = false` marks `wo_pdkb` and `pdkb_documentation` as skipped.
+- `nps_delegation_status = delegated` unlocks applicable Stage 4 work.
+- `nps_delegation_status = returned` is terminal. The request remains stored with aggregate status `returned`; no downstream node becomes available.
 
-Each `forms/*.html` in the mockup becomes one backend write endpoint; `dashboard.html` and `details/detail-*.html` become read endpoints. Full mapping in [`API_SPEC.md`](./API_SPEC.md). One important mockup limitation to fix, not carry over: forms in the mockup are shared/generic and always prefilled with one sample permohonan's data — the real forms must be scoped to the specific permohonan the user is acting on.
+## 4. Workflow and SLA state
 
-## 6. Non-functional notes
+Workflow-node status is one of `locked`, `available`, `in_progress`, `completed`, or `skipped`. SLA state is derived separately as `on_time`, `due_soon`, `overdue`, or `none`. A node without an SLA rule must not receive a fabricated deadline. The exact day offsets remain in `hifi-colabora/DEVELOPMENT.md` and the `sla_rules` seed.
 
-- Every write endpoint needs both **authentication** (existing JWT middleware) and **stage-ownership authorization** (new — see `RBAC.md`) — a valid token alone isn't enough, the token's role must own the activity being submitted.
-- Every stage transition should append to an **activity log / audit trail** (mirrors the "Log Aktivitas" section on each detail page) — this is what makes the SLA/bottleneck reporting trustworthy later; don't skip it to save a migration.
-- Evidence uploads are the one hard requirement gating every stage transition (`upload before advance`) — validate presence of the required file(s) server-side per activity, don't rely on the client.
+Aggregate status is `in_progress`, `completed`, or `returned`. `CurrentStage` is the lowest presentation stage containing an applicable unfinished node; clients must use `available_actions` to render actionable work.
+
+## 5. Evidence and audit
+
+Every completion endpoint validates its required evidence server-side. Evidence attaches to a stable workflow-node code, with the display activity number retained as metadata where applicable. Each transition, branch decision, skip, terminal return, and completion is written to `ActivityLog` in the same transaction as the state change.
+
+## 6. Hifi lifecycle
+
+The hifi forms and detail pages validate concepts and presentation only. They are not permanent backend contracts and can be retired when detailed production form specifications arrive. The two files under `hifi-colabora/workflow/` remain the continuously updated workflow reference and must be reviewed at the start of every workflow-related task.

@@ -1,61 +1,51 @@
-# ROADMAP.md — Build Order
+# ROADMAP.md — COLABORA Build Order
 
-Phased implementation plan for turning `hifi-colabora/` into the real backend, sequenced against this repo's existing tooling (`make module`, `make migrate-create`, DI wiring in `providers/core.go`). See `PRD.md`/`DATA_MODEL.md`/`API_SPEC.md`/`RBAC.md` for the specs each phase implements.
+The workflow diagrams under `hifi-colabora/workflow/` are continuously updated. Re-check them and synchronize `PRD.md`, `DATA_MODEL.md`, `API_SPEC.md`, and `RBAC.md` before starting any workflow phase.
 
-## Phase 0 — extend auth/user
+## Current state
 
-- Migration: add `Unit`, `CanViewAll` to `users` (`make migrate-create name=add_unit_and_can_view_all_to_users`).
-- Seed the 12 demo accounts from `hifi-colabora/README.md`'s account table (or your real PLN account list) via `database/seeders/`.
-- No new module needed — `modules/auth`/`modules/user` already exist.
+- Auth/user, SLA rules, core permohonan create/list/detail, initial stage-based RBAC helpers, audit entities, and the standalone document module exist.
+- Activity-submission endpoints and the dependency evaluator do not exist yet.
+- Current creation and RBAC behavior still reflects the older workflow; `docs/permohonan.yaml` intentionally documents that runtime until code is refactored.
+- Breaking development schema/API changes are allowed; no compatibility layer is required.
 
-## Phase 1 — SLA rules (seed-only, no dependents yet)
+## Phase 1 — canonical workflow package
 
-- Migration + entity for `SLARule` (`DATA_MODEL.md`).
-- Seed from the 17×4 table in `PRD.md` §3 / `hifi-colabora/DEVELOPMENT.md` §3.
-- No controller needed yet beyond an optional read-only `GET /api/sla-rules` for frontend reference.
+- Define stable workflow-node codes, display activity numbers, stage metadata, connection-type owners, applicability conditions, prerequisites, and join gates in one package.
+- Add a transition evaluator that derives locked/available/completed/skipped nodes, aggregate status, `CurrentStage`, and `available_actions`.
+- Cover both workflow diagrams with table-driven unit tests before adding handlers.
 
-## Phase 2 — core `permohonan` module
+## Phase 2 — persistence refactor
 
-- `make module name=permohonan` — scaffolds controller/service/repository/dto/validation/query/tests.
-- Migrations + entities: `Permohonan`, `PermohonanActivity`, `ActivityLog` (`DATA_MODEL.md`).
-- Endpoints: `POST /api/permohonan` (Activity #1 only), `GET /api/permohonan` (dashboard list w/ filters), `GET /api/permohonan/:id` (detail).
-- Wire into `providers/core.go` and `cmd/main.go` the same way `user`/`auth` already are.
-- This phase alone should be enough to reproduce `dashboard.html` + a read-only `details/*.html` equivalent against real data.
+- Add `workflow_node` to activity records and make display activity number/SLA deadline nullable where appropriate.
+- Separate workflow status from derived SLA status.
+- Replace `NpsKeputusan` with `NpsDelegationStatus` (`delegated|returned`).
+- Retain `CurrentStage` only as a derived dashboard projection and retire `OwnerFnOverride` after development data is reset/migrated.
+- Attach documents to `workflow_node`; retain nullable display activity number for SLA/reporting compatibility.
 
-## Phase 3 — RBAC middleware
+## Phase 3 — entry path and read model
 
-- Implement `OwnsActivity()`/`RequireActivityOwner()` per `RBAC.md`.
-- Apply to nothing yet (no write endpoints beyond Activity #1 exist at this point) — but land it before Phase 4 so every subsequent activity endpoint is gated from the start, not retrofitted.
+- Refactor create authorization: JTR/JTM by matching ULP customer service; PLG TM by NPS with required target ULP.
+- Resolve survey owner as `teknik` for JTR/JTM and `perencanaan` for PLG TM.
+- Return workflow nodes and `available_actions` from detail; implement `scope=mine` using available node ownership.
+- Update `docs/permohonan.yaml` only when runtime behavior matches the new contract.
 
-## Phase 4 — activity endpoints, in swimlane order
+## Phase 4 — activity endpoints in dependency slices
 
-Add one at a time, each as a new handler on the `permohonan` module (not a new top-level module — see `API_SPEC.md`), gated by `RequireActivityOwner`:
+1. Survey, RAB/pole decision, Permohonan Perluasan, and terminal/delegated NPS outcome.
+2. Parallel WO branches, material reservation/tera, PK Vendor, and conditional WO PDKB.
+3. Parallel pole/construction work and conditional PDKB documentation.
+4. Parallel energize and SR/APP work.
+5. Ordered PDL, AIL, and terminal completion.
 
-1. `/survei` (#2)
-2. `/rab-kko-kkf` (#3, #3b decision)
-3. `/permohonan-perluasan` (#4, #5 — mandatory NPS decision; **confirm the rejection-handling product decision from `PRD.md` §3 before building this one**, not after)
-4. `/wo-vendor/tiang`, `/wo-vendor/konstruksi` (+ PDKB decision), `/wo-vendor/app` (#6, #7, #8)
-5. `/reservasi-material` (#9, #10)
-6. `/pk-vendor`, `/wo-pdkb` (conditional)
-7. `/pelaksanaan-konstruksi` (#11, #12), `/pdkb-dokumentasi` (conditional)
-8. `/energize-jaringan` (#13)
-9. `/pemasangan-sr-app` (#14)
-10. `/closing` (#15, #16, #17 — terminal, sets `Status = selesai`)
+Every endpoint must use the central evaluator, require evidence, append an audit event, and recompute projections in one transaction. Out-of-order or non-applicable submissions return 409.
 
-Each addition should include: the stage-completion recompute logic (`Permohonan.CurrentStage`/`Status`), an `ActivityLog` entry, and its own test file under `modules/permohonan/tests/`.
+## Phase 5 — view authorization and integration hardening
 
-## Phase 5 — documents
+- Define one view policy for permohonan details and evidence documents, closing the current IDOR consistently.
+- Add end-to-end tests for both connection families, conditional branches, parallel completion in either order, joins, terminal return, unit scoping, and super-user read-only behavior.
+- Validate migration up/rollback, OpenAPI, and document attachment against workflow-node codes.
 
-- `make module name=document` (or fold into `permohonan` if by this point uploads never need to stand alone as their own resource — decide based on how Phase 4 actually shaped `permohonan`'s repository).
-- Pick one storage backend (local disk vs. S3-compatible) before writing this phase — don't leave it configurable "just in case."
-- Wire upload into each Phase 4 endpoint's required-evidence validation.
+## Phase 6 — frontend handoff
 
-## Phase 6 — retire the mockup as a source of behavior
-
-Once Phases 1–5 are done, `hifi-colabora/` should go back to being a pure design reference (its own `CLAUDE.md` already says as much) rather than something anyone still points a browser at for actual workflow tracking. Don't leave both a "real" backend and the `localStorage`-simulated mockup usable in parallel for the same users — that's the fastest way to get divergent SLA numbers and confused stakeholders.
-
-## Explicitly not phased yet
-
-- NPS-rejection flow (needs the product decision flagged in `PRD.md` §3 and `API_SPEC.md`).
-- Real-time notifications / SLA-breach alerting.
-- A non-mockup frontend to replace `hifi-colabora/` — out of scope for this backend repo.
+Treat hifi forms/detail pages as disposable prototypes. Detailed production forms may replace them without changing workflow-node identity or backend dependencies. Continue using `hifi-colabora/workflow/` as the living workflow input even if the rest of `hifi-colabora` is retired.

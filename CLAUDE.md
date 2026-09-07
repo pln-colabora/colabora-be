@@ -6,7 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Go backend built on the `go-gin-clean-starter` template (Gin + GORM + `samber/do` DI), implementing Controller → Service → Repository clean architecture with feature modules under `modules/`. Note: `hifi-colabora/` is a separate nested git repository (a static HTML high-fidelity prototype/mockup set) — it is not part of this Go codebase and has its own `CLAUDE.md`.
 
-**This backend is being built to implement the COLABORA workflow tracked by that mockup.** Before starting feature work here, read the planning docs at repo root: [`PRD.md`](./PRD.md) (product spec, roles, 17-activity process, decision branches), [`DATA_MODEL.md`](./DATA_MODEL.md) (proposed entities), [`API_SPEC.md`](./API_SPEC.md) (endpoint-per-screen mapping), [`RBAC.md`](./RBAC.md) (authorization model, ported from `hifi-colabora/assets/rbac.js`), and [`ROADMAP.md`](./ROADMAP.md) (phased build order). These are living design docs, not yet-implemented fact — check the actual code state before assuming a phase is done.
+**This backend implements the COLABORA workflow tracked by the living diagrams under `hifi-colabora/workflow/`.** Before starting feature work, read [`PRD.md`](./PRD.md), [`DATA_MODEL.md`](./DATA_MODEL.md), [`API_SPEC.md`](./API_SPEC.md), [`RBAC.md`](./RBAC.md), and [`ROADMAP.md`](./ROADMAP.md). The design documents describe the target refactor; `docs/*.yaml` and the code describe what is implemented today.
+
+### Workflow source of truth
+
+- At the beginning of every workflow-related task, read both `hifi-colabora/workflow/jtr-jtm.html` and `hifi-colabora/workflow/plg-tm.html`. They are continuously updated and are authoritative for order, dependencies, branches, and ownership.
+- `hifi-colabora/DEVELOPMENT.md` provides supporting domain/SLA detail. The remaining forms/detail pages are illustrative, can lag the diagrams, and may be retired when detailed production forms are specified.
+- Activity numbers are display/SLA labels, not a sequential state machine. Model conditional and parallel work through explicit workflow-node prerequisites.
+- Compare the nested repository HEAD with the parent gitlink before assuming the root documentation includes the newest workflow update.
 
 ## Commands
 
@@ -86,7 +93,7 @@ New modules must be added to both `providers.RegisterDependencies` (DI wiring) a
 - `database/seeders/` — JSON fixtures (`seeders/json/*.json`) loaded by seed functions in `seeders/seeds/`; `database/seeder.go` wires them together.
 
 ### Auth & middleware
-JWT-based auth with access + refresh tokens (`modules/auth/service/jwt_service.go`, `auth_service.go`); refresh tokens persisted via `modules/auth/repository/refresh_token_repository.go`. `middlewares.Authenticate` expects `Authorization: Bearer <token>`, validates it, and sets `user_id`/`token` in the Gin context for downstream handlers. Role constants (`ENUM_ROLE_ADMIN`/`ENUM_ROLE_USER`) and shared config live in `pkg/constants/common.go`.
+JWT-based auth with access + refresh tokens (`modules/auth/service/jwt_service.go`, `auth_service.go`); refresh tokens persisted via `modules/auth/repository/refresh_token_repository.go`. `middlewares.Authenticate` expects `Authorization: Bearer <token>`, validates it, and sets `user_id`/`token` in the Gin context for downstream handlers. COLABORA functional roles and the current legacy ownership helpers live in `pkg/rbac`; the target node-based policy is specified in `RBAC.md`.
 
 ### Response & helper conventions
 - Standard JSON envelope: `pkg/utils.BuildResponseSuccess(message, data)` / `BuildResponseFailed(message, errDetail, data)` — use these instead of hand-rolled response maps.
@@ -97,4 +104,4 @@ JWT-based auth with access + refresh tokens (`modules/auth/service/jwt_service.g
 Built-in query log viewer at `/logs` (served from `logs.html`), reading from `config/logs/query_log/`; filters by month, expandable entries.
 
 ### API docs (Scalar)
-`GET /docs` serves a [Scalar](https://scalar.com/) API Reference UI (registered in `docs/routes.go`, wired in `cmd/main.go` alongside the module routes — no DI/DB dependency). One OpenAPI document per module — `docs/health.yaml`, `docs/auth.yaml`, `docs/user.yaml` — each self-contained (own `info`/`components`, not sharing `$ref`s across files) and served at `GET /docs/<module>.yaml`; the Scalar page's `sources` config lets you switch between them, and `hideModels: true` hides the schema-browser sidebar section (Scalar still resolves `$ref`s internally to render each endpoint's body). These files only document endpoints that actually exist in code today; when a new module/endpoint is added (e.g. `permohonan`), add its own `docs/<module>.yaml` plus one `server.StaticFile` line and one `sources` entry in `docs/routes.go` in the same change — don't let it drift, and don't lump it into an existing module's file. The Scalar CDN `<script>` is pinned to a specific version with a matching SRI `integrity` hash (not the unversioned `latest` tag) — bumping the Scalar version means updating the version in the URL and recomputing the hash together (see the comment in `docs/routes.go` for the exact command).
+`GET /docs` serves a [Scalar](https://scalar.com/) API Reference UI (registered in `docs/routes.go`, wired in `cmd/main.go` alongside module routes). The self-contained module documents are `health.yaml`, `auth.yaml`, `user.yaml`, `permohonan.yaml`, and `document.yaml`. These files describe endpoints that actually exist; future target contracts belong in `API_SPEC.md` until implemented. Register every new module document in both `docs/routes.go` and `docs/openapi_merge.go`. The Scalar CDN script is version-pinned with matching SRI; update URL and hash together.

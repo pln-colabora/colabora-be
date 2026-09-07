@@ -1,80 +1,96 @@
-# API_SPEC.md — COLABORA REST Endpoints
+# API_SPEC.md — COLABORA Target REST Contract
 
-One endpoint per screen in `hifi-colabora/`, following this repo's existing module conventions (envelope via `pkg/utils.BuildResponseSuccess`/`BuildResponseFailed`, pagination via `github.com/Caknoooo/go-pagination`, auth via `middlewares.Authenticate`). Every write endpoint additionally needs the stage-ownership authorization described in [`RBAC.md`](./RBAC.md) — a valid JWT is necessary but not sufficient.
+This document describes the target API after the workflow-node refactor. Runtime OpenAPI under `docs/` continues to describe implemented code and must not claim this target is available early.
 
-Entities referenced here are defined in [`DATA_MODEL.md`](./DATA_MODEL.md); process rules and decision branches in [`PRD.md`](./PRD.md) §3.
+The API is not coupled to hifi form filenames. Detailed production forms may replace the prototype while retaining these workflow-node identities and dependencies.
 
-## Suggested module split
+## Read endpoints
 
-Given the module-per-domain convention (`make module name=<x>`), two new top-level modules cover this:
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/permohonan` | Paginated dashboard list and `scope=mine` filtering |
+| `GET` | `/api/permohonan/:id` | Aggregate detail, workflow nodes, and caller-specific available actions |
+| `GET` | `/api/permohonan/:id/activities` | Full node timeline with display activity/stage/SLA metadata |
+| `GET` | `/api/permohonan/:id/documents` | Attached evidence, optionally filtered by `workflow_node` |
+| `GET` | `/api/permohonan/:id/logs` | Audit history |
 
-- **`permohonan`** — the aggregate: create, list/dashboard, detail, and all 13 activity-submission endpoints (they all mutate the same aggregate, so keep them in one module rather than 13 separate ones).
-- **`document`** — evidence upload/download, shared across every activity endpoint above (or fold into `permohonan` if uploads never need to stand alone — decide when `permohonan`'s repository is scaffolded).
+List filters remain `ulp`, `jenis_sambungan`, `stage`, aggregate `status`, derived `sla`, `search`, and `scope=mine|all`. `scope=mine` returns requests where the caller owns at least one available node.
 
-`user`/`auth` modules already exist and just need the `Unit`/`CanViewAll` fields from `DATA_MODEL.md`.
+Detail/list items replace the legacy single `can_act` decision with:
 
-## Auth (existing, extend only)
+```json
+{
+  "current_stage": 4,
+  "status": "in_progress",
+  "available_actions": [
+    {
+      "workflow_node": "wo_konstruksi",
+      "activity_number": 7,
+      "stage_number": 4,
+      "method": "POST",
+      "path": "/api/permohonan/{id}/wo-vendor/konstruksi"
+    }
+  ]
+}
+```
 
-Already implemented in `modules/auth`. No new endpoints — just make sure `Register`/seed data can set `Unit` and the `fn`-shaped `Role`.
+Only actions owned by the authenticated caller appear in `available_actions`. The full activity endpoint can still show locked/available nodes without granting permission.
 
-## Dashboard & detail (read)
+## Create contract
 
-| Method | Path | Maps to | Auth |
+`POST /api/permohonan` accepts customer/request fields plus `jenis_sambungan`.
+
+- For JTR/JTM, caller must be `pelayanan-pelanggan`; request must omit `ulp_unit`, which is derived from the caller.
+- For either PLG TM variant, caller must be `nps`; `ulp_unit` is required and must match a configured ULP.
+- Other role/type combinations return 403. Invalid or missing PLG TM target ULP returns 400.
+- Successful creation completes node `permohonan`, initializes all workflow nodes, and makes `survei` available to the correct role.
+
+## Write endpoints
+
+| Method | Path | Workflow node(s) | Owner |
 |---|---|---|---|
-| `GET` | `/api/permohonan` | `dashboard.html` list | any authenticated user; response scoped by `Unit`/`CanViewAll` — see RBAC.md |
-| `GET` | `/api/permohonan/:id` | `details/detail-XXXX.html` | any authenticated user (view-only if not the stage owner) |
-| `GET` | `/api/permohonan/:id/activities` | detail page's 7-stage timeline | same |
-| `GET` | `/api/permohonan/:id/documents` | detail page's "Dokumen Terunggah" | same |
-| `GET` | `/api/permohonan/:id/logs` | detail page's "Log Aktivitas" | same |
+| `POST` | `/api/permohonan/:id/survei` | `survei` | `teknik` JTR/JTM; `perencanaan` PLG TM |
+| `POST` | `/api/permohonan/:id/rab-kko-kkf` | `rab_kko_kkf`, `kebutuhan_tiang` | `teknik` JTR/JTM; `perencanaan` PLG TM |
+| `POST` | `/api/permohonan/:id/permohonan-perluasan` | `permohonan_perluasan`, `nps_delegation` | `nps` |
+| `POST` | `/api/permohonan/:id/wo-vendor/tiang` | `wo_tiang` | `perencanaan` |
+| `POST` | `/api/permohonan/:id/wo-vendor/konstruksi` | `wo_konstruksi`; records `perlu_pdkb` | `konstruksi` |
+| `POST` | `/api/permohonan/:id/wo-vendor/app` | `wo_app` | `transaksi-energi` |
+| `POST` | `/api/permohonan/:id/reservasi-material` | `reservasi_material`, `tera_app` | `transaksi-energi` |
+| `POST` | `/api/permohonan/:id/pk-vendor` | `pk_vendor` | `konstruksi` |
+| `POST` | `/api/permohonan/:id/wo-pdkb` | `wo_pdkb` | `konstruksi` when PDKB required |
+| `POST` | `/api/permohonan/:id/pelaksanaan-konstruksi` | `pemasangan_tiang` or `pelaksanaan_konstruksi`, selected explicitly in body | Matching vendor role |
+| `POST` | `/api/permohonan/:id/pdkb-dokumentasi` | `pdkb_documentation` | `pdkb` when required |
+| `POST` | `/api/permohonan/:id/energize-jaringan` | `energize_jaringan` | `teknik` JTR/JTM; `jaringan` PLG TM |
+| `POST` | `/api/permohonan/:id/pemasangan-sr-app` | `pemasangan_sr_app` | `vendor-sr-app` JTR/JTM; `vendor-konstruksi` PLG TM |
+| `POST` | `/api/permohonan/:id/closing` | `entri_mutasi_pdl`, `arsip_ail`, `selesai` | Matching ULP `pelayanan-pelanggan` |
 
-`GET /api/permohonan` query params (drives the same filters the mockup already validates): `ulp`, `jenis_sambungan`, `stage`, `status`, `sla` (`ontime`/`duesoon`/`overdue`), `search`, `scope=mine|all` (mine = rows the caller's `fn` owns, matching "Tugas Saya"), plus standard pagination params from `go-pagination`.
+The NPS request body uses `nps_delegation_status: delegated|returned`. `returned` terminally closes the workflow with aggregate status `returned`; it is not a draft/rework loop.
 
-Response for `GET /api/permohonan/:id` should include a computed `can_act: bool` (server-side equivalent of `colaboraOwnsStage()`) so the frontend doesn't reimplement ownership logic — never trust a frontend-only check for this.
+Every write endpoint:
 
-## Activity endpoints (write, one per form)
-
-| Method | Path | Form | Activities | Required `fn` |
-|---|---|---|---|---|
-| `POST` | `/api/permohonan` | `forms/01-permohonan-pbpd.html` | #1 | `pelayanan-pelanggan` |
-| `POST` | `/api/permohonan/:id/survei` | `forms/02-survei.html` | #2 | `teknik` |
-| `POST` | `/api/permohonan/:id/rab-kko-kkf` | `forms/04-rab-kko-kkf.html` | #3, #3b | `teknik` (JTR/JTM) or `perencanaan` (PLG TM) |
-| `POST` | `/api/permohonan/:id/permohonan-perluasan` | `forms/03-permohonan-perluasan.html` | #4, #5 | `nps` |
-| `POST` | `/api/permohonan/:id/wo-vendor/tiang` | `forms/05-wo-vendor.html` (Tiang variant) | #6 | `perencanaan`, only if `KebutuhanTiang = true` |
-| `POST` | `/api/permohonan/:id/wo-vendor/konstruksi` | `forms/05-wo-vendor.html` (Konstruksi variant) | #7 | `konstruksi`; body includes `perlu_pdkb` decision |
-| `POST` | `/api/permohonan/:id/wo-vendor/app` | `forms/05-wo-vendor.html` (APP variant) | #8 | `transaksi-energi` |
-| `POST` | `/api/permohonan/:id/reservasi-material` | `forms/06-reservasi-material.html` | #9, #10 | `transaksi-energi` |
-| `POST` | `/api/permohonan/:id/pk-vendor` | `forms/07-pk-vendor-pelaksana.html` | (PK issuance) | `konstruksi` |
-| `POST` | `/api/permohonan/:id/wo-pdkb` | `forms/07b-wo-pdkb.html` | (WO PDKB) | `konstruksi`, only if `PerluPdkb = true` |
-| `POST` | `/api/permohonan/:id/pelaksanaan-konstruksi` | `forms/08-pelaksanaan-konstruksi.html` | #11, #12 | `vendor-tiang` or `vendor-konstruksi` |
-| `POST` | `/api/permohonan/:id/pdkb-dokumentasi` | `forms/08b-pdkb-dokumentasi.html` | (PDKB docs) | `pdkb`, only if `PerluPdkb = true` |
-| `POST` | `/api/permohonan/:id/energize-jaringan` | `forms/09-energize-jaringan.html` | #13 | `teknik` (JTR/JTM) or `jaringan` (PLG TM) |
-| `POST` | `/api/permohonan/:id/pemasangan-sr-app` | `forms/12-pemasangan-sr-app.html` | #14 | `vendor-sr-app` (JTR/JTM) or `vendor-konstruksi` (PLG TM) |
-| `POST` | `/api/permohonan/:id/closing` | `forms/11-closing.html` | #15, #16, #17 | `pelayanan-pelanggan`; marks `Permohonan.Status = selesai` |
-
-Each of these:
-1. Validates the caller's `fn` owns the target activity (`RBAC.md`), scoped further by `Permohonan.UlpUnit` for ULP roles and by `Permohonan.OwnerFnOverride` when a stage is co-owned.
-2. Validates required evidence file(s) are attached (see `PRD.md` §6 — don't allow advancing without it).
-3. Writes/updates the `PermohonanActivity` row (`payload` per that form's DTO), sets `Status = done`, `CompletedBy`, `CompletedAt`.
-4. Recomputes `Permohonan.CurrentStage`/`Status` if this was the last activity gating the stage (see the "Gate to advance" column in `PRD.md` §3).
-5. Appends an `ActivityLog` row.
-6. Returns the updated permohonan/activity, using `pkg/utils.BuildResponseSuccess`.
-
-Conditional endpoints (`wo-vendor/tiang`, `wo-pdkb`, `pdkb-dokumentasi`) should 409/400 with a clear message if called when the gating decision (`KebutuhanTiang`/`PerluPdkb`) is `false` or not yet set — don't silently no-op.
+1. authenticates the caller and authorizes the exact workflow node;
+2. returns 409 when prerequisites are unmet, the node is skipped/completed, or the aggregate is terminal;
+3. validates and attaches required `document_ids` to the workflow node;
+4. writes payload, node state, projections, skips/unlocks, and an audit event in one transaction;
+5. returns the updated aggregate with caller-specific `available_actions`.
 
 ## Documents
 
-| Method | Path | Notes |
-|---|---|---|
-| `POST` | `/api/permohonan/:id/documents` | multipart upload; `activity_number` in form data; called by the activity endpoints above, or standalone if a role needs to attach evidence separately from submitting the form |
-| `GET` | `/api/permohonan/:id/documents/:doc_id` | download/redirect to storage URL |
+- `POST /api/documents` uploads a private, unattached file and returns its ID.
+- Activity submissions attach `document_ids` to their exact `workflow_node`.
+- `GET /api/permohonan/:id/documents?workflow_node=...` filters attached evidence.
+- `GET /api/permohonan/:id/documents/:doc_id` returns/redirects to a short-lived download URL.
 
-## Reference/lookup endpoints (optional, for form dropdowns)
+An attachment request must fail atomically if any document is missing, already attached, or the caller does not own the target node.
 
-| Method | Path | Notes |
-|---|---|---|
-| `GET` | `/api/users?fn=vendor-tiang,vendor-konstruksi` | populate "Vendor Pelaksana" dropdowns in WO forms |
-| `GET` | `/api/sla-rules` | expose the `SLARule` seed table if the frontend wants to show SLA figures without duplicating them (fixes the mockup's per-page hardcoded SLA copy problem, see `DATA_MODEL.md`) |
+## Error semantics
 
-## Not building yet
+- 400: malformed input, invalid enum, or invalid/missing PLG TM target ULP.
+- 401: missing or invalid authentication.
+- 403: caller does not own the requested action or violates ULP scope.
+- 404: aggregate/document not found under the requested resource.
+- 409: valid action type but wrong workflow state, unmet prerequisites, terminal aggregate, or non-applicable branch.
 
-Rejection handling for `NpsKeputusan = Ditolak` needs a product decision (see `PRD.md` §3) before an endpoint contract is finalized — don't guess at a `POST .../reject` shape without confirming what should happen to the permohonan afterward.
+## Runtime OpenAPI policy
+
+`docs/permohonan.yaml` currently documents the pre-refactor implementation where only `pelayanan-pelanggan` can create a request and responses expose `can_act`. Keep that description accurate and add a visible implementation-gap note. Replace it with this contract only in the same change that implements the corresponding runtime behavior.

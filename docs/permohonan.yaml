@@ -3,7 +3,10 @@ info:
   title: COLABORA API — Permohonan
   description: >-
     Core permohonan aggregate: create (Activity #1 only), dashboard list, and
-    detail. See `modules/permohonan`.
+    detail. This document describes the currently implemented pre-workflow-node
+    API. The target contract in API_SPEC.md adds connection-type-specific
+    creation ownership and available_actions; it must not be advertised here
+    until the runtime implements it. See `modules/permohonan`.
   version: "1.0.0"
 servers:
   - url: https://api-colabora.anargya.fun
