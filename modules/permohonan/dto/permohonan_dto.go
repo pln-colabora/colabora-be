@@ -80,6 +80,12 @@ type (
 		DocumentIDs      []string `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
 	}
 
+	ConstructionExecutionSubmitRequest struct {
+		WorkflowNode string   `json:"workflow_node" binding:"required" validate:"required"`
+		Notes        string   `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
+		DocumentIDs  []string `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
+	}
+
 	PermohonanResponse struct {
 		ID                  string                 `json:"id"`
 		NoPermohonan        string                 `json:"no_permohonan"`

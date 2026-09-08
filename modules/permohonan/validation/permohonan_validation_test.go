@@ -68,3 +68,20 @@ func TestValidateSequenceTwoRequests(t *testing.T) {
 		DocumentIDs: []string{"not-a-uuid"},
 	}))
 }
+
+func TestValidateSequenceThreeExecutionSelector(t *testing.T) {
+	v := NewPermohonanValidation()
+	documentIDs := []string{uuid.NewString()}
+
+	for _, node := range []string{"pemasangan_tiang", "pelaksanaan_konstruksi"} {
+		require.NoError(t, v.ValidateConstructionExecutionSubmitRequest(dto.ConstructionExecutionSubmitRequest{
+			WorkflowNode: node, DocumentIDs: documentIDs,
+		}))
+	}
+	require.Error(t, v.ValidateConstructionExecutionSubmitRequest(dto.ConstructionExecutionSubmitRequest{
+		WorkflowNode: "wo_tiang", DocumentIDs: documentIDs,
+	}))
+	require.Error(t, v.ValidateConstructionExecutionSubmitRequest(dto.ConstructionExecutionSubmitRequest{
+		WorkflowNode: "pemasangan_tiang",
+	}))
+}

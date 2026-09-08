@@ -36,6 +36,8 @@ type (
 		SubmitReservationTera(ctx *gin.Context)
 		SubmitPKVendor(ctx *gin.Context)
 		SubmitWOPDKB(ctx *gin.Context)
+		SubmitConstructionExecution(ctx *gin.Context)
+		SubmitPDKBDocumentation(ctx *gin.Context)
 	}
 
 	permohonanController struct {
@@ -89,6 +91,14 @@ func (c *permohonanController) SubmitPKVendor(ctx *gin.Context) {
 
 func (c *permohonanController) SubmitWOPDKB(ctx *gin.Context) {
 	submitActivityRequest(ctx, c.permohonanValidation.ValidateEvidenceSubmitRequest, c.permohonanService.SubmitWOPDKB)
+}
+
+func (c *permohonanController) SubmitConstructionExecution(ctx *gin.Context) {
+	submitActivityRequest(ctx, c.permohonanValidation.ValidateConstructionExecutionSubmitRequest, c.permohonanService.SubmitConstructionExecution)
+}
+
+func (c *permohonanController) SubmitPDKBDocumentation(ctx *gin.Context) {
+	submitActivityRequest(ctx, c.permohonanValidation.ValidateEvidenceSubmitRequest, c.permohonanService.SubmitPDKBDocumentation)
 }
 
 func submitActivityRequest[T any](

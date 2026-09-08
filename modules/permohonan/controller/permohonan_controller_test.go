@@ -65,6 +65,12 @@ func (f phase3ControllerService) SubmitPKVendor(context.Context, string, string,
 func (f phase3ControllerService) SubmitWOPDKB(context.Context, string, string, dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
 	return dto.PermohonanResponse{}, f.activityErr
 }
+func (f phase3ControllerService) SubmitConstructionExecution(context.Context, string, string, dto.ConstructionExecutionSubmitRequest) (dto.PermohonanResponse, error) {
+	return dto.PermohonanResponse{}, f.activityErr
+}
+func (f phase3ControllerService) SubmitPDKBDocumentation(context.Context, string, string, dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
+	return dto.PermohonanResponse{}, f.activityErr
+}
 
 func TestSubmitSurveyMapsActivityErrors(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -153,6 +159,38 @@ func TestSubmitWOConstructionRejectsMissingDecision(t *testing.T) {
 
 	controller.SubmitWOConstruction(ctx)
 	require.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
+func TestSubmitConstructionExecutionValidatesNodeSelector(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []struct {
+		name     string
+		node     string
+		wantCode int
+	}{
+		{name: "pole installation", node: "pemasangan_tiang", wantCode: http.StatusOK},
+		{name: "construction", node: "pelaksanaan_konstruksi", wantCode: http.StatusOK},
+		{name: "unrelated node", node: "wo_tiang", wantCode: http.StatusBadRequest},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			controller := &permohonanController{
+				permohonanService:    phase3ControllerService{},
+				permohonanValidation: validation.NewPermohonanValidation(),
+			}
+			body := []byte(`{"workflow_node":"` + test.node + `","document_ids":["` + uuid.NewString() + `"]}`)
+			request := httptest.NewRequest(http.MethodPost, "/api/permohonan/id/pelaksanaan-konstruksi", bytes.NewReader(body))
+			request.Header.Set("Content-Type", "application/json")
+			recorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(recorder)
+			ctx.Request = request
+			ctx.Params = gin.Params{{Key: "id", Value: "id"}}
+			ctx.Set("user_id", "actor-id")
+
+			controller.SubmitConstructionExecution(ctx)
+			require.Equal(t, test.wantCode, recorder.Code)
+		})
+	}
 }
 
 func TestCreateMapsEntryAuthorizationErrors(t *testing.T) {

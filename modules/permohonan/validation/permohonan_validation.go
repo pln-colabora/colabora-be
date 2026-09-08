@@ -62,6 +62,16 @@ func (v *PermohonanValidation) ValidateReservationTeraSubmitRequest(req dto.Rese
 	return validateDocumentIDs(req.DocumentIDs)
 }
 
+func (v *PermohonanValidation) ValidateConstructionExecutionSubmitRequest(req dto.ConstructionExecutionSubmitRequest) error {
+	if err := v.validate.Struct(req); err != nil {
+		return err
+	}
+	if req.WorkflowNode != "pemasangan_tiang" && req.WorkflowNode != "pelaksanaan_konstruksi" {
+		return fmt.Errorf("workflow_node must be one of: pemasangan_tiang, pelaksanaan_konstruksi")
+	}
+	return validateDocumentIDs(req.DocumentIDs)
+}
+
 func validateDocumentIDs(ids []string) error {
 	seen := make(map[string]struct{}, len(ids))
 	for _, id := range ids {

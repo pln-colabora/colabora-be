@@ -37,6 +37,8 @@ type PermohonanService interface {
 	SubmitReservationTera(ctx context.Context, id, userID string, req dto.ReservationTeraSubmitRequest) (dto.PermohonanResponse, error)
 	SubmitPKVendor(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
 	SubmitWOPDKB(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
+	SubmitConstructionExecution(ctx context.Context, id, userID string, req dto.ConstructionExecutionSubmitRequest) (dto.PermohonanResponse, error)
+	SubmitPDKBDocumentation(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
 }
 
 type permohonanService struct {
@@ -168,6 +170,20 @@ func (s *permohonanService) SubmitPKVendor(ctx context.Context, id, userID strin
 
 func (s *permohonanService) SubmitWOPDKB(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
 	return s.completeEvidenceNode(ctx, id, userID, req, workflow.WOPDKB)
+}
+
+func (s *permohonanService) SubmitConstructionExecution(ctx context.Context, id, userID string, req dto.ConstructionExecutionSubmitRequest) (dto.PermohonanResponse, error) {
+	code := workflow.Code(req.WorkflowNode)
+	if code != workflow.PemasanganTiang && code != workflow.Konstruksi {
+		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
+	}
+	return s.completeEvidenceNode(ctx, id, userID, dto.EvidenceSubmitRequest{
+		Notes: req.Notes, DocumentIDs: req.DocumentIDs,
+	}, code)
+}
+
+func (s *permohonanService) SubmitPDKBDocumentation(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
+	return s.completeEvidenceNode(ctx, id, userID, req, workflow.DokumentasiPDKB)
 }
 
 func (s *permohonanService) completeEvidenceNode(

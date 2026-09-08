@@ -68,6 +68,8 @@ The NPS request body uses `nps_delegation_status: delegated|returned`. `returned
 
 The WO Konstruksi request body requires the typed decision `perlu_pdkb: true|false`. Sequence 2 activities without another confirmed workflow-critical field accept optional notes and require evidence. The bundled reservasi/tera request exposes separate optional `reservation_notes` and `tera_notes`; detailed material and relay/OCR fields remain discovery items rather than inferred production contracts.
 
+The construction-execution request body selects the exact node with `workflow_node: pemasangan_tiang|pelaksanaan_konstruksi`; the service then applies that node's vendor ownership and prerequisites. PDKB documentation uses its dedicated endpoint. Sequence 3 keeps uncovered production fields minimal—required evidence plus optional notes—until the business confirms the detailed forms.
+
 Every write endpoint:
 
 1. authenticates the caller and authorizes the exact workflow node;
@@ -95,4 +97,4 @@ An attachment request must fail atomically if any document is missing, already a
 
 ## Runtime OpenAPI policy
 
-`docs/permohonan.yaml` documents the implemented Phase 3 create/read contract and Phase 4 Sequences 1–2 write endpoints through Stage 4 preparation. Later Phase 4 write endpoints remain target-only here until their runtime handlers are delivered.
+`docs/permohonan.yaml` documents the implemented Phase 3 create/read contract and Phase 4 Sequences 1–3 write endpoints through Stage 5 execution. Later Phase 4 write endpoints remain target-only here until their runtime handlers are delivered.
