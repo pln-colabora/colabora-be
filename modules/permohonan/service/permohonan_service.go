@@ -41,6 +41,7 @@ type PermohonanService interface {
 	SubmitPDKBDocumentation(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
 	SubmitEnergize(ctx context.Context, id, userID string, req dto.EnergizeSubmitRequest) (dto.PermohonanResponse, error)
 	SubmitSRAPP(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
+	SubmitClosing(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
 }
 
 type permohonanService struct {
@@ -205,6 +206,22 @@ func (s *permohonanService) SubmitEnergize(ctx context.Context, id, userID strin
 
 func (s *permohonanService) SubmitSRAPP(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
 	return s.completeEvidenceNode(ctx, id, userID, req, workflow.SRAPP)
+}
+
+// SubmitClosing records the completed closing package in dependency order.
+// The same source package evidences all three nodes within one transaction.
+func (s *permohonanService) SubmitClosing(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
+	if !notesWithinLimit(req.Notes) {
+		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
+	}
+	codes := []workflow.Code{workflow.PDL, workflow.AIL, workflow.Selesai}
+	payloads := make(map[workflow.Code]any, len(codes))
+	for _, code := range codes {
+		payloads[code] = struct {
+			Notes string `json:"notes,omitempty"`
+		}{Notes: req.Notes}
+	}
+	return s.completeWorkflowNodes(ctx, id, userID, req.DocumentIDs, codes, payloads, nil, nil)
 }
 
 func (s *permohonanService) completeEvidenceNode(

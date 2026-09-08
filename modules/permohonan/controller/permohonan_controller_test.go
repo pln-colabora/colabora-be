@@ -24,6 +24,10 @@ type phase3ControllerService struct {
 	activityErr error
 }
 
+func (f phase3ControllerService) SubmitClosing(context.Context, string, string, dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
+	return dto.PermohonanResponse{}, f.activityErr
+}
+
 func (f phase3ControllerService) Create(context.Context, dto.PermohonanCreateRequest, string) (dto.PermohonanResponse, error) {
 	return dto.PermohonanResponse{}, f.createErr
 }
@@ -109,6 +113,37 @@ func TestSubmitSurveyMapsActivityErrors(t *testing.T) {
 
 			controller.SubmitSurvey(ctx)
 			require.Equal(t, test.wantCode, recorder.Code)
+		})
+	}
+}
+
+func TestClosingHTTPContract(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, tc := range []struct {
+		name, body string
+		err        error
+		status     int
+	}{
+		{"success", `{"document_ids":["%s"]}`, nil, 200},
+		{"missing evidence", `{}`, nil, 400},
+		{"wrong owner", `{"document_ids":["%s"]}`, rbac.ErrWorkflowForbidden, 403},
+		{"unmet join", `{"document_ids":["%s"]}`, workflow.ErrNotActionable, 409},
+		{"audit failure", `{"document_ids":["%s"]}`, dto.ErrSubmitActivity, 500},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &permohonanController{permohonanService: phase3ControllerService{activityErr: tc.err}, permohonanValidation: validation.NewPermohonanValidation()}
+			body := tc.body
+			if body != "{}" {
+				body = fmt.Sprintf(body, uuid.NewString())
+			}
+			recorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(recorder)
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/api/permohonan/id/closing", bytes.NewBufferString(body))
+			ctx.Request.Header.Set("Content-Type", "application/json")
+			ctx.Params = gin.Params{{Key: "id", Value: "id"}}
+			ctx.Set("user_id", uuid.NewString())
+			c.SubmitClosing(ctx)
+			require.Equal(t, tc.status, recorder.Code)
 		})
 	}
 }

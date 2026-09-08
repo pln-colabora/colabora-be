@@ -40,6 +40,7 @@ type (
 		SubmitPDKBDocumentation(ctx *gin.Context)
 		SubmitEnergize(ctx *gin.Context)
 		SubmitSRAPP(ctx *gin.Context)
+		SubmitClosing(ctx *gin.Context)
 	}
 
 	permohonanController struct {
@@ -109,6 +110,10 @@ func (c *permohonanController) SubmitEnergize(ctx *gin.Context) {
 
 func (c *permohonanController) SubmitSRAPP(ctx *gin.Context) {
 	submitActivityRequest(ctx, c.permohonanValidation.ValidateEvidenceSubmitRequest, c.permohonanService.SubmitSRAPP)
+}
+
+func (c *permohonanController) SubmitClosing(ctx *gin.Context) {
+	submitActivityRequest(ctx, c.permohonanValidation.ValidateEvidenceSubmitRequest, c.permohonanService.SubmitClosing)
 }
 
 func submitActivityRequest[T any](

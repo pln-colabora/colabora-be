@@ -4,7 +4,7 @@ info:
   description: >-
     Workflow-node API: connection-specific request creation, dashboard list,
     detail with caller-owned actions, full activity timeline and logs, plus
-    Phase 4 Sequences 1-4 submissions through Stage 6 execution.
+    Phase 4 Sequences 1-5 submissions through terminal completion.
   version: "1.0.0"
 servers:
   - url: https://api-colabora.anargya.fun
@@ -517,6 +517,36 @@ paths:
         does not wait for the independent network-energize branch. Detailed
         production fields remain a discovery gate, so evidence is required and
         notes are optional.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PermohonanID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/ActivitySubmitted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/permohonan/{id}/closing:
+    post:
+      tags: [Permohonan]
+      summary: Complete PDL, AIL/DIJ archive and close the request
+      description: >-
+        Requires both network energization and SR/APP installation to be complete.
+        Only pelayanan-pelanggan in the request's target ULP may submit.
+        Records the completed closing package in order: entri_mutasi_pdl,
+        arsip_ail, then selesai. The supplied documents evidence all three nodes;
+        notes are copied to each node. All state, evidence and audit changes are
+        atomic. Returns status completed and empty available_actions. Resubmission
+        or a returned request is rejected with 409. Detailed production fields and
+        document-content verification remain subject to business confirmation.
       security:
         - bearerAuth: []
       parameters:

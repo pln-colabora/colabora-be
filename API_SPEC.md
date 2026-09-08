@@ -72,6 +72,8 @@ The construction-execution request body selects the exact node with `workflow_no
 
 The energize request requires `operation_result` plus document evidence for the operation BA and optional notes. SR/APP installation requires evidence plus optional notes while its detailed production form remains a discovery gate. These two Sequence 4 nodes are independent: each uses its own prerequisites and Activity #15 opens only after both complete.
 
+Closing accepts the existing evidence request (`document_ids` required, `notes` optional). One submission records the completed closing package in dependency order: `entri_mutasi_pdl` → `arsip_ail` → `selesai`. The same documents and notes are associated with each node. All three transitions, attachments and audit events commit together; any failure rolls back the entire package. Both energize and SR/APP must already be complete, and the caller must be `pelayanan-pelanggan` in the target ULP for every connection type. Success returns `status: completed` and empty `available_actions`; duplicate or terminal-return submissions return 409. Detailed fields for #15–#17 and verification of document contents remain discovery items.
+
 Every write endpoint:
 
 1. authenticates the caller and authorizes the exact workflow node;
@@ -99,4 +101,4 @@ An attachment request must fail atomically if any document is missing, already a
 
 ## Runtime OpenAPI policy
 
-`docs/permohonan.yaml` documents the implemented Phase 3 create/read contract and Phase 4 Sequences 1–4 write endpoints through Stage 6. Later Phase 4 write endpoints remain target-only here until their runtime handlers are delivered.
+`docs/permohonan.yaml` documents the implemented Phase 3 create/read contract and all Phase 4 write endpoints through terminal completion.

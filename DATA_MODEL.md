@@ -1,6 +1,6 @@
 # DATA_MODEL.md — COLABORA Target Entities
 
-This is the target data model for the dependency-based workflow in `PRD.md`. Phase 2 implements its persistence model; Phase 3 and Phase 4 will finish its entry/read and transition APIs.
+This is the data model for the dependency-based workflow in `PRD.md`. Phase 2 implements its persistence model; Phases 3 and 4 implement its entry/read and transition APIs through terminal closing.
 
 ## Design principles
 
