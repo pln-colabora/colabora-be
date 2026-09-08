@@ -28,6 +28,8 @@ func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
 		permohonanRoutes.POST("/:id/wo-pdkb", permohonanController.SubmitWOPDKB)
 		permohonanRoutes.POST("/:id/pelaksanaan-konstruksi", permohonanController.SubmitConstructionExecution)
 		permohonanRoutes.POST("/:id/pdkb-dokumentasi", permohonanController.SubmitPDKBDocumentation)
+		permohonanRoutes.POST("/:id/energize-jaringan", permohonanController.SubmitEnergize)
+		permohonanRoutes.POST("/:id/pemasangan-sr-app", permohonanController.SubmitSRAPP)
 		permohonanRoutes.GET("", permohonanController.GetAll)
 		permohonanRoutes.GET("/:id/activities", permohonanController.GetActivities)
 		permohonanRoutes.GET("/:id/logs", permohonanController.GetLogs)

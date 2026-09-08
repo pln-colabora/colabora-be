@@ -72,6 +72,16 @@ func (v *PermohonanValidation) ValidateConstructionExecutionSubmitRequest(req dt
 	return validateDocumentIDs(req.DocumentIDs)
 }
 
+func (v *PermohonanValidation) ValidateEnergizeSubmitRequest(req dto.EnergizeSubmitRequest) error {
+	if err := v.validate.Struct(req); err != nil {
+		return err
+	}
+	if strings.TrimSpace(req.OperationResult) == "" {
+		return fmt.Errorf("operation_result must not be blank")
+	}
+	return validateDocumentIDs(req.DocumentIDs)
+}
+
 func validateDocumentIDs(ids []string) error {
 	seen := make(map[string]struct{}, len(ids))
 	for _, id := range ids {

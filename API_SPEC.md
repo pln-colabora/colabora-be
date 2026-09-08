@@ -70,6 +70,8 @@ The WO Konstruksi request body requires the typed decision `perlu_pdkb: true|fal
 
 The construction-execution request body selects the exact node with `workflow_node: pemasangan_tiang|pelaksanaan_konstruksi`; the service then applies that node's vendor ownership and prerequisites. PDKB documentation uses its dedicated endpoint. Sequence 3 keeps uncovered production fields minimal—required evidence plus optional notes—until the business confirms the detailed forms.
 
+The energize request requires `operation_result` plus document evidence for the operation BA and optional notes. SR/APP installation requires evidence plus optional notes while its detailed production form remains a discovery gate. These two Sequence 4 nodes are independent: each uses its own prerequisites and Activity #15 opens only after both complete.
+
 Every write endpoint:
 
 1. authenticates the caller and authorizes the exact workflow node;
@@ -97,4 +99,4 @@ An attachment request must fail atomically if any document is missing, already a
 
 ## Runtime OpenAPI policy
 
-`docs/permohonan.yaml` documents the implemented Phase 3 create/read contract and Phase 4 Sequences 1–3 write endpoints through Stage 5 execution. Later Phase 4 write endpoints remain target-only here until their runtime handlers are delivered.
+`docs/permohonan.yaml` documents the implemented Phase 3 create/read contract and Phase 4 Sequences 1–4 write endpoints through Stage 6. Later Phase 4 write endpoints remain target-only here until their runtime handlers are delivered.

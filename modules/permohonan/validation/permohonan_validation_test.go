@@ -85,3 +85,18 @@ func TestValidateSequenceThreeExecutionSelector(t *testing.T) {
 		WorkflowNode: "pemasangan_tiang",
 	}))
 }
+
+func TestValidateSequenceFourRequests(t *testing.T) {
+	v := NewPermohonanValidation()
+	documentID := uuid.NewString()
+
+	require.NoError(t, v.ValidateEnergizeSubmitRequest(dto.EnergizeSubmitRequest{
+		OperationResult: "operasi jaringan selesai", DocumentIDs: []string{documentID},
+	}))
+	require.Error(t, v.ValidateEnergizeSubmitRequest(dto.EnergizeSubmitRequest{
+		OperationResult: "   ", DocumentIDs: []string{documentID},
+	}))
+	require.Error(t, v.ValidateEnergizeSubmitRequest(dto.EnergizeSubmitRequest{
+		OperationResult: "operasi jaringan selesai", DocumentIDs: []string{documentID, documentID},
+	}))
+}

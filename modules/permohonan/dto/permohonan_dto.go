@@ -86,6 +86,12 @@ type (
 		DocumentIDs  []string `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
 	}
 
+	EnergizeSubmitRequest struct {
+		OperationResult string   `json:"operation_result" binding:"required,max=500" validate:"required,max=500"`
+		Notes           string   `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
+		DocumentIDs     []string `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
+	}
+
 	PermohonanResponse struct {
 		ID                  string                 `json:"id"`
 		NoPermohonan        string                 `json:"no_permohonan"`

@@ -3,6 +3,7 @@ package controller
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -69,6 +70,12 @@ func (f phase3ControllerService) SubmitConstructionExecution(context.Context, st
 	return dto.PermohonanResponse{}, f.activityErr
 }
 func (f phase3ControllerService) SubmitPDKBDocumentation(context.Context, string, string, dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
+	return dto.PermohonanResponse{}, f.activityErr
+}
+func (f phase3ControllerService) SubmitEnergize(context.Context, string, string, dto.EnergizeSubmitRequest) (dto.PermohonanResponse, error) {
+	return dto.PermohonanResponse{}, f.activityErr
+}
+func (f phase3ControllerService) SubmitSRAPP(context.Context, string, string, dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
 	return dto.PermohonanResponse{}, f.activityErr
 }
 
@@ -188,6 +195,53 @@ func TestSubmitConstructionExecutionValidatesNodeSelector(t *testing.T) {
 			ctx.Set("user_id", "actor-id")
 
 			controller.SubmitConstructionExecution(ctx)
+			require.Equal(t, test.wantCode, recorder.Code)
+		})
+	}
+}
+
+func TestSubmitSequenceFourValidatesPayloads(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []struct {
+		name     string
+		path     string
+		body     string
+		submit   func(*permohonanController, *gin.Context)
+		wantCode int
+	}{
+		{
+			name: "energize result", path: "/api/permohonan/id/energize-jaringan",
+			body:   `{"operation_result":"operasi jaringan selesai","document_ids":["%s"]}`,
+			submit: func(c *permohonanController, ctx *gin.Context) { c.SubmitEnergize(ctx) }, wantCode: http.StatusOK,
+		},
+		{
+			name: "blank energize result", path: "/api/permohonan/id/energize-jaringan",
+			body:   `{"operation_result":"   ","document_ids":["%s"]}`,
+			submit: func(c *permohonanController, ctx *gin.Context) { c.SubmitEnergize(ctx) }, wantCode: http.StatusBadRequest,
+		},
+		{
+			name: "SR APP evidence", path: "/api/permohonan/id/pemasangan-sr-app",
+			body:   `{"document_ids":["%s"]}`,
+			submit: func(c *permohonanController, ctx *gin.Context) { c.SubmitSRAPP(ctx) }, wantCode: http.StatusOK,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			controller := &permohonanController{
+				permohonanService:    phase3ControllerService{},
+				permohonanValidation: validation.NewPermohonanValidation(),
+			}
+			body := []byte(fmt.Sprintf(test.body, uuid.NewString()))
+			request := httptest.NewRequest(http.MethodPost, test.path, bytes.NewReader(body))
+			request.Header.Set("Content-Type", "application/json")
+			recorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(recorder)
+			ctx.Request = request
+			ctx.Params = gin.Params{{Key: "id", Value: "id"}}
+			ctx.Set("user_id", "actor-id")
+
+			test.submit(controller, ctx)
 			require.Equal(t, test.wantCode, recorder.Code)
 		})
 	}

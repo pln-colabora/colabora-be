@@ -44,11 +44,11 @@ The remaining hifi forms, detail pages, demo navigation, and client-side RBAC ar
 - Exact-node role/unit ownership helpers, plus a compatibility middleware for remaining numbered routes.
 - Private Garage/S3-compatible document upload, list, download, validation, and upload-first node-evidence helpers. One stored file may evidence multiple nodes of the same request.
 - Runtime OpenAPI for the currently implemented auth, user, permohonan, document, and health endpoints.
-- Phase 4 activity submissions through Sequence 3: survey/planning/NPS decisions, parallel Stage 4 preparation, conditional pole and PDKB branches, construction execution, and the Stage 6 join projections.
+- Phase 4 activity submissions through Sequence 4: survey/planning/NPS decisions, parallel Stage 4 preparation, conditional pole and PDKB branches, construction execution, network energization, and SR/APP installation.
 
 ### Known gaps
 
-- Phase 4 Sequences 4–5 activity-submission endpoints are not implemented yet.
+- Phase 4 Sequence 5 closing endpoints are not implemented yet.
 - Document evidence attaches by workflow node, but list/download access has the same unresolved read-authorization/IDOR gap as permohonan detail.
 - Generated permohonan test files under `modules/permohonan/tests` remain placeholders; meaningful workflow coverage lives beside the controller/service/repository and in RBAC tests.
 
@@ -121,14 +121,14 @@ Implemented connection-aware request creation, configured target-ULP validation 
 
 **Exit gate:** create/list/detail behavior matches `API_SPEC.md`; wrong role/type combinations return 403, invalid PLG TM target ULP returns 400, node-based task filtering works for parallel actions, and `docs/permohonan.yaml` is updated in the same change.
 
-### Phase 4 — Activity endpoints — In progress (Sequences 1–3 complete)
+### Phase 4 — Activity endpoints — In progress (Sequences 1–4 complete)
 
 Deliver write behavior in dependency slices so each slice is usable and tested before the next:
 
 1. **Complete:** Survey, RAB/KKO/KKF with pole decision, Permohonan Perluasan, and NPS delegation/terminal return.
 2. **Complete:** Parallel WO Tiang/Konstruksi/APP, material reservation and tera, PK Vendor, and conditional WO PDKB.
 3. **Complete:** Conditional pole installation, construction, and PDKB documentation.
-4. Parallel network energization and SR/APP installation.
+4. **Complete:** Parallel network energization and SR/APP installation.
 5. Ordered PDL entry/mutation, AIL/DIJ archive, and terminal completion.
 
 Every endpoint must authorize the exact node, reject unmet/non-applicable/completed/terminal state with 409, validate required structured data and evidence, attach documents, update decisions and projections, and append audit events within one service-owned transaction.
@@ -142,6 +142,8 @@ Sequence 1 delivers the three authenticated write routes with exact node/ULP aut
 Sequence 2 delivers the six Stage 4 routes for the three parallel WO branches, bundled material reservation/tera, conditional WO PDKB, and PK Vendor. WO Konstruksi records the typed `perlu_pdkb` decision: the false branch audits and persists both PDKB skips before opening PK Vendor, while the true branch gates PK Vendor on WO PDKB. Tests cover both connection families, parallel completion in opposite orders, both pole/PDKB branches, exact owners, terminal/out-of-order/duplicate rejection, bundled evidence rollback, and audit events for derived skips. Payloads remain intentionally minimal where production fields are still discovery gates.
 
 Sequence 3 delivers the explicit vendor-execution selector for pole installation versus construction, plus conditional PDKB documentation. Exact-node authorization prevents vendor roles from submitting one another's work. Tests cover both connection families, pole and construction completion in opposite orders, inapplicable/out-of-order/duplicate rejection, PDKB required and skipped paths, evidence failure, and both Stage 6 join projections. Activity #11/#12 and PDKB payloads remain evidence-first with optional notes because their detailed production forms are still discovery gates.
+
+Sequence 4 delivers the two independent Stage 6 completion routes. Energize requires a structured operation result and BA evidence, resolves `teknik` plus matching ULP for JTR/JTM versus `jaringan` for PLG TM, and waits for construction plus applicable pole/PDKB work. SR/APP resolves `vendor-sr-app` for JTR/JTM versus `vendor-konstruksi` for PLG TM and waits only for construction plus tera. Tests cover exact owners, ULP scope, independent gates, both completion orders, the Activity #15 join, duplicate/out-of-order rejection, payload validation, and evidence rollback. Detailed Activity #14 fields remain a discovery gate.
 
 ### Phase 5 — Evidence and access hardening — Queued
 

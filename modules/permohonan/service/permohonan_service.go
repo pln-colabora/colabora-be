@@ -39,6 +39,8 @@ type PermohonanService interface {
 	SubmitWOPDKB(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
 	SubmitConstructionExecution(ctx context.Context, id, userID string, req dto.ConstructionExecutionSubmitRequest) (dto.PermohonanResponse, error)
 	SubmitPDKBDocumentation(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
+	SubmitEnergize(ctx context.Context, id, userID string, req dto.EnergizeSubmitRequest) (dto.PermohonanResponse, error)
+	SubmitSRAPP(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
 }
 
 type permohonanService struct {
@@ -184,6 +186,25 @@ func (s *permohonanService) SubmitConstructionExecution(ctx context.Context, id,
 
 func (s *permohonanService) SubmitPDKBDocumentation(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
 	return s.completeEvidenceNode(ctx, id, userID, req, workflow.DokumentasiPDKB)
+}
+
+func (s *permohonanService) SubmitEnergize(ctx context.Context, id, userID string, req dto.EnergizeSubmitRequest) (dto.PermohonanResponse, error) {
+	operationResult := strings.TrimSpace(req.OperationResult)
+	if operationResult == "" || utf8.RuneCountInString(operationResult) > 500 || !notesWithinLimit(req.Notes) {
+		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
+	}
+	payloads := map[workflow.Code]any{
+		workflow.Energize: struct {
+			OperationResult string `json:"operation_result"`
+			Notes           string `json:"notes,omitempty"`
+		}{OperationResult: operationResult, Notes: req.Notes},
+	}
+	return s.completeWorkflowNodes(ctx, id, userID, req.DocumentIDs,
+		[]workflow.Code{workflow.Energize}, payloads, nil, nil)
+}
+
+func (s *permohonanService) SubmitSRAPP(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
+	return s.completeEvidenceNode(ctx, id, userID, req, workflow.SRAPP)
 }
 
 func (s *permohonanService) completeEvidenceNode(
