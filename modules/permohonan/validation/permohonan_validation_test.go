@@ -1,0 +1,42 @@
+package validation
+
+import (
+	"testing"
+
+	"github.com/google/uuid"
+	"github.com/pln-colabora/colabora-be/modules/permohonan/dto"
+	"github.com/stretchr/testify/require"
+)
+
+func TestValidateSequenceOneRequests(t *testing.T) {
+	v := NewPermohonanValidation()
+	documentID := uuid.NewString()
+	poleRequired := false
+
+	require.NoError(t, v.ValidateSurveySubmitRequest(dto.SurveySubmitRequest{
+		SurveyedAt: "2026-09-08", DocumentIDs: []string{documentID},
+	}))
+	require.Error(t, v.ValidateSurveySubmitRequest(dto.SurveySubmitRequest{
+		SurveyedAt: "08-09-2026", DocumentIDs: []string{documentID},
+	}))
+	require.Error(t, v.ValidateSurveySubmitRequest(dto.SurveySubmitRequest{
+		SurveyedAt: "2026-09-08", DocumentIDs: []string{documentID, documentID},
+	}))
+
+	require.NoError(t, v.ValidateRABSubmitRequest(dto.RABSubmitRequest{
+		KebutuhanTiang: &poleRequired, DocumentIDs: []string{documentID},
+	}))
+	require.Error(t, v.ValidateRABSubmitRequest(dto.RABSubmitRequest{
+		DocumentIDs: []string{documentID},
+	}))
+
+	require.NoError(t, v.ValidateExpansionSubmitRequest(dto.ExpansionSubmitRequest{
+		NpsDelegationStatus: "delegated", DocumentIDs: []string{documentID},
+	}))
+	require.NoError(t, v.ValidateExpansionSubmitRequest(dto.ExpansionSubmitRequest{
+		NpsDelegationStatus: "returned", DocumentIDs: []string{documentID},
+	}))
+	require.Error(t, v.ValidateExpansionSubmitRequest(dto.ExpansionSubmitRequest{
+		NpsDelegationStatus: "approved", DocumentIDs: []string{documentID},
+	}))
+}

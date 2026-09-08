@@ -3,6 +3,7 @@ package validation
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/dto"
@@ -11,6 +12,44 @@ import (
 
 type PermohonanValidation struct {
 	validate *validator.Validate
+}
+
+func (v *PermohonanValidation) ValidateSurveySubmitRequest(req dto.SurveySubmitRequest) error {
+	if err := v.validate.Struct(req); err != nil {
+		return err
+	}
+	if _, err := time.Parse("2006-01-02", req.SurveyedAt); err != nil {
+		return fmt.Errorf("surveyed_at must use YYYY-MM-DD format")
+	}
+	return validateDocumentIDs(req.DocumentIDs)
+}
+
+func (v *PermohonanValidation) ValidateRABSubmitRequest(req dto.RABSubmitRequest) error {
+	if err := v.validate.Struct(req); err != nil {
+		return err
+	}
+	return validateDocumentIDs(req.DocumentIDs)
+}
+
+func (v *PermohonanValidation) ValidateExpansionSubmitRequest(req dto.ExpansionSubmitRequest) error {
+	if err := v.validate.Struct(req); err != nil {
+		return err
+	}
+	if req.NpsDelegationStatus != "delegated" && req.NpsDelegationStatus != "returned" {
+		return fmt.Errorf("nps_delegation_status must be one of: delegated, returned")
+	}
+	return validateDocumentIDs(req.DocumentIDs)
+}
+
+func validateDocumentIDs(ids []string) error {
+	seen := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		if _, ok := seen[id]; ok {
+			return fmt.Errorf("document_ids must not contain duplicates")
+		}
+		seen[id] = struct{}{}
+	}
+	return nil
 }
 
 func NewPermohonanValidation() *PermohonanValidation {

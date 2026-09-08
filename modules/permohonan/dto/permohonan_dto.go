@@ -12,6 +12,7 @@ const (
 	MESSAGE_FAILED_GET_LIST_PERMOHONAN = "failed get list permohonan"
 	MESSAGE_FAILED_GET_ACTIVITIES      = "failed get workflow activities"
 	MESSAGE_FAILED_GET_LOGS            = "failed get activity logs"
+	MESSAGE_FAILED_SUBMIT_ACTIVITY     = "failed submit workflow activity"
 	MESSAGE_FAILED_DENIED_ACCESS       = "denied access"
 
 	MESSAGE_SUCCESS_CREATE_PERMOHONAN   = "success create permohonan"
@@ -19,6 +20,7 @@ const (
 	MESSAGE_SUCCESS_GET_LIST_PERMOHONAN = "success get list permohonan"
 	MESSAGE_SUCCESS_GET_ACTIVITIES      = "success get workflow activities"
 	MESSAGE_SUCCESS_GET_LOGS            = "success get activity logs"
+	MESSAGE_SUCCESS_SUBMIT_ACTIVITY     = "success submit workflow activity"
 )
 
 var (
@@ -27,6 +29,10 @@ var (
 	ErrPermohonanNotFound = errors.New("permohonan not found")
 	ErrCreateForbidden    = errors.New("caller cannot create this connection type")
 	ErrInvalidULPUnit     = errors.New("invalid ulp_unit for this connection type")
+	ErrEvidenceRequired   = errors.New("at least one evidence document is required")
+	ErrInvalidEvidence    = errors.New("document_ids must contain unique UUIDs")
+	ErrInvalidActivity    = errors.New("invalid workflow activity payload")
+	ErrSubmitActivity     = errors.New("failed to submit workflow activity")
 )
 
 type (
@@ -37,6 +43,24 @@ type (
 		PelangganNama   string  `json:"pelanggan_nama" binding:"required,min=2,max=150"`
 		PelangganAlamat string  `json:"pelanggan_alamat" binding:"required,min=2,max=255"`
 		PelangganNoHp   string  `json:"pelanggan_no_hp" binding:"required,min=8,max=20"`
+	}
+
+	SurveySubmitRequest struct {
+		SurveyedAt  string   `json:"surveyed_at" binding:"required" validate:"required"`
+		Notes       string   `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
+		DocumentIDs []string `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
+	}
+
+	RABSubmitRequest struct {
+		KebutuhanTiang *bool    `json:"kebutuhan_tiang" binding:"required" validate:"required"`
+		Notes          string   `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
+		DocumentIDs    []string `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
+	}
+
+	ExpansionSubmitRequest struct {
+		NpsDelegationStatus string   `json:"nps_delegation_status" binding:"required" validate:"required"`
+		Notes               string   `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
+		DocumentIDs         []string `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
 	}
 
 	PermohonanResponse struct {

@@ -57,6 +57,12 @@ func (f *fakePermohonanRepository) Create(ctx context.Context, tx *gorm.DB, perm
 func (f *fakePermohonanRepository) GetById(ctx context.Context, tx *gorm.DB, id string) (entities.Permohonan, error) {
 	return f.permohonan, f.err
 }
+func (f *fakePermohonanRepository) GetByIdForUpdate(ctx context.Context, tx *gorm.DB, id string) (entities.Permohonan, error) {
+	return f.permohonan, f.err
+}
+func (f *fakePermohonanRepository) SaveWorkflow(context.Context, *gorm.DB, entities.Permohonan, []entities.ActivityLog) error {
+	return nil
+}
 func (f *fakePermohonanRepository) List(ctx context.Context, tx *gorm.DB, filter *permohonanQuery.PermohonanFilter) ([]permohonanQuery.Permohonan, int64, error) {
 	return nil, 0, nil
 }

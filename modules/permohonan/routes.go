@@ -17,6 +17,9 @@ func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
 	permohonanRoutes.Use(middlewares.Authenticate(jwtService))
 	{
 		permohonanRoutes.POST("", permohonanController.Create)
+		permohonanRoutes.POST("/:id/survei", permohonanController.SubmitSurvey)
+		permohonanRoutes.POST("/:id/rab-kko-kkf", permohonanController.SubmitRAB)
+		permohonanRoutes.POST("/:id/permohonan-perluasan", permohonanController.SubmitExpansion)
 		permohonanRoutes.GET("", permohonanController.GetAll)
 		permohonanRoutes.GET("/:id/activities", permohonanController.GetActivities)
 		permohonanRoutes.GET("/:id/logs", permohonanController.GetLogs)

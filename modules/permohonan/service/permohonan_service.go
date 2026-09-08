@@ -3,11 +3,15 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pln-colabora/colabora-be/database/entities"
+	documentDTO "github.com/pln-colabora/colabora-be/modules/document/dto"
+	documentRepository "github.com/pln-colabora/colabora-be/modules/document/repository"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/dto"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/query"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/repository"
@@ -23,12 +27,16 @@ type PermohonanService interface {
 	List(ctx context.Context, filter *query.PermohonanFilter, userId string) ([]query.Permohonan, int64, error)
 	GetActivities(ctx context.Context, id string) ([]dto.WorkflowNodeResponse, error)
 	GetLogs(ctx context.Context, id string) ([]dto.ActivityLogResponse, error)
+	SubmitSurvey(ctx context.Context, id, userID string, req dto.SurveySubmitRequest) (dto.PermohonanResponse, error)
+	SubmitRAB(ctx context.Context, id, userID string, req dto.RABSubmitRequest) (dto.PermohonanResponse, error)
+	SubmitExpansion(ctx context.Context, id, userID string, req dto.ExpansionSubmitRequest) (dto.PermohonanResponse, error)
 }
 
 type permohonanService struct {
 	permohonanRepository repository.PermohonanRepository
 	slaRuleRepository    repository.SLARuleRepository
 	userRepository       userRepository.UserRepository
+	documentRepository   documentRepository.DocumentRepository
 	db                   *gorm.DB
 }
 
@@ -36,14 +44,227 @@ func NewPermohonanService(
 	permohonanRepo repository.PermohonanRepository,
 	slaRuleRepo repository.SLARuleRepository,
 	userRepo userRepository.UserRepository,
+	documentRepo documentRepository.DocumentRepository,
 	db *gorm.DB,
 ) PermohonanService {
 	return &permohonanService{
 		permohonanRepository: permohonanRepo,
 		slaRuleRepository:    slaRuleRepo,
 		userRepository:       userRepo,
+		documentRepository:   documentRepo,
 		db:                   db,
 	}
+}
+
+func (s *permohonanService) SubmitSurvey(ctx context.Context, id, userID string, req dto.SurveySubmitRequest) (dto.PermohonanResponse, error) {
+	if _, err := time.Parse("2006-01-02", req.SurveyedAt); err != nil || len(req.Notes) > 2000 {
+		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
+	}
+	payloads := map[workflow.Code]any{
+		workflow.Survei: struct {
+			SurveyedAt string `json:"surveyed_at"`
+			Notes      string `json:"notes,omitempty"`
+		}{SurveyedAt: req.SurveyedAt, Notes: req.Notes},
+	}
+	return s.completeWorkflowNodes(ctx, id, userID, req.DocumentIDs, []workflow.Code{workflow.Survei}, payloads, nil, nil)
+}
+
+func (s *permohonanService) SubmitRAB(ctx context.Context, id, userID string, req dto.RABSubmitRequest) (dto.PermohonanResponse, error) {
+	if req.KebutuhanTiang == nil || len(req.Notes) > 2000 {
+		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
+	}
+	payloads := map[workflow.Code]any{
+		workflow.RAB: struct {
+			Notes string `json:"notes,omitempty"`
+		}{Notes: req.Notes},
+		workflow.KebutuhanTiang: struct {
+			KebutuhanTiang bool `json:"kebutuhan_tiang"`
+		}{KebutuhanTiang: *req.KebutuhanTiang},
+	}
+	applyDecision := func(snapshot *workflow.Snapshot) {
+		value := *req.KebutuhanTiang
+		snapshot.Decisions.KebutuhanTiang = &value
+	}
+	return s.completeWorkflowNodes(ctx, id, userID, req.DocumentIDs,
+		[]workflow.Code{workflow.RAB, workflow.KebutuhanTiang}, payloads, applyDecision, nil)
+}
+
+func (s *permohonanService) SubmitExpansion(ctx context.Context, id, userID string, req dto.ExpansionSubmitRequest) (dto.PermohonanResponse, error) {
+	delegation := workflow.Delegation(req.NpsDelegationStatus)
+	if (delegation != workflow.Delegated && delegation != workflow.Return) || len(req.Notes) > 2000 {
+		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
+	}
+	payloads := map[workflow.Code]any{
+		workflow.Perluasan: struct {
+			Notes string `json:"notes,omitempty"`
+		}{Notes: req.Notes},
+		workflow.NPS: struct {
+			NPSDelegationStatus string `json:"nps_delegation_status"`
+		}{NPSDelegationStatus: req.NpsDelegationStatus},
+	}
+	applyDecision := func(snapshot *workflow.Snapshot) { snapshot.Decisions.NPS = delegation }
+	actions := map[workflow.Code]string{workflow.NPS: "nps_" + req.NpsDelegationStatus}
+	return s.completeWorkflowNodes(ctx, id, userID, req.DocumentIDs,
+		[]workflow.Code{workflow.Perluasan, workflow.NPS}, payloads, applyDecision, actions)
+}
+
+func (s *permohonanService) completeWorkflowNodes(
+	ctx context.Context,
+	id, userID string,
+	documentIDs []string,
+	codes []workflow.Code,
+	payloads map[workflow.Code]any,
+	applyDecision func(*workflow.Snapshot),
+	actions map[workflow.Code]string,
+) (dto.PermohonanResponse, error) {
+	if err := validateEvidenceIDs(documentIDs); err != nil {
+		return dto.PermohonanResponse{}, err
+	}
+
+	encodedPayloads := make(map[workflow.Code]string, len(payloads))
+	for code, payload := range payloads {
+		encoded, err := json.Marshal(payload)
+		if err != nil {
+			return dto.PermohonanResponse{}, dto.ErrSubmitActivity
+		}
+		encodedPayloads[code] = string(encoded)
+	}
+
+	var updated entities.Permohonan
+	var actor entities.User
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		permohonan, err := s.permohonanRepository.GetByIdForUpdate(ctx, tx, id)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return dto.ErrPermohonanNotFound
+			}
+			return dto.ErrSubmitActivity
+		}
+		actor, err = s.userRepository.GetUserById(ctx, tx, userID)
+		if err != nil {
+			return rbac.ErrWorkflowForbidden
+		}
+
+		snapshot := permohonan.WorkflowSnapshot()
+		if applyDecision != nil {
+			applyDecision(&snapshot)
+		}
+		var result workflow.Result
+		for _, code := range codes {
+			if err := rbac.AuthorizeWorkflowNode(actor.Role, actor.Unit, permohonan.UlpUnit, snapshot, code); err != nil {
+				return err
+			}
+			var transitionErr error
+			snapshot, result, transitionErr = workflow.Transition(snapshot, code, workflow.Completed)
+			if transitionErr != nil {
+				return transitionErr
+			}
+		}
+
+		for _, code := range codes {
+			rows, attachErr := s.documentRepository.AttachToWorkflowNode(
+				ctx, tx, documentIDs, permohonan.ID.String(), string(code), actor.ID.String(),
+			)
+			if attachErr != nil {
+				if errors.Is(attachErr, documentRepository.ErrDocumentNotFound) {
+					return documentDTO.ErrDocumentNotFound
+				}
+				if errors.Is(attachErr, documentRepository.ErrDocumentAttachConflict) {
+					return documentDTO.ErrDocumentAlreadyAttached
+				}
+				return attachErr
+			}
+			if rows != int64(len(documentIDs)) {
+				return documentDTO.ErrDocumentAlreadyAttached
+			}
+		}
+
+		permohonan.CurrentStage = result.CurrentStage
+		permohonan.Status = string(result.Status)
+		permohonan.KebutuhanTiang = cloneBool(snapshot.Decisions.KebutuhanTiang)
+		permohonan.PerluPdkb = cloneBool(snapshot.Decisions.PerluPDKB)
+		if snapshot.Decisions.NPS == "" {
+			permohonan.NpsDelegationStatus = nil
+		} else {
+			value := string(snapshot.Decisions.NPS)
+			permohonan.NpsDelegationStatus = &value
+		}
+
+		now := time.Now()
+		completed := make(map[workflow.Code]struct{}, len(codes))
+		for _, code := range codes {
+			completed[code] = struct{}{}
+		}
+		found := 0
+		for i := range permohonan.WorkflowNodes {
+			code := workflow.Code(permohonan.WorkflowNodes[i].WorkflowNode)
+			permohonan.WorkflowNodes[i].Status = string(result.Nodes[code])
+			if _, ok := completed[code]; ok {
+				found++
+				actorID := actor.ID
+				completedAt := now
+				permohonan.WorkflowNodes[i].Payload = encodedPayloads[code]
+				permohonan.WorkflowNodes[i].CompletedBy = &actorID
+				permohonan.WorkflowNodes[i].CompletedAt = &completedAt
+			}
+		}
+		if found != len(codes) {
+			return dto.ErrSubmitActivity
+		}
+
+		logs := make([]entities.ActivityLog, 0, len(codes))
+		for _, code := range codes {
+			definition, _ := workflow.Lookup(code)
+			action := "node_completed"
+			if custom := actions[code]; custom != "" {
+				action = custom
+			}
+			codeValue := string(code)
+			logs = append(logs, entities.ActivityLog{
+				PermohonanID: permohonan.ID, ActivityNumber: definition.ActivityNumber,
+				Actor: actor.ID, Action: action, WorkflowNode: &codeValue,
+			})
+		}
+		if err := s.permohonanRepository.SaveWorkflow(ctx, tx, permohonan, logs); err != nil {
+			return dto.ErrSubmitActivity
+		}
+		updated = permohonan
+		return nil
+	})
+	if err != nil {
+		return dto.PermohonanResponse{}, err
+	}
+
+	response, err := toPermohonanResponse(updated, actor.Role, actor.Unit, time.Now())
+	if err != nil {
+		return dto.PermohonanResponse{}, dto.ErrSubmitActivity
+	}
+	return response, nil
+}
+
+func validateEvidenceIDs(documentIDs []string) error {
+	if len(documentIDs) == 0 {
+		return dto.ErrEvidenceRequired
+	}
+	seen := make(map[string]struct{}, len(documentIDs))
+	for _, id := range documentIDs {
+		if _, err := uuid.Parse(id); err != nil {
+			return dto.ErrInvalidEvidence
+		}
+		if _, ok := seen[id]; ok {
+			return dto.ErrInvalidEvidence
+		}
+		seen[id] = struct{}{}
+	}
+	return nil
+}
+
+func cloneBool(value *bool) *bool {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
 }
 
 func (s *permohonanService) Create(ctx context.Context, req dto.PermohonanCreateRequest, userId string) (dto.PermohonanResponse, error) {

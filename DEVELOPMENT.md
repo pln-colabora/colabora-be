@@ -120,11 +120,11 @@ Implemented connection-aware request creation, configured target-ULP validation 
 
 **Exit gate:** create/list/detail behavior matches `API_SPEC.md`; wrong role/type combinations return 403, invalid PLG TM target ULP returns 400, node-based task filtering works for parallel actions, and `docs/permohonan.yaml` is updated in the same change.
 
-### Phase 4 — Activity endpoints — Queued
+### Phase 4 — Activity endpoints — In progress (Sequence 1 complete)
 
 Deliver write behavior in dependency slices so each slice is usable and tested before the next:
 
-1. Survey, RAB/KKO/KKF with pole decision, Permohonan Perluasan, and NPS delegation/terminal return.
+1. **Complete:** Survey, RAB/KKO/KKF with pole decision, Permohonan Perluasan, and NPS delegation/terminal return.
 2. Parallel WO Tiang/Konstruksi/APP, material reservation and tera, PK Vendor, and conditional WO PDKB.
 3. Conditional pole installation, construction, and PDKB documentation.
 4. Parallel network energization and SR/APP installation.
@@ -135,6 +135,8 @@ Every endpoint must authorize the exact node, reject unmet/non-applicable/comple
 **Exit gate per slice:** service, repository, controller, validation, and authorization tests pass; duplicate and out-of-order submission is rejected; evidence failure rolls back all changes; both connection families follow the living diagrams; and runtime OpenAPI describes the delivered endpoints.
 
 Detailed production payloads must be derived from `DOCUMENT_WORKFLOW_REFERENCE.md` and confirmed with business owners. For uncovered activities, implement only agreed workflow-critical fields and evidence requirements—do not infer a full production form from the hifi mockup.
+
+Sequence 1 delivers the three authenticated write routes with exact node/ULP authorization, row-locked service transactions, required evidence attachment, validated workflow-critical fields, JSONB payloads, projections, node completion, and audit logs. Bundled RAB/pole and expansion/NPS nodes complete in dependency order within one transaction. Tests cover JTR/JTM and PLG TM ownership, duplicate and out-of-order rejection, delegated and terminal-return outcomes, repository persistence, controller error mapping, and rollback when evidence attachment fails. The RAB workbook is retained as evidence; calculation parity remains intentionally out of scope pending authoritative formulas and catalogue ownership.
 
 ### Phase 5 — Evidence and access hardening — Queued
 

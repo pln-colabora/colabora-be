@@ -44,6 +44,7 @@ func buildMergedOpenAPI() ([]byte, error) {
 	schemas := map[string]any{}
 	responses := map[string]any{}
 	securitySchemes := map[string]any{}
+	parameters := map[string]any{}
 
 	for _, file := range moduleDocFiles {
 		raw, err := os.ReadFile(file)
@@ -81,6 +82,7 @@ func buildMergedOpenAPI() ([]byte, error) {
 			mergeMapInto(schemas, comp["schemas"])
 			mergeMapInto(responses, comp["responses"])
 			mergeMapInto(securitySchemes, comp["securitySchemes"])
+			mergeMapInto(parameters, comp["parameters"])
 		}
 	}
 
@@ -91,6 +93,7 @@ func buildMergedOpenAPI() ([]byte, error) {
 		"schemas":         schemas,
 		"responses":       responses,
 		"securitySchemes": securitySchemes,
+		"parameters":      parameters,
 	}
 
 	return yaml.Marshal(merged)

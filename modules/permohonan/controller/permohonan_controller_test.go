@@ -8,13 +8,20 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	documentDTO "github.com/pln-colabora/colabora-be/modules/document/dto"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/dto"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/query"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/validation"
+	"github.com/pln-colabora/colabora-be/pkg/rbac"
+	"github.com/pln-colabora/colabora-be/pkg/workflow"
 	"github.com/stretchr/testify/require"
 )
 
-type phase3ControllerService struct{ createErr error }
+type phase3ControllerService struct {
+	createErr   error
+	activityErr error
+}
 
 func (f phase3ControllerService) Create(context.Context, dto.PermohonanCreateRequest, string) (dto.PermohonanResponse, error) {
 	return dto.PermohonanResponse{}, f.createErr
@@ -30,6 +37,67 @@ func (phase3ControllerService) GetActivities(context.Context, string) ([]dto.Wor
 }
 func (phase3ControllerService) GetLogs(context.Context, string) ([]dto.ActivityLogResponse, error) {
 	return nil, nil
+}
+func (f phase3ControllerService) SubmitSurvey(context.Context, string, string, dto.SurveySubmitRequest) (dto.PermohonanResponse, error) {
+	return dto.PermohonanResponse{}, f.activityErr
+}
+func (f phase3ControllerService) SubmitRAB(context.Context, string, string, dto.RABSubmitRequest) (dto.PermohonanResponse, error) {
+	return dto.PermohonanResponse{}, f.activityErr
+}
+func (f phase3ControllerService) SubmitExpansion(context.Context, string, string, dto.ExpansionSubmitRequest) (dto.PermohonanResponse, error) {
+	return dto.PermohonanResponse{}, f.activityErr
+}
+
+func TestSubmitSurveyMapsActivityErrors(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []struct {
+		name     string
+		err      error
+		wantCode int
+	}{
+		{name: "wrong owner", err: rbac.ErrWorkflowForbidden, wantCode: http.StatusForbidden},
+		{name: "not actionable", err: workflow.ErrNotActionable, wantCode: http.StatusConflict},
+		{name: "missing aggregate", err: dto.ErrPermohonanNotFound, wantCode: http.StatusNotFound},
+		{name: "evidence conflict", err: documentDTO.ErrDocumentAlreadyAttached, wantCode: http.StatusConflict},
+		{name: "persistence error", err: dto.ErrSubmitActivity, wantCode: http.StatusInternalServerError},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			controller := &permohonanController{
+				permohonanService:    phase3ControllerService{activityErr: test.err},
+				permohonanValidation: validation.NewPermohonanValidation(),
+			}
+			body := []byte(`{"surveyed_at":"2026-09-08","document_ids":["` + uuid.NewString() + `"]}`)
+			request := httptest.NewRequest(http.MethodPost, "/api/permohonan/id/survei", bytes.NewReader(body))
+			request.Header.Set("Content-Type", "application/json")
+			recorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(recorder)
+			ctx.Request = request
+			ctx.Params = gin.Params{{Key: "id", Value: "id"}}
+			ctx.Set("user_id", "actor-id")
+
+			controller.SubmitSurvey(ctx)
+			require.Equal(t, test.wantCode, recorder.Code)
+		})
+	}
+}
+
+func TestSubmitSurveyRejectsInvalidDateBeforeService(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	controller := &permohonanController{
+		permohonanService:    phase3ControllerService{},
+		permohonanValidation: validation.NewPermohonanValidation(),
+	}
+	body := []byte(`{"surveyed_at":"08-09-2026","document_ids":["` + uuid.NewString() + `"]}`)
+	request := httptest.NewRequest(http.MethodPost, "/api/permohonan/id/survei", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = request
+	ctx.Set("user_id", "actor-id")
+
+	controller.SubmitSurvey(ctx)
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
 }
 
 func TestCreateMapsEntryAuthorizationErrors(t *testing.T) {

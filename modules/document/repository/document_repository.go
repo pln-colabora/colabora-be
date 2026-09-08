@@ -2,11 +2,17 @@ package repository
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/pln-colabora/colabora-be/database/entities"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+)
+
+var (
+	ErrDocumentNotFound       = errors.New("one or more documents do not exist")
+	ErrDocumentAttachConflict = errors.New("one or more documents are already attached")
 )
 
 type DocumentRepository interface {
@@ -91,18 +97,32 @@ func (r *documentRepository) AttachToWorkflowNode(ctx context.Context, tx *gorm.
 		return 0, nil
 	}
 
-	if err := db.Model(&entities.Document{}).
-		Where("id IN (?) AND (permohonan_id IS NULL OR permohonan_id = ?)", ids, permohonanID).
-		Update("permohonan_id", permohonanID).Error; err != nil {
+	var documents []entities.Document
+	if err := db.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Select("id", "permohonan_id").Where("id IN ?", ids).Find(&documents).Error; err != nil {
 		return 0, err
+	}
+	if len(documents) != len(ids) {
+		return 0, ErrDocumentNotFound
+	}
+	for _, document := range documents {
+		if document.PermohonanID != nil && *document.PermohonanID != permohonanUUID {
+			return 0, ErrDocumentAttachConflict
+		}
+	}
+	var existingEvidence int64
+	if err := db.Model(&entities.DocumentEvidence{}).
+		Where("document_id IN ? AND workflow_node = ?", ids, workflowNode).Count(&existingEvidence).Error; err != nil {
+		return 0, err
+	}
+	if existingEvidence > 0 {
+		return 0, ErrDocumentAttachConflict
 	}
 
-	var attachedCount int64
-	if err := db.Model(&entities.Document{}).Where("id IN (?) AND permohonan_id = ?", ids, permohonanID).Count(&attachedCount).Error; err != nil {
+	if err := db.Model(&entities.Document{}).
+		Where("id IN ? AND permohonan_id IS NULL", ids).
+		Update("permohonan_id", permohonanID).Error; err != nil {
 		return 0, err
-	}
-	if attachedCount != int64(len(ids)) {
-		return attachedCount, nil
 	}
 
 	evidence := make([]entities.DocumentEvidence, 0, len(ids))

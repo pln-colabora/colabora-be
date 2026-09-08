@@ -93,4 +93,4 @@ An attachment request must fail atomically if any document is missing, already a
 
 ## Runtime OpenAPI policy
 
-`docs/permohonan.yaml` documents the implemented Phase 3 create and read contract. Phase 4 write endpoints remain target-only here until their runtime handlers are delivered.
+`docs/permohonan.yaml` documents the implemented Phase 3 create/read contract and Phase 4 Sequence 1 write endpoints through NPS delegation. Later Phase 4 write endpoints remain target-only here until their runtime handlers are delivered.

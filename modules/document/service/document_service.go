@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -119,6 +120,12 @@ func (s *documentService) AttachToWorkflowNode(ctx context.Context, userId, perm
 
 	rowsAffected, err := s.documentRepository.AttachToWorkflowNode(ctx, s.db, documentIds, permohonan.ID.String(), workflowNode, submitter.ID.String())
 	if err != nil {
+		if errors.Is(err, repository.ErrDocumentNotFound) {
+			return dto.ErrDocumentNotFound
+		}
+		if errors.Is(err, repository.ErrDocumentAttachConflict) {
+			return dto.ErrDocumentAlreadyAttached
+		}
 		return err
 	}
 	if rowsAffected != int64(len(documentIds)) {

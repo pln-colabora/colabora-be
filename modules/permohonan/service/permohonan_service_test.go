@@ -2,13 +2,18 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/pln-colabora/colabora-be/database/entities"
+	documentDTO "github.com/pln-colabora/colabora-be/modules/document/dto"
+	documentRepository "github.com/pln-colabora/colabora-be/modules/document/repository"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/dto"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/query"
+	"github.com/pln-colabora/colabora-be/modules/permohonan/repository"
+	userRepository "github.com/pln-colabora/colabora-be/modules/user/repository"
 	"github.com/pln-colabora/colabora-be/pkg/rbac"
 	"github.com/pln-colabora/colabora-be/pkg/workflow"
 	"github.com/stretchr/testify/require"
@@ -22,6 +27,10 @@ type phase3PermohonanRepository struct {
 	byID       entities.Permohonan
 	list       []query.Permohonan
 	filter     *query.PermohonanFilter
+	saveCalls  int
+	logs       []entities.ActivityLog
+	getErr     error
+	saveErr    error
 }
 
 func (f *phase3PermohonanRepository) Create(_ context.Context, _ *gorm.DB, p entities.Permohonan, nodes []entities.PermohonanActivity, _ entities.ActivityLog) (entities.Permohonan, error) {
@@ -35,6 +44,55 @@ func (f *phase3PermohonanRepository) Create(_ context.Context, _ *gorm.DB, p ent
 }
 func (f *phase3PermohonanRepository) GetById(_ context.Context, _ *gorm.DB, _ string) (entities.Permohonan, error) {
 	return f.byID, nil
+}
+func (f *phase3PermohonanRepository) GetByIdForUpdate(_ context.Context, _ *gorm.DB, _ string) (entities.Permohonan, error) {
+	return f.byID, f.getErr
+}
+func (f *phase3PermohonanRepository) SaveWorkflow(_ context.Context, _ *gorm.DB, p entities.Permohonan, logs []entities.ActivityLog) error {
+	f.saveCalls++
+	if f.saveErr != nil {
+		return f.saveErr
+	}
+	f.byID = p
+	f.logs = append([]entities.ActivityLog(nil), logs...)
+	return nil
+}
+
+type phase4DocumentRepository struct {
+	attachCalls []workflow.Code
+	failAt      int
+	attachErr   error
+}
+
+type failingSavePermohonanRepository struct {
+	repository.PermohonanRepository
+}
+
+func (f failingSavePermohonanRepository) SaveWorkflow(context.Context, *gorm.DB, entities.Permohonan, []entities.ActivityLog) error {
+	return errors.New("forced persistence failure")
+}
+
+func (f *phase4DocumentRepository) Create(context.Context, *gorm.DB, entities.Document) (entities.Document, error) {
+	return entities.Document{}, nil
+}
+func (f *phase4DocumentRepository) GetById(context.Context, *gorm.DB, string) (entities.Document, error) {
+	return entities.Document{}, nil
+}
+func (f *phase4DocumentRepository) ListByPermohonan(context.Context, *gorm.DB, string, *string) ([]entities.Document, error) {
+	return nil, nil
+}
+func (f *phase4DocumentRepository) ExistsForWorkflowNode(context.Context, *gorm.DB, string, string) (bool, error) {
+	return false, nil
+}
+func (f *phase4DocumentRepository) AttachToWorkflowNode(_ context.Context, _ *gorm.DB, ids []string, _, node, _ string) (int64, error) {
+	f.attachCalls = append(f.attachCalls, workflow.Code(node))
+	if f.failAt > 0 && len(f.attachCalls) == f.failAt {
+		if f.attachErr != nil {
+			return 0, f.attachErr
+		}
+		return int64(len(ids) - 1), nil
+	}
+	return int64(len(ids)), nil
 }
 func (f *phase3PermohonanRepository) List(_ context.Context, _ *gorm.DB, filter *query.PermohonanFilter) ([]query.Permohonan, int64, error) {
 	f.filter = filter
@@ -203,6 +261,309 @@ func TestListProjectsOnlyCallerOwnedParallelAction(t *testing.T) {
 			require.Equal(t, test.role, repo.filter.CurrentRole)
 		})
 	}
+}
+
+func TestSubmitSurveySupportsBothConnectionFamilies(t *testing.T) {
+	tests := []struct {
+		name       string
+		connection string
+		role       string
+		unit       string
+	}{
+		{name: "JTR survey belongs to matching ULP teknik", connection: rbac.JenisSambunganJTR, role: rbac.RoleTeknik, unit: "ULP Taman"},
+		{name: "PLG TM survey belongs to perencanaan", connection: rbac.JenisSambunganPlgTmKurang5, role: rbac.RolePerencanaan, unit: "UP3"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			p := phase4Request(t, test.connection)
+			repo := &phase3PermohonanRepository{byID: p}
+			docRepo := &phase4DocumentRepository{}
+			user := entities.User{ID: uuid.New(), Role: test.role, Unit: test.unit}
+			s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: user}, documentRepository: docRepo, db: phase3DB(t)}
+
+			response, err := s.SubmitSurvey(context.Background(), p.ID.String(), user.ID.String(), dto.SurveySubmitRequest{
+				SurveyedAt: "2026-09-08", Notes: "survey evidence reviewed", DocumentIDs: []string{uuid.NewString()},
+			})
+			require.NoError(t, err)
+			require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.Survei).Status)
+			require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.RAB).Status)
+			require.Equal(t, []workflow.Code{workflow.Survei}, docRepo.attachCalls)
+			require.Equal(t, 1, repo.saveCalls)
+			require.Len(t, repo.logs, 1)
+		})
+	}
+}
+
+func TestSubmitSurveyRejectsWrongOwnerAndDuplicate(t *testing.T) {
+	p := phase4Request(t, rbac.JenisSambunganJTR)
+	repo := &phase3PermohonanRepository{byID: p}
+	docRepo := &phase4DocumentRepository{}
+	wrongUser := entities.User{ID: uuid.New(), Role: rbac.RolePerencanaan, Unit: "UP3"}
+	s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: wrongUser}, documentRepository: docRepo, db: phase3DB(t)}
+	req := dto.SurveySubmitRequest{SurveyedAt: "2026-09-08", DocumentIDs: []string{uuid.NewString()}}
+
+	_, err := s.SubmitSurvey(context.Background(), p.ID.String(), wrongUser.ID.String(), req)
+	require.ErrorIs(t, err, rbac.ErrWorkflowForbidden)
+	require.Empty(t, docRepo.attachCalls)
+	mismatchedULPUser := entities.User{ID: uuid.New(), Role: rbac.RoleTeknik, Unit: "ULP Lain"}
+	s.userRepository = &phase3UserRepository{user: mismatchedULPUser}
+	_, err = s.SubmitSurvey(context.Background(), p.ID.String(), mismatchedULPUser.ID.String(), req)
+	require.ErrorIs(t, err, rbac.ErrWorkflowForbidden)
+	require.Empty(t, docRepo.attachCalls)
+
+	owner := entities.User{ID: uuid.New(), Role: rbac.RoleTeknik, Unit: "ULP Taman"}
+	s.userRepository = &phase3UserRepository{user: owner}
+	_, err = s.SubmitSurvey(context.Background(), p.ID.String(), owner.ID.String(), req)
+	require.NoError(t, err)
+	_, err = s.SubmitSurvey(context.Background(), p.ID.String(), owner.ID.String(), req)
+	require.ErrorIs(t, err, workflow.ErrNotActionable)
+	require.Len(t, docRepo.attachCalls, 1)
+}
+
+func TestSubmitRABRejectsOutOfOrderAndCompletesPoleDecision(t *testing.T) {
+	p := phase4Request(t, rbac.JenisSambunganJTR)
+	repo := &phase3PermohonanRepository{byID: p}
+	docRepo := &phase4DocumentRepository{}
+	user := entities.User{ID: uuid.New(), Role: rbac.RoleTeknik, Unit: "ULP Taman"}
+	s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: user}, documentRepository: docRepo, db: phase3DB(t)}
+	poleRequired := true
+	req := dto.RABSubmitRequest{KebutuhanTiang: &poleRequired, DocumentIDs: []string{uuid.NewString()}}
+
+	_, err := s.SubmitRAB(context.Background(), p.ID.String(), user.ID.String(), req)
+	require.ErrorIs(t, err, workflow.ErrNotActionable)
+	require.Zero(t, repo.saveCalls)
+
+	advancePhase4(t, &p, nil, workflow.Survei)
+	repo.byID = p
+	response, err := s.SubmitRAB(context.Background(), p.ID.String(), user.ID.String(), req)
+	require.NoError(t, err)
+	require.NotNil(t, response.KebutuhanTiang)
+	require.True(t, *response.KebutuhanTiang)
+	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.RAB).Status)
+	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.KebutuhanTiang).Status)
+	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.Perluasan).Status)
+	require.Equal(t, []workflow.Code{workflow.RAB, workflow.KebutuhanTiang}, docRepo.attachCalls)
+	require.Len(t, repo.logs, 2)
+}
+
+func TestSubmitExpansionDelegatesOrReturns(t *testing.T) {
+	for _, outcome := range []string{string(workflow.Delegated), string(workflow.Return)} {
+		t.Run(outcome, func(t *testing.T) {
+			p := phase4Request(t, rbac.JenisSambunganPlgTmLebih5)
+			poleRequired := true
+			advancePhase4(t, &p, &workflow.Decisions{KebutuhanTiang: &poleRequired}, workflow.Survei, workflow.RAB, workflow.KebutuhanTiang)
+			repo := &phase3PermohonanRepository{byID: p}
+			docRepo := &phase4DocumentRepository{}
+			user := entities.User{ID: uuid.New(), Role: rbac.RoleNps, Unit: "UP3"}
+			s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: user}, documentRepository: docRepo, db: phase3DB(t)}
+
+			response, err := s.SubmitExpansion(context.Background(), p.ID.String(), user.ID.String(), dto.ExpansionSubmitRequest{
+				NpsDelegationStatus: outcome, DocumentIDs: []string{uuid.NewString()},
+			})
+			require.NoError(t, err)
+			require.Equal(t, outcome, *response.NpsDelegationStatus)
+			require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.Perluasan).Status)
+			require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.NPS).Status)
+			require.Equal(t, "nps_"+outcome, repo.logs[1].Action)
+			if outcome == string(workflow.Return) {
+				require.Equal(t, string(workflow.Returned), response.Status)
+				require.Empty(t, response.AvailableActions)
+			} else {
+				require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.WOTiang).Status)
+				require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.WOKonstruksi).Status)
+				require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.WOAPP).Status)
+			}
+		})
+	}
+}
+
+func TestDelegationSkipsPoleBranchWhenRABSaysNoPole(t *testing.T) {
+	p := phase4Request(t, rbac.JenisSambunganJTMGardu)
+	poleRequired := false
+	advancePhase4(t, &p, &workflow.Decisions{KebutuhanTiang: &poleRequired}, workflow.Survei, workflow.RAB, workflow.KebutuhanTiang)
+	repo := &phase3PermohonanRepository{byID: p}
+	docRepo := &phase4DocumentRepository{}
+	user := entities.User{ID: uuid.New(), Role: rbac.RoleNps, Unit: "UP3"}
+	s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: user}, documentRepository: docRepo, db: phase3DB(t)}
+
+	response, err := s.SubmitExpansion(context.Background(), p.ID.String(), user.ID.String(), dto.ExpansionSubmitRequest{
+		NpsDelegationStatus: string(workflow.Delegated), DocumentIDs: []string{uuid.NewString()},
+	})
+	require.NoError(t, err)
+	require.Equal(t, string(workflow.Skipped), responseNode(t, response, workflow.WOTiang).Status)
+	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.WOKonstruksi).Status)
+	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.WOAPP).Status)
+}
+
+func TestSubmitRABForPLGTMUsesPlanningOwner(t *testing.T) {
+	p := phase4Request(t, rbac.JenisSambunganPlgTmKurang5)
+	advancePhase4(t, &p, nil, workflow.Survei)
+	repo := &phase3PermohonanRepository{byID: p}
+	docRepo := &phase4DocumentRepository{}
+	user := entities.User{ID: uuid.New(), Role: rbac.RolePerencanaan, Unit: "UP3"}
+	s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: user}, documentRepository: docRepo, db: phase3DB(t)}
+	poleRequired := false
+
+	response, err := s.SubmitRAB(context.Background(), p.ID.String(), user.ID.String(), dto.RABSubmitRequest{
+		KebutuhanTiang: &poleRequired, DocumentIDs: []string{uuid.NewString()},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, response.KebutuhanTiang)
+	require.False(t, *response.KebutuhanTiang)
+}
+
+func TestEvidenceFailurePreventsWorkflowPersistence(t *testing.T) {
+	p := phase4Request(t, rbac.JenisSambunganJTR)
+	advancePhase4(t, &p, nil, workflow.Survei)
+	repo := &phase3PermohonanRepository{byID: p}
+	docRepo := &phase4DocumentRepository{failAt: 2}
+	user := entities.User{ID: uuid.New(), Role: rbac.RoleTeknik, Unit: "ULP Taman"}
+	s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: user}, documentRepository: docRepo, db: phase3DB(t)}
+	poleRequired := false
+
+	_, err := s.SubmitRAB(context.Background(), p.ID.String(), user.ID.String(), dto.RABSubmitRequest{
+		KebutuhanTiang: &poleRequired, DocumentIDs: []string{uuid.NewString()},
+	})
+	require.ErrorIs(t, err, documentDTO.ErrDocumentAlreadyAttached)
+	require.Zero(t, repo.saveCalls)
+	require.Equal(t, string(workflow.Available), persistedNode(t, repo.byID, workflow.RAB).Status)
+	require.Equal(t, string(workflow.Locked), persistedNode(t, repo.byID, workflow.KebutuhanTiang).Status)
+}
+
+func TestMissingEvidenceIsReportedWithoutWorkflowPersistence(t *testing.T) {
+	p := phase4Request(t, rbac.JenisSambunganJTR)
+	repo := &phase3PermohonanRepository{byID: p}
+	docRepo := &phase4DocumentRepository{failAt: 1, attachErr: documentRepository.ErrDocumentNotFound}
+	user := entities.User{ID: uuid.New(), Role: rbac.RoleTeknik, Unit: "ULP Taman"}
+	s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: user}, documentRepository: docRepo, db: phase3DB(t)}
+
+	_, err := s.SubmitSurvey(context.Background(), p.ID.String(), user.ID.String(), dto.SurveySubmitRequest{
+		SurveyedAt: "2026-09-08", DocumentIDs: []string{uuid.NewString()},
+	})
+	require.ErrorIs(t, err, documentDTO.ErrDocumentNotFound)
+	require.Zero(t, repo.saveCalls)
+}
+
+func TestEvidenceFailureRollsBackDatabaseChanges(t *testing.T) {
+	db := phase4IntegrationDB(t)
+	user := entities.User{ID: uuid.New(), Name: "Teknik", Email: uuid.NewString() + "@example.test", Role: rbac.RoleTeknik, Unit: "ULP Taman"}
+	require.NoError(t, db.Create(&user).Error)
+	p := phase4Request(t, rbac.JenisSambunganJTR)
+	require.NoError(t, db.Omit("WorkflowNodes").Create(&p).Error)
+	for i := range p.WorkflowNodes {
+		p.WorkflowNodes[i].PermohonanID = p.ID
+	}
+	require.NoError(t, db.Create(&p.WorkflowNodes).Error)
+	document := entities.Document{ID: uuid.New(), Type: "survey", FilePath: "private/test.pdf", UploadedBy: user.ID}
+	require.NoError(t, db.Create(&document).Error)
+
+	realPermohonanRepository := repository.NewPermohonanRepository(db)
+	s := &permohonanService{
+		permohonanRepository: failingSavePermohonanRepository{PermohonanRepository: realPermohonanRepository},
+		userRepository:       userRepository.NewUserRepository(db),
+		documentRepository:   documentRepository.NewDocumentRepository(db),
+		db:                   db,
+	}
+	_, err := s.SubmitSurvey(context.Background(), p.ID.String(), user.ID.String(), dto.SurveySubmitRequest{
+		SurveyedAt: "2026-09-08", DocumentIDs: []string{document.ID.String()},
+	})
+	require.ErrorIs(t, err, dto.ErrSubmitActivity)
+
+	var reloaded entities.Document
+	require.NoError(t, db.First(&reloaded, "id = ?", document.ID).Error)
+	require.Nil(t, reloaded.PermohonanID)
+	var evidenceCount int64
+	require.NoError(t, db.Model(&entities.DocumentEvidence{}).Count(&evidenceCount).Error)
+	require.Zero(t, evidenceCount)
+	var node entities.PermohonanActivity
+	require.NoError(t, db.Where("permohonan_id = ? AND workflow_node = ?", p.ID, workflow.Survei).First(&node).Error)
+	require.Equal(t, string(workflow.Available), node.Status)
+}
+
+func phase4Request(t *testing.T, connection string) entities.Permohonan {
+	t.Helper()
+	p := entities.Permohonan{
+		ID: uuid.New(), NoPermohonan: "PBPD-2026-" + uuid.NewString()[:8], JenisPermohonan: rbac.JenisPermohonanPasangBaru,
+		JenisSambungan: connection, UlpUnit: "ULP Taman", PelangganNama: "Pelanggan Uji",
+		PelangganAlamat: "Alamat sintetis", PelangganNoHp: "0800000000", RequestDate: time.Now(),
+		Status: string(workflow.Active), CreatedBy: uuid.New(),
+	}
+	nodes, result, err := entities.InitializeWorkflow(p, mustSLARules(t, connection), time.Now())
+	require.NoError(t, err)
+	p.WorkflowNodes = nodes
+	p.CurrentStage = result.CurrentStage
+	return p
+}
+
+func advancePhase4(t *testing.T, p *entities.Permohonan, decisions *workflow.Decisions, codes ...workflow.Code) {
+	t.Helper()
+	snapshot := p.WorkflowSnapshot()
+	if decisions != nil {
+		if decisions.KebutuhanTiang != nil {
+			value := *decisions.KebutuhanTiang
+			snapshot.Decisions.KebutuhanTiang = &value
+		}
+		if decisions.NPS != "" {
+			snapshot.Decisions.NPS = decisions.NPS
+		}
+	}
+	var result workflow.Result
+	var err error
+	for _, code := range codes {
+		snapshot, result, err = workflow.Transition(snapshot, code, workflow.Completed)
+		require.NoError(t, err)
+	}
+	for i := range p.WorkflowNodes {
+		p.WorkflowNodes[i].Status = string(result.Nodes[workflow.Code(p.WorkflowNodes[i].WorkflowNode)])
+	}
+	p.CurrentStage = result.CurrentStage
+	p.Status = string(result.Status)
+	p.KebutuhanTiang = cloneBool(snapshot.Decisions.KebutuhanTiang)
+	if snapshot.Decisions.NPS != "" {
+		value := string(snapshot.Decisions.NPS)
+		p.NpsDelegationStatus = &value
+	}
+}
+
+func persistedNode(t *testing.T, p entities.Permohonan, code workflow.Code) entities.PermohonanActivity {
+	t.Helper()
+	for _, node := range p.WorkflowNodes {
+		if node.WorkflowNode == string(code) {
+			return node
+		}
+	}
+	t.Fatalf("node %s not found", code)
+	return entities.PermohonanActivity{}
+}
+
+func responseNode(t *testing.T, p dto.PermohonanResponse, code workflow.Code) dto.WorkflowNodeResponse {
+	t.Helper()
+	for _, node := range p.WorkflowNodes {
+		if node.WorkflowNode == string(code) {
+			return node
+		}
+	}
+	t.Fatalf("node %s not found", code)
+	return dto.WorkflowNodeResponse{}
+}
+
+func phase4IntegrationDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	dsn := "file:" + uuid.NewString() + "?mode=memory&cache=shared"
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	require.NoError(t, err)
+	statements := []string{
+		`CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, email TEXT, telp_number TEXT, password TEXT, role TEXT, unit TEXT, image_url TEXT, is_verified NUMERIC, created_at DATETIME, updated_at DATETIME)`,
+		`CREATE TABLE permohonan (id TEXT PRIMARY KEY, no_permohonan TEXT, jenis_permohonan TEXT, jenis_sambungan TEXT, ulp_unit TEXT, pelanggan_nama TEXT, pelanggan_alamat TEXT, pelanggan_no_hp TEXT, request_date DATETIME, current_stage INTEGER, status TEXT, kebutuhan_tiang NUMERIC, nps_delegation_status TEXT, perlu_pdkb NUMERIC, created_by TEXT, created_at DATETIME, updated_at DATETIME)`,
+		`CREATE TABLE permohonan_activities (id TEXT PRIMARY KEY, permohonan_id TEXT, workflow_node TEXT, activity_number INTEGER, stage_number INTEGER, status TEXT, sla_deadline DATETIME, payload TEXT, completed_by TEXT, completed_at DATETIME, created_at DATETIME, updated_at DATETIME, UNIQUE(permohonan_id, workflow_node))`,
+		`CREATE TABLE documents (id TEXT PRIMARY KEY, type TEXT, file_path TEXT, uploaded_by TEXT, permohonan_id TEXT, created_at DATETIME, updated_at DATETIME)`,
+		`CREATE TABLE document_evidence (id TEXT PRIMARY KEY, document_id TEXT, permohonan_id TEXT, workflow_node TEXT, attached_by TEXT, created_at DATETIME, updated_at DATETIME, UNIQUE(document_id, workflow_node))`,
+		`CREATE TABLE activity_logs (id TEXT PRIMARY KEY, permohonan_id TEXT, activity_number INTEGER, actor TEXT, action TEXT, detail TEXT, workflow_node TEXT, created_at DATETIME, updated_at DATETIME)`,
+	}
+	for _, statement := range statements {
+		require.NoError(t, db.Exec(statement).Error)
+	}
+	return db
 }
 
 func mustSLARules(t *testing.T, connection string) []entities.SLARule {

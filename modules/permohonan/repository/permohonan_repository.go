@@ -7,15 +7,70 @@ import (
 	"github.com/pln-colabora/colabora-be/database/entities"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/query"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type PermohonanRepository interface {
 	Create(ctx context.Context, tx *gorm.DB, permohonan entities.Permohonan, activities []entities.PermohonanActivity, log entities.ActivityLog) (entities.Permohonan, error)
 	GetById(ctx context.Context, tx *gorm.DB, id string) (entities.Permohonan, error)
+	GetByIdForUpdate(ctx context.Context, tx *gorm.DB, id string) (entities.Permohonan, error)
+	SaveWorkflow(ctx context.Context, tx *gorm.DB, permohonan entities.Permohonan, logs []entities.ActivityLog) error
 	List(ctx context.Context, tx *gorm.DB, filter *query.PermohonanFilter) ([]query.Permohonan, int64, error)
 	CountByNoPermohonanPrefix(ctx context.Context, tx *gorm.DB, prefix string) (int64, error)
 	ListWorkflowNodes(ctx context.Context, tx *gorm.DB, permohonanID string) ([]entities.PermohonanActivity, error)
 	ListActivityLogs(ctx context.Context, tx *gorm.DB, permohonanID string) ([]entities.ActivityLog, error)
+}
+
+func (r *permohonanRepository) GetByIdForUpdate(ctx context.Context, tx *gorm.DB, id string) (entities.Permohonan, error) {
+	if tx == nil {
+		tx = r.db
+	}
+
+	var permohonan entities.Permohonan
+	if err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("id = ?", id).Take(&permohonan).Error; err != nil {
+		return entities.Permohonan{}, err
+	}
+	if err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("permohonan_id = ?", id).
+		Order("stage_number asc, created_at asc").Find(&permohonan.WorkflowNodes).Error; err != nil {
+		return entities.Permohonan{}, err
+	}
+	return permohonan, nil
+}
+
+func (r *permohonanRepository) SaveWorkflow(ctx context.Context, tx *gorm.DB, permohonan entities.Permohonan, logs []entities.ActivityLog) error {
+	if tx == nil {
+		tx = r.db
+	}
+	db := tx.WithContext(ctx)
+	if err := db.Model(&entities.Permohonan{}).Where("id = ?", permohonan.ID).Updates(map[string]any{
+		"current_stage":         permohonan.CurrentStage,
+		"status":                permohonan.Status,
+		"kebutuhan_tiang":       permohonan.KebutuhanTiang,
+		"nps_delegation_status": permohonan.NpsDelegationStatus,
+		"perlu_pdkb":            permohonan.PerluPdkb,
+	}).Error; err != nil {
+		return err
+	}
+	for _, node := range permohonan.WorkflowNodes {
+		if err := db.Model(&entities.PermohonanActivity{}).
+			Where("permohonan_id = ? AND workflow_node = ?", permohonan.ID, node.WorkflowNode).
+			Updates(map[string]any{
+				"status":       node.Status,
+				"payload":      node.Payload,
+				"completed_by": node.CompletedBy,
+				"completed_at": node.CompletedAt,
+			}).Error; err != nil {
+			return err
+		}
+	}
+	if len(logs) > 0 {
+		if err := db.Create(&logs).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type permohonanRepository struct {

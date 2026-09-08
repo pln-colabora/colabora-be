@@ -6,12 +6,15 @@ import (
 
 	"github.com/Caknoooo/go-pagination"
 	"github.com/gin-gonic/gin"
+	documentDTO "github.com/pln-colabora/colabora-be/modules/document/dto"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/dto"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/query"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/service"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/validation"
 	"github.com/pln-colabora/colabora-be/pkg/constants"
+	"github.com/pln-colabora/colabora-be/pkg/rbac"
 	"github.com/pln-colabora/colabora-be/pkg/utils"
+	"github.com/pln-colabora/colabora-be/pkg/workflow"
 	"github.com/samber/do"
 	"gorm.io/gorm"
 )
@@ -23,6 +26,9 @@ type (
 		GetById(ctx *gin.Context)
 		GetActivities(ctx *gin.Context)
 		GetLogs(ctx *gin.Context)
+		SubmitSurvey(ctx *gin.Context)
+		SubmitRAB(ctx *gin.Context)
+		SubmitExpansion(ctx *gin.Context)
 	}
 
 	permohonanController struct {
@@ -40,6 +46,76 @@ func NewPermohonanController(injector *do.Injector, s service.PermohonanService)
 		permohonanValidation: permohonanValidation,
 		db:                   db,
 	}
+}
+
+func (c *permohonanController) SubmitSurvey(ctx *gin.Context) {
+	var req dto.SurveySubmitRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeActivityError(ctx, err)
+		return
+	}
+	if err := c.permohonanValidation.ValidateSurveySubmitRequest(req); err != nil {
+		writeActivityError(ctx, err)
+		return
+	}
+	result, err := c.permohonanService.SubmitSurvey(ctx, ctx.Param("id"), ctx.MustGet("user_id").(string), req)
+	if err != nil {
+		writeActivityError(ctx, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_SUBMIT_ACTIVITY, result))
+}
+
+func (c *permohonanController) SubmitRAB(ctx *gin.Context) {
+	var req dto.RABSubmitRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeActivityError(ctx, err)
+		return
+	}
+	if err := c.permohonanValidation.ValidateRABSubmitRequest(req); err != nil {
+		writeActivityError(ctx, err)
+		return
+	}
+	result, err := c.permohonanService.SubmitRAB(ctx, ctx.Param("id"), ctx.MustGet("user_id").(string), req)
+	if err != nil {
+		writeActivityError(ctx, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_SUBMIT_ACTIVITY, result))
+}
+
+func (c *permohonanController) SubmitExpansion(ctx *gin.Context) {
+	var req dto.ExpansionSubmitRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeActivityError(ctx, err)
+		return
+	}
+	if err := c.permohonanValidation.ValidateExpansionSubmitRequest(req); err != nil {
+		writeActivityError(ctx, err)
+		return
+	}
+	result, err := c.permohonanService.SubmitExpansion(ctx, ctx.Param("id"), ctx.MustGet("user_id").(string), req)
+	if err != nil {
+		writeActivityError(ctx, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_SUBMIT_ACTIVITY, result))
+}
+
+func writeActivityError(ctx *gin.Context, err error) {
+	status := http.StatusBadRequest
+	switch {
+	case errors.Is(err, rbac.ErrWorkflowForbidden):
+		status = http.StatusForbidden
+	case errors.Is(err, dto.ErrPermohonanNotFound), errors.Is(err, documentDTO.ErrDocumentNotFound):
+		status = http.StatusNotFound
+	case errors.Is(err, workflow.ErrNotActionable), errors.Is(err, workflow.ErrInvalidState),
+		errors.Is(err, documentDTO.ErrDocumentAlreadyAttached):
+		status = http.StatusConflict
+	case errors.Is(err, dto.ErrSubmitActivity):
+		status = http.StatusInternalServerError
+	}
+	ctx.JSON(status, utils.BuildResponseFailed(dto.MESSAGE_FAILED_SUBMIT_ACTIVITY, err.Error(), nil))
 }
 
 func (c *permohonanController) Create(ctx *gin.Context) {
