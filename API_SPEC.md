@@ -93,4 +93,4 @@ An attachment request must fail atomically if any document is missing, already a
 
 ## Runtime OpenAPI policy
 
-`docs/permohonan.yaml` currently documents the pre-refactor implementation where only `pelayanan-pelanggan` can create a request and responses expose `can_act`. Keep that description accurate and add a visible implementation-gap note. Replace it with this contract only in the same change that implements the corresponding runtime behavior.
+`docs/permohonan.yaml` documents the implemented Phase 3 create and read contract. Phase 4 write endpoints remain target-only here until their runtime handlers are delivered.

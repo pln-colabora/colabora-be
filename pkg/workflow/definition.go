@@ -116,6 +116,17 @@ func Lookup(code Code) (Definition, bool) {
 	return Definition{}, false
 }
 
+// CodeForActivity maps a numbered legacy activity to its canonical primary node.
+// Decisions and supporting nodes intentionally have no numeric representation.
+func CodeForActivity(activity int16) (Code, bool) {
+	for _, d := range definitions {
+		if d.ActivityNumber != nil && *d.ActivityNumber == activity {
+			return d.Code, true
+		}
+	}
+	return "", false
+}
+
 func ValidConnection(connection string) bool {
 	switch connection {
 	case "JTR", "JTM/Gardu", "PLG TM <5 GWNG", "PLG TM >5 GWNG":

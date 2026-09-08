@@ -10,13 +10,13 @@ import (
 	"github.com/pln-colabora/colabora-be/pkg/constants"
 	"github.com/pln-colabora/colabora-be/pkg/rbac"
 	"github.com/pln-colabora/colabora-be/pkg/utils"
+	"github.com/pln-colabora/colabora-be/pkg/workflow"
 	"github.com/samber/do"
 	"gorm.io/gorm"
 )
 
-// RequireActivityOwner rejects a request unless the caller's role currently owns the given
-// activity number on the permohonan identified by the route's :id param. Must run after
-// Authenticate (needs user_id in context) and on a route with an :id param.
+// RequireActivityOwner is a compatibility helper for numbered endpoints. New workflow
+// endpoints should authorize their canonical node directly with rbac.AuthorizeWorkflowNode.
 func RequireActivityOwner(activityNumber int16, injector *do.Injector) gin.HandlerFunc {
 	userRepository := do.MustInvoke[userRepo.UserRepository](injector)
 	permohonanRepository := do.MustInvoke[permohonanRepo.PermohonanRepository](injector)
@@ -39,7 +39,8 @@ func RequireActivityOwner(activityNumber int16, injector *do.Injector) gin.Handl
 			return
 		}
 
-		owns := rbac.OwnsActivity(user.Role, user.Unit, activityNumber, permohonan.JenisSambungan, permohonan.UlpUnit, permohonan.OwnerFnOverride)
+		node, ok := workflow.CodeForActivity(activityNumber)
+		owns := ok && rbac.OwnsWorkflowNode(user.Role, user.Unit, permohonan.JenisSambungan, permohonan.UlpUnit, node)
 		if !owns {
 			response := utils.BuildResponseFailed(dto.MESSAGE_FAILED_DENIED_ACCESS, "user does not own this activity", nil)
 			ctx.AbortWithStatusJSON(http.StatusForbidden, response)

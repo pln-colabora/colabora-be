@@ -3,104 +3,115 @@ package repository
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/pln-colabora/colabora-be/database/entities"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type DocumentRepository interface {
 	Create(ctx context.Context, tx *gorm.DB, document entities.Document) (entities.Document, error)
 	GetById(ctx context.Context, tx *gorm.DB, id string) (entities.Document, error)
-	ListByPermohonan(ctx context.Context, tx *gorm.DB, permohonanId string, activityNumber *int16) ([]entities.Document, error)
-	ExistsForActivity(ctx context.Context, tx *gorm.DB, permohonanId string, activityNumber int16) (bool, error)
-	// AttachToActivity links the given documents to a permohonan+activity in one atomic
-	// update, guarded by "permohonan_id IS NULL" so an already-attached document can never
-	// be silently re-attached (hijacked) — callers must compare the returned rows-affected
-	// against len(documentIds) and treat a mismatch as failure.
-	AttachToActivity(ctx context.Context, tx *gorm.DB, documentIds []string, permohonanId string, activityNumber int16) (int64, error)
+	ListByPermohonan(ctx context.Context, tx *gorm.DB, permohonanID string, workflowNode *string) ([]entities.Document, error)
+	ExistsForWorkflowNode(ctx context.Context, tx *gorm.DB, permohonanID, workflowNode string) (bool, error)
+	AttachToWorkflowNode(ctx context.Context, tx *gorm.DB, documentIDs []string, permohonanID, workflowNode, attachedBy string) (int64, error)
 }
 
-type documentRepository struct {
-	db *gorm.DB
-}
+type documentRepository struct{ db *gorm.DB }
 
-func NewDocumentRepository(db *gorm.DB) DocumentRepository {
-	return &documentRepository{
-		db: db,
+func NewDocumentRepository(db *gorm.DB) DocumentRepository { return &documentRepository{db: db} }
+
+func (r *documentRepository) database(tx *gorm.DB) *gorm.DB {
+	if tx != nil {
+		return tx
 	}
+	return r.db
 }
 
 func (r *documentRepository) Create(ctx context.Context, tx *gorm.DB, document entities.Document) (entities.Document, error) {
-	if tx == nil {
-		tx = r.db
-	}
-
-	if err := tx.WithContext(ctx).Create(&document).Error; err != nil {
+	if err := r.database(tx).WithContext(ctx).Create(&document).Error; err != nil {
 		return entities.Document{}, err
 	}
-
 	return document, nil
 }
 
 func (r *documentRepository) GetById(ctx context.Context, tx *gorm.DB, id string) (entities.Document, error) {
-	if tx == nil {
-		tx = r.db
-	}
-
 	var document entities.Document
-	if err := tx.WithContext(ctx).Where("id = ?", id).Take(&document).Error; err != nil {
+	if err := r.database(tx).WithContext(ctx).Preload("Evidence").Where("id = ?", id).Take(&document).Error; err != nil {
 		return entities.Document{}, err
 	}
-
 	return document, nil
 }
 
-func (r *documentRepository) ListByPermohonan(ctx context.Context, tx *gorm.DB, permohonanId string, activityNumber *int16) ([]entities.Document, error) {
-	if tx == nil {
-		tx = r.db
-	}
-
-	query := tx.WithContext(ctx).Where("permohonan_id = ?", permohonanId)
-	if activityNumber != nil {
-		query = query.Where("activity_number = ?", *activityNumber)
+func (r *documentRepository) ListByPermohonan(ctx context.Context, tx *gorm.DB, permohonanID string, workflowNode *string) ([]entities.Document, error) {
+	query := r.database(tx).WithContext(ctx).Model(&entities.Document{}).Where("documents.permohonan_id = ?", permohonanID)
+	if workflowNode != nil {
+		query = query.Joins("JOIN document_evidence de ON de.document_id = documents.id AND de.permohonan_id = documents.permohonan_id").
+			Where("de.workflow_node = ?", *workflowNode)
 	}
 
 	var documents []entities.Document
-	if err := query.Order("created_at desc").Find(&documents).Error; err != nil {
+	if err := query.Distinct("documents.*").Preload("Evidence").Order("documents.created_at desc").Find(&documents).Error; err != nil {
 		return nil, err
 	}
-
 	return documents, nil
 }
 
-func (r *documentRepository) ExistsForActivity(ctx context.Context, tx *gorm.DB, permohonanId string, activityNumber int16) (bool, error) {
-	if tx == nil {
-		tx = r.db
-	}
-
+func (r *documentRepository) ExistsForWorkflowNode(ctx context.Context, tx *gorm.DB, permohonanID, workflowNode string) (bool, error) {
 	var count int64
-	if err := tx.WithContext(ctx).Model(&entities.Document{}).
-		Where("permohonan_id = ? AND activity_number = ?", permohonanId, activityNumber).
-		Count(&count).Error; err != nil {
-		return false, err
-	}
-
-	return count > 0, nil
+	err := r.database(tx).WithContext(ctx).Model(&entities.DocumentEvidence{}).
+		Where("permohonan_id = ? AND workflow_node = ?", permohonanID, workflowNode).Count(&count).Error
+	return count > 0, err
 }
 
-func (r *documentRepository) AttachToActivity(ctx context.Context, tx *gorm.DB, documentIds []string, permohonanId string, activityNumber int16) (int64, error) {
-	if tx == nil {
-		tx = r.db
+// AttachToWorkflowNode allows a document already attached to this permohonan to
+// be classified under another node. It never moves a document between requests.
+func (r *documentRepository) AttachToWorkflowNode(ctx context.Context, tx *gorm.DB, documentIDs []string, permohonanID, workflowNode, attachedBy string) (int64, error) {
+	db := r.database(tx).WithContext(ctx)
+	permohonanUUID, err := uuid.Parse(permohonanID)
+	if err != nil {
+		return 0, err
+	}
+	attachedByUUID, err := uuid.Parse(attachedBy)
+	if err != nil {
+		return 0, err
+	}
+	ids := make([]string, 0, len(documentIDs))
+	seen := make(map[string]struct{}, len(documentIDs))
+	for _, documentID := range documentIDs {
+		if _, err := uuid.Parse(documentID); err != nil {
+			return 0, err
+		}
+		if _, ok := seen[documentID]; !ok {
+			seen[documentID] = struct{}{}
+			ids = append(ids, documentID)
+		}
+	}
+	if len(ids) == 0 {
+		return 0, nil
 	}
 
-	result := tx.WithContext(ctx).Model(&entities.Document{}).
-		Where("id IN (?) AND permohonan_id IS NULL", documentIds).
-		Updates(map[string]any{
-			"permohonan_id":   permohonanId,
-			"activity_number": activityNumber,
+	if err := db.Model(&entities.Document{}).
+		Where("id IN (?) AND (permohonan_id IS NULL OR permohonan_id = ?)", ids, permohonanID).
+		Update("permohonan_id", permohonanID).Error; err != nil {
+		return 0, err
+	}
+
+	var attachedCount int64
+	if err := db.Model(&entities.Document{}).Where("id IN (?) AND permohonan_id = ?", ids, permohonanID).Count(&attachedCount).Error; err != nil {
+		return 0, err
+	}
+	if attachedCount != int64(len(ids)) {
+		return attachedCount, nil
+	}
+
+	evidence := make([]entities.DocumentEvidence, 0, len(ids))
+	for _, documentID := range ids {
+		id, _ := uuid.Parse(documentID)
+		evidence = append(evidence, entities.DocumentEvidence{
+			DocumentID: id, PermohonanID: permohonanUUID, WorkflowNode: workflowNode, AttachedBy: attachedByUUID,
 		})
-	if result.Error != nil {
-		return 0, result.Error
 	}
-
-	return result.RowsAffected, nil
+	result := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&evidence)
+	return result.RowsAffected, result.Error
 }

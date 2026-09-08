@@ -1,6 +1,6 @@
 # DATA_MODEL.md — COLABORA Target Entities
 
-This is the target data model for the dependency-based workflow in `PRD.md`. Existing entities still use activity numbers, stage ownership, `NpsKeputusan`, and `OwnerFnOverride`; development data/API compatibility is not required when implementing this refactor.
+This is the target data model for the dependency-based workflow in `PRD.md`. Phase 2 implements its persistence model; Phase 3 and Phase 4 will finish its entry/read and transition APIs.
 
 ## Design principles
 
@@ -33,7 +33,7 @@ This is the target data model for the dependency-based workflow in `PRD.md`. Exi
 
 ## `PermohonanWorkflowNode`
 
-One row per workflow node applicable to a request. All canonical node codes are listed in `PRD.md`.
+One row per canonical workflow node for a request. All codes are listed in `PRD.md`; conditional nodes are retained and marked `skipped` when inapplicable.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -68,13 +68,23 @@ Evidence remains stored privately in Garage and downloaded through a presigned U
 |---|---|---|
 | `ID` | UUID | Primary key |
 | `PermohonanID` | nullable UUID FK | Null during upload-first state |
-| `WorkflowNode` | nullable varchar(50) | Set when attached to an activity submission |
-| `ActivityNumber` | nullable smallint | Optional reporting metadata, derived from node definition |
-| `FileUrl` | varchar | Private object key, not a public URL |
+| `FilePath` | varchar | Private object key, not a public URL |
 | `UploadedBy` | UUID FK | Uploading actor |
 | Timestamps | | Created/updated timestamps |
 
-Attachment authorization evaluates `WorkflowNode`, not stage or activity number alone.
+One file belongs to at most one `Permohonan`, but may evidence multiple nodes of that request through `DocumentEvidence`.
+
+## `DocumentEvidence`
+
+| Field | Type | Notes |
+|---|---|---|
+| `ID` | UUID | Primary key |
+| `DocumentID`, `PermohonanID` | UUID | Composite FK to the file's one request binding |
+| `WorkflowNode` | varchar(50) | Composite FK to `PermohonanWorkflowNode` |
+| `AttachedBy` | UUID FK → users | Actor who associated the evidence |
+| Timestamps | | Created/updated timestamps |
+
+`(DocumentID, WorkflowNode)` is unique. Attachment authorization evaluates the target `WorkflowNode`, not stage or activity number alone.
 
 ## `ActivityLog`
 
@@ -99,4 +109,4 @@ Attachment authorization evaluates `WorkflowNode`, not stage or activity number 
 
 ## Migration strategy
 
-Breaking changes are allowed. Implement a new migration that creates/adds the workflow-node fields, migrate only data worth retaining, then remove legacy `OwnerFnOverride` and old NPS naming. A development database reset is acceptable; do not edit already-shipped migration files in place.
+Breaking changes are allowed. `20260908120000_refactor_workflow_nodes` adds the workflow-node fields, maps retained numbered history, removes legacy ownership/NPS naming, and creates evidence associations. A development database reset is acceptable; do not edit already-shipped migration files in place.

@@ -3,7 +3,6 @@ package controller
 import (
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pln-colabora/colabora-be/modules/document/dto"
@@ -41,7 +40,7 @@ func NewDocumentController(injector *do.Injector, s service.DocumentService) Doc
 
 // Upload is registered at the top-level POST /api/documents (no permohonan in the path) —
 // a document is uploaded standalone and attached to a permohonan+activity later, when a
-// Phase 4 activity endpoint calls DocumentService.AttachToActivity.
+// Phase 4 activity endpoint calls DocumentService.AttachToWorkflowNode.
 func (c *documentController) Upload(ctx *gin.Context) {
 	var req dto.DocumentUploadRequest
 	if err := ctx.ShouldBind(&req); err != nil {
@@ -72,19 +71,12 @@ func (c *documentController) Upload(ctx *gin.Context) {
 func (c *documentController) List(ctx *gin.Context) {
 	permohonanId := ctx.Param("id")
 
-	var activityNumber *int16
-	if raw := ctx.Query("activity_number"); raw != "" {
-		parsed, err := strconv.ParseInt(raw, 10, 16)
-		if err != nil {
-			res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_LIST_DOCUMENT, "invalid activity_number", nil)
-			ctx.JSON(http.StatusBadRequest, res)
-			return
-		}
-		value := int16(parsed)
-		activityNumber = &value
+	var workflowNode *string
+	if value := ctx.Query("workflow_node"); value != "" {
+		workflowNode = &value
 	}
 
-	results, err := c.documentService.List(ctx, permohonanId, activityNumber)
+	results, err := c.documentService.List(ctx, permohonanId, workflowNode)
 	if err != nil {
 		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_LIST_DOCUMENT, err.Error(), nil)
 		ctx.JSON(http.StatusBadRequest, res)

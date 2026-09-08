@@ -15,6 +15,7 @@ type (
 		CheckEmail(ctx context.Context, tx *gorm.DB, email string) (entities.User, bool, error)
 		Update(ctx context.Context, tx *gorm.DB, user entities.User) (entities.User, error)
 		Delete(ctx context.Context, tx *gorm.DB, userId string) error
+		ExistsByUnitAndRoles(ctx context.Context, tx *gorm.DB, unit string, roles []string) (bool, error)
 	}
 
 	userRepository struct {
@@ -101,4 +102,15 @@ func (r *userRepository) Delete(ctx context.Context, tx *gorm.DB, userId string)
 	}
 
 	return nil
+}
+
+func (r *userRepository) ExistsByUnitAndRoles(ctx context.Context, tx *gorm.DB, unit string, roles []string) (bool, error) {
+	if tx == nil {
+		tx = r.db
+	}
+	var count int64
+	err := tx.WithContext(ctx).Model(&entities.User{}).
+		Where("unit = ? AND role IN ?", unit, roles).
+		Count(&count).Error
+	return count > 0, err
 }

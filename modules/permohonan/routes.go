@@ -18,6 +18,8 @@ func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
 	{
 		permohonanRoutes.POST("", permohonanController.Create)
 		permohonanRoutes.GET("", permohonanController.GetAll)
+		permohonanRoutes.GET("/:id/activities", permohonanController.GetActivities)
+		permohonanRoutes.GET("/:id/logs", permohonanController.GetLogs)
 		permohonanRoutes.GET("/:id", permohonanController.GetById)
 	}
 }

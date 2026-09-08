@@ -21,6 +21,8 @@ type (
 		Create(ctx *gin.Context)
 		GetAll(ctx *gin.Context)
 		GetById(ctx *gin.Context)
+		GetActivities(ctx *gin.Context)
+		GetLogs(ctx *gin.Context)
 	}
 
 	permohonanController struct {
@@ -59,7 +61,7 @@ func (c *permohonanController) Create(ctx *gin.Context) {
 	result, err := c.permohonanService.Create(ctx, req, userId)
 	if err != nil {
 		status := http.StatusBadRequest
-		if errors.Is(err, dto.ErrOnlyPelayananPelangganCanCreate) {
+		if errors.Is(err, dto.ErrCreateForbidden) {
 			status = http.StatusForbidden
 		}
 		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_CREATE_PERMOHONAN, err.Error(), nil)
@@ -69,6 +71,36 @@ func (c *permohonanController) Create(ctx *gin.Context) {
 
 	res := utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_CREATE_PERMOHONAN, result)
 	ctx.JSON(http.StatusCreated, res)
+}
+
+func (c *permohonanController) GetActivities(ctx *gin.Context) {
+	results, err := c.permohonanService.GetActivities(ctx, ctx.Param("id"))
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, dto.ErrPermohonanNotFound) {
+			status = http.StatusNotFound
+		}
+		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_ACTIVITIES, err.Error(), nil)
+		ctx.JSON(status, res)
+		return
+	}
+	res := utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_GET_ACTIVITIES, results)
+	ctx.JSON(http.StatusOK, res)
+}
+
+func (c *permohonanController) GetLogs(ctx *gin.Context) {
+	results, err := c.permohonanService.GetLogs(ctx, ctx.Param("id"))
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, dto.ErrPermohonanNotFound) {
+			status = http.StatusNotFound
+		}
+		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_LOGS, err.Error(), nil)
+		ctx.JSON(status, res)
+		return
+	}
+	res := utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_GET_LOGS, results)
+	ctx.JSON(http.StatusOK, res)
 }
 
 func (c *permohonanController) GetAll(ctx *gin.Context) {

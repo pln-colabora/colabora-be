@@ -13,6 +13,7 @@ import (
 	permohonanRepository "github.com/pln-colabora/colabora-be/modules/permohonan/repository"
 	userRepository "github.com/pln-colabora/colabora-be/modules/user/repository"
 	"github.com/pln-colabora/colabora-be/pkg/rbac"
+	"github.com/pln-colabora/colabora-be/pkg/workflow"
 	"gorm.io/gorm"
 )
 
@@ -22,15 +23,15 @@ const presignTTL = 15 * time.Minute
 
 type DocumentService interface {
 	// Upload stores a raw file standalone — no permohonan/activity context yet, so no
-	// ownership check happens here. It's attached later via AttachToActivity.
+	// ownership check happens here. It's attached later via AttachToWorkflowNode.
 	Upload(ctx context.Context, userId string, req dto.DocumentUploadRequest) (dto.DocumentResponse, error)
-	// AttachToActivity is not yet wired to any HTTP endpoint — built for Phase 4's
+	// AttachToWorkflowNode is not yet wired to any HTTP endpoint — built for Phase 4's
 	// activity-submission endpoints to call once they exist, referencing documents that
 	// were uploaded earlier via Upload.
-	AttachToActivity(ctx context.Context, userId, permohonanId string, activityNumber int16, documentIds []string) error
+	AttachToWorkflowNode(ctx context.Context, userId, permohonanId, workflowNode string, documentIds []string) error
 	Download(ctx context.Context, permohonanId, docId string) (string, error)
-	List(ctx context.Context, permohonanId string, activityNumber *int16) ([]dto.DocumentResponse, error)
-	HasEvidence(ctx context.Context, permohonanId string, activityNumber int16) (bool, error)
+	List(ctx context.Context, permohonanId string, workflowNode *string) ([]dto.DocumentResponse, error)
+	HasEvidence(ctx context.Context, permohonanId, workflowNode string) (bool, error)
 }
 
 type documentService struct {
@@ -90,15 +91,15 @@ func (s *documentService) Upload(ctx context.Context, userId string, req dto.Doc
 	return toDocumentResponse(created), nil
 }
 
-// AttachToActivity's ownership check is inline rather than middlewares.RequireActivityOwner
-// — that middleware bakes its activityNumber in at route-registration time (built for
-// Phase 4's one-activity-per-route endpoints), but this is called with a runtime value from
-// whichever activity endpoint is submitting. The "permohonan_id IS NULL" guard inside
-// AttachToActivity's repository update is what actually prevents hijacking a document
-// someone else uploaded — comparing rows-affected here is what surfaces that failure.
-func (s *documentService) AttachToActivity(ctx context.Context, userId, permohonanId string, activityNumber int16, documentIds []string) error {
+// AttachToWorkflowNode's ownership check is inline: the node is selected at runtime by
+// the Phase 4 activity endpoint. The repository refuses to move a file from one
+// permohonan to another; Phase 5 will add the aggregate read/access policy.
+func (s *documentService) AttachToWorkflowNode(ctx context.Context, userId, permohonanId, workflowNode string, documentIds []string) error {
 	if len(documentIds) == 0 {
 		return nil
+	}
+	if _, ok := workflow.Lookup(workflow.Code(workflowNode)); !ok {
+		return dto.ErrWorkflowNodeNotFound
 	}
 
 	permohonan, err := s.permohonanRepository.GetById(ctx, s.db, permohonanId)
@@ -108,15 +109,15 @@ func (s *documentService) AttachToActivity(ctx context.Context, userId, permohon
 
 	submitter, err := s.userRepository.GetUserById(ctx, s.db, userId)
 	if err != nil {
-		return dto.ErrNotActivityOwner
+		return dto.ErrNotWorkflowNodeOwner
 	}
 
-	owns := rbac.OwnsActivity(submitter.Role, submitter.Unit, activityNumber, permohonan.JenisSambungan, permohonan.UlpUnit, permohonan.OwnerFnOverride)
+	owns := rbac.OwnsWorkflowNode(submitter.Role, submitter.Unit, permohonan.JenisSambungan, permohonan.UlpUnit, workflow.Code(workflowNode))
 	if !owns {
-		return dto.ErrNotActivityOwner
+		return dto.ErrNotWorkflowNodeOwner
 	}
 
-	rowsAffected, err := s.documentRepository.AttachToActivity(ctx, s.db, documentIds, permohonan.ID.String(), activityNumber)
+	rowsAffected, err := s.documentRepository.AttachToWorkflowNode(ctx, s.db, documentIds, permohonan.ID.String(), workflowNode, submitter.ID.String())
 	if err != nil {
 		return err
 	}
@@ -136,8 +137,8 @@ func (s *documentService) Download(ctx context.Context, permohonanId, docId stri
 	return s.storageClient.PresignGetObject(ctx, document.FilePath, presignTTL)
 }
 
-func (s *documentService) List(ctx context.Context, permohonanId string, activityNumber *int16) ([]dto.DocumentResponse, error) {
-	documents, err := s.documentRepository.ListByPermohonan(ctx, s.db, permohonanId, activityNumber)
+func (s *documentService) List(ctx context.Context, permohonanId string, workflowNode *string) ([]dto.DocumentResponse, error) {
+	documents, err := s.documentRepository.ListByPermohonan(ctx, s.db, permohonanId, workflowNode)
 	if err != nil {
 		return nil, err
 	}
@@ -152,8 +153,8 @@ func (s *documentService) List(ctx context.Context, permohonanId string, activit
 
 // HasEvidence lets Phase 4 activity endpoints (once built) check required-evidence presence
 // per API_SPEC.md's per-endpoint step 2, without reimplementing the query.
-func (s *documentService) HasEvidence(ctx context.Context, permohonanId string, activityNumber int16) (bool, error) {
-	return s.documentRepository.ExistsForActivity(ctx, s.db, permohonanId, activityNumber)
+func (s *documentService) HasEvidence(ctx context.Context, permohonanId, workflowNode string) (bool, error) {
+	return s.documentRepository.ExistsForWorkflowNode(ctx, s.db, permohonanId, workflowNode)
 }
 
 func toDocumentResponse(d entities.Document) dto.DocumentResponse {
@@ -164,11 +165,19 @@ func toDocumentResponse(d entities.Document) dto.DocumentResponse {
 	}
 
 	return dto.DocumentResponse{
-		ID:             d.ID.String(),
-		Type:           d.Type,
-		PermohonanID:   permohonanId,
-		ActivityNumber: d.ActivityNumber,
-		UploadedBy:     d.UploadedBy.String(),
-		CreatedAt:      d.CreatedAt.Format(time.RFC3339),
+		ID:            d.ID.String(),
+		Type:          d.Type,
+		PermohonanID:  permohonanId,
+		WorkflowNodes: evidenceNodes(d.Evidence),
+		UploadedBy:    d.UploadedBy.String(),
+		CreatedAt:     d.CreatedAt.Format(time.RFC3339),
 	}
+}
+
+func evidenceNodes(evidence []entities.DocumentEvidence) []string {
+	nodes := make([]string, 0, len(evidence))
+	for _, item := range evidence {
+		nodes = append(nodes, item.WorkflowNode)
+	}
+	return nodes
 }

@@ -6,6 +6,11 @@ import (
 )
 
 func Migrate(db *gorm.DB) error {
+	manager := NewMigrationManager(db)
+	if err := manager.Run(); err != nil {
+		return err
+	}
+
 	if err := db.AutoMigrate(
 		&entities.Migration{},
 		&entities.User{},
@@ -15,10 +20,9 @@ func Migrate(db *gorm.DB) error {
 		&entities.PermohonanActivity{},
 		&entities.ActivityLog{},
 		&entities.Document{},
+		&entities.DocumentEvidence{},
 	); err != nil {
 		return err
 	}
-
-	manager := NewMigrationManager(db)
-	return manager.Run()
+	return nil
 }

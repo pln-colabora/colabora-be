@@ -3,7 +3,8 @@
 This is the canonical implementation plan for the COLABORA backend. It records what is implemented, what remains, and the exit gate for each delivery phase. Detailed product behavior, persistence, API, and authorization contracts remain in `PRD.md`, `DATA_MODEL.md`, `API_SPEC.md`, and `RBAC.md`.
 
 **Baseline verified:** 8 September 2026  
-**Next phase:** Phase 2 — Workflow-node persistence  
+**Next phase:** Phase 4 — Activity endpoints
+
 **Compatibility policy:** breaking development schema and API changes are allowed; runtime OpenAPI must continue to describe only behavior that is actually implemented.
 
 ## 1. Sources of truth
@@ -37,22 +38,18 @@ The remaining hifi forms, detail pages, demo navigation, and client-side RBAC ar
 - Gin/GORM application structure, PostgreSQL migrations and seeders, dependency injection, health endpoints, CORS, and Scalar documentation aggregation.
 - JWT access/refresh authentication and users with COLABORA role and unit data.
 - SLA-rule persistence and seed data for numbered activities.
-- Permohonan creation, paginated list, filters, `scope=mine`, and detail retrieval using the legacy stage model.
-- `PermohonanActivity` and `ActivityLog` persistence; creation currently initializes only Activities #1–#2 and records the creation event.
-- Legacy stage/activity ownership helpers, ULP scoping, and an activity-owner middleware.
-- Private Garage/S3-compatible document upload, list, download, validation, and upload-first attachment helpers.
+- Connection-specific creation: matching-ULP `pelayanan-pelanggan` for JTR/JTM, and `nps` with a configured target ULP for PLG TM.
+- Paginated list, node-based `scope=mine`, detail with all workflow nodes and caller-owned `available_actions`, plus activity-timeline and audit-log reads.
+- Workflow-node persistence: creation initializes all 21 canonical nodes, with nullable display/SLA fields for decision and support nodes; logs carry the canonical node code.
+- Exact-node role/unit ownership helpers, plus a compatibility middleware for remaining numbered routes.
+- Private Garage/S3-compatible document upload, list, download, validation, and upload-first node-evidence helpers. One stored file may evidence multiple nodes of the same request.
 - Runtime OpenAPI for the currently implemented auth, user, permohonan, document, and health endpoints.
 
 ### Known gaps
 
-- Creation permits only `pelayanan-pelanggan`; the PLG TM NPS entry path and explicit target ULP are not implemented.
-- Stage ownership, `OwnerFnOverride`, and one `can_act` value cannot represent exact or simultaneous workflow actions.
-- The canonical engine exists in `pkg/workflow`; persistence and HTTP services still need to adopt it in Phases 2–4.
-- Persistence still identifies activities by a required number and deadline, so it cannot represent #3b or supporting PK/PDKB nodes correctly.
-- `NpsKeputusan` and legacy status values do not match the target delegation and node-state model.
 - No activity-submission HTTP endpoints exist. Document attachment and evidence checks therefore have no production caller.
-- Documents attach by activity number, not workflow node, and list/download access has the same unresolved read-authorization/IDOR gap as permohonan detail.
-- Permohonan controller/service/repository test files are placeholders. Existing meaningful coverage is concentrated in authentication validation, document validation/service, middleware, and RBAC helpers.
+- Document evidence attaches by workflow node, but list/download access has the same unresolved read-authorization/IDOR gap as permohonan detail.
+- Generated permohonan test files under `modules/permohonan/tests` remain placeholders; meaningful Phase 3 coverage now lives beside the controller/service and in RBAC tests.
 
 ### Verified baseline
 
@@ -92,7 +89,7 @@ The evaluator must consume explicit state and decisions without querying HTTP or
 
 **Exit gate:** table-driven unit tests cover both connection families, every node, both conditional branches, NPS return, all parallel paths completed in either order, each join gate, ULP mismatch, and super-user read-only behavior.
 
-### Phase 2 — Workflow-node persistence — Queued
+### Phase 2 — Workflow-node persistence — Complete
 
 - Add workflow-node identity to permohonan activity records and activity logs.
 - Make display activity number and SLA deadline nullable.
@@ -104,9 +101,13 @@ The evaluator must consume explicit state and decisions without querying HTTP or
 
 **Exit gate:** migration up/rollback succeeds on a clean development database; constraints prevent duplicate request/node rows; null SLA behavior is correct; all nodes initialize consistently; and legacy fields are no longer used by runtime code.
 
-Before freezing this schema, resolve whether one physical source file may evidence multiple workflow nodes. The current single-association model remains provisional because inspected WO bundles contain content for more than one activity.
+Decision recorded: one physical source file may evidence multiple workflow nodes within its one permohonan. `document_evidence` is the association table; it preserves one request binding per stored file and enforces a unique document/node association.
 
-### Phase 3 — Entry path and read model — Queued
+Implementation verification: `go test ./...` passes. On 8 September 2026, migration up → rollback → up succeeded against an isolated clean PostgreSQL database. The verification confirmed nullable activity/SLA metadata, required node identity, removal/restoration of legacy columns, duplicate request/node prevention, composite evidence foreign keys, and two node-evidence associations for one physical file in the same request.
+
+### Phase 3 — Entry path and read model — Complete
+
+Implemented connection-aware request creation, configured target-ULP validation for NPS-created PLG TM requests, canonical workflow-node/detail projections, caller-specific action links, node-derived SLA state, node-based `scope=mine`, and authenticated activity/log read endpoints. Runtime OpenAPI now describes those delivered contracts.
 
 - Refactor creation authorization and request validation:
   - JTR/JTM: caller must be matching-ULP `pelayanan-pelanggan`; omit `ulp_unit` and derive it from the caller.
@@ -182,7 +183,6 @@ Keep this table synchronized with `database/seeders/json/sla_rules.json`. The cu
 
 These decisions must be confirmed before their dependent implementation is considered complete:
 
-- whether bundled files are split per node or one stored object can have multiple node-evidence associations;
 - exact required evidence and structured fields for Activities #8, #11, #12, #14–#17, and the PDKB branch;
 - whether relay/OCR evidence belongs entirely to `tera_app` or gates another node;
 - correction/revision behavior for completed nodes and superseded documents;

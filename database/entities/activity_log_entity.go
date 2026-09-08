@@ -15,6 +15,7 @@ type ActivityLog struct {
 	Action         string     `gorm:"type:varchar(100);not null" json:"action"`
 	Detail         *string    `gorm:"type:text" json:"detail"`
 
+	WorkflowNode *string `gorm:"type:varchar(50)" json:"workflow_node"`
 	Timestamp
 }
 

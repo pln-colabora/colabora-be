@@ -41,15 +41,15 @@ func (f *fakeDocumentRepository) GetById(ctx context.Context, tx *gorm.DB, id st
 	return f.byId, f.byIdErr
 }
 
-func (f *fakeDocumentRepository) ListByPermohonan(ctx context.Context, tx *gorm.DB, permohonanId string, activityNumber *int16) ([]entities.Document, error) {
+func (f *fakeDocumentRepository) ListByPermohonan(ctx context.Context, tx *gorm.DB, permohonanId string, workflowNode *string) ([]entities.Document, error) {
 	return []entities.Document{f.byId}, nil
 }
 
-func (f *fakeDocumentRepository) ExistsForActivity(ctx context.Context, tx *gorm.DB, permohonanId string, activityNumber int16) (bool, error) {
+func (f *fakeDocumentRepository) ExistsForWorkflowNode(ctx context.Context, tx *gorm.DB, permohonanId, workflowNode string) (bool, error) {
 	return f.existsOK, nil
 }
 
-func (f *fakeDocumentRepository) AttachToActivity(ctx context.Context, tx *gorm.DB, documentIds []string, permohonanId string, activityNumber int16) (int64, error) {
+func (f *fakeDocumentRepository) AttachToWorkflowNode(ctx context.Context, tx *gorm.DB, documentIds []string, permohonanId, workflowNode, attachedBy string) (int64, error) {
 	if f.attachErr != nil {
 		return 0, f.attachErr
 	}
@@ -72,6 +72,12 @@ func (f *fakePermohonanRepository) List(ctx context.Context, tx *gorm.DB, filter
 }
 func (f *fakePermohonanRepository) CountByNoPermohonanPrefix(ctx context.Context, tx *gorm.DB, prefix string) (int64, error) {
 	return 0, nil
+}
+func (f *fakePermohonanRepository) ListWorkflowNodes(ctx context.Context, tx *gorm.DB, permohonanID string) ([]entities.PermohonanActivity, error) {
+	return nil, nil
+}
+func (f *fakePermohonanRepository) ListActivityLogs(ctx context.Context, tx *gorm.DB, permohonanID string) ([]entities.ActivityLog, error) {
+	return nil, nil
 }
 
 type fakeUserRepository struct {
@@ -96,6 +102,9 @@ func (f *fakeUserRepository) Update(ctx context.Context, tx *gorm.DB, user entit
 }
 func (f *fakeUserRepository) Delete(ctx context.Context, tx *gorm.DB, userId string) error {
 	return nil
+}
+func (f *fakeUserRepository) ExistsByUnitAndRoles(ctx context.Context, tx *gorm.DB, unit string, roles []string) (bool, error) {
+	return true, nil
 }
 
 type fakeStorageClient struct {
@@ -154,10 +163,10 @@ func TestDocumentService_Upload(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "evidence", result.Type)
 	assert.Nil(t, result.PermohonanID)
-	assert.Nil(t, result.ActivityNumber)
+	assert.Empty(t, result.WorkflowNodes)
 }
 
-func TestDocumentService_AttachToActivity(t *testing.T) {
+func TestDocumentService_AttachToWorkflowNode(t *testing.T) {
 	permohonan := entities.Permohonan{
 		ID:             uuid.New(),
 		JenisSambungan: rbac.JenisSambunganJTR,
@@ -173,7 +182,7 @@ func TestDocumentService_AttachToActivity(t *testing.T) {
 			userRepository:       &fakeUserRepository{user: user},
 		}
 
-		err := s.AttachToActivity(context.Background(), user.ID.String(), permohonan.ID.String(), 2, documentIds)
+		err := s.AttachToWorkflowNode(context.Background(), user.ID.String(), permohonan.ID.String(), "survei", documentIds)
 		require.NoError(t, err)
 	})
 
@@ -185,8 +194,8 @@ func TestDocumentService_AttachToActivity(t *testing.T) {
 			userRepository:       &fakeUserRepository{user: user},
 		}
 
-		err := s.AttachToActivity(context.Background(), user.ID.String(), permohonan.ID.String(), 2, documentIds)
-		assert.ErrorIs(t, err, dto.ErrNotActivityOwner)
+		err := s.AttachToWorkflowNode(context.Background(), user.ID.String(), permohonan.ID.String(), "survei", documentIds)
+		assert.ErrorIs(t, err, dto.ErrNotWorkflowNodeOwner)
 	})
 
 	t.Run("already-attached document rejects the whole batch", func(t *testing.T) {
@@ -198,7 +207,7 @@ func TestDocumentService_AttachToActivity(t *testing.T) {
 			userRepository:       &fakeUserRepository{user: user},
 		}
 
-		err := s.AttachToActivity(context.Background(), user.ID.String(), permohonan.ID.String(), 2, documentIds)
+		err := s.AttachToWorkflowNode(context.Background(), user.ID.String(), permohonan.ID.String(), "survei", documentIds)
 		assert.ErrorIs(t, err, dto.ErrDocumentAlreadyAttached)
 	})
 
@@ -209,7 +218,7 @@ func TestDocumentService_AttachToActivity(t *testing.T) {
 			userRepository:       &fakeUserRepository{},
 		}
 
-		err := s.AttachToActivity(context.Background(), uuid.NewString(), uuid.NewString(), 2, documentIds)
+		err := s.AttachToWorkflowNode(context.Background(), uuid.NewString(), uuid.NewString(), "survei", documentIds)
 		assert.ErrorIs(t, err, dto.ErrPermohonanNotFound)
 	})
 }
@@ -264,7 +273,7 @@ func TestDocumentService_Download(t *testing.T) {
 func TestDocumentService_HasEvidence(t *testing.T) {
 	s := &documentService{documentRepository: &fakeDocumentRepository{existsOK: true}}
 
-	ok, err := s.HasEvidence(context.Background(), uuid.NewString(), 2)
+	ok, err := s.HasEvidence(context.Background(), uuid.NewString(), "survei")
 	require.NoError(t, err)
 	assert.True(t, ok)
 }

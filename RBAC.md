@@ -45,12 +45,12 @@ Activity 1 is special because the aggregate does not yet exist:
 
 ## Implementation target
 
-Phase 1 provides `OwnsWorkflowNode`, `AuthorizeWorkflowNode`, and `AvailableActions` in `pkg/rbac/workflow_owner.go`. They accept domain values and evaluate `pkg/workflow` snapshots; they are not yet wired into HTTP middleware or existing services. Ownership alone checks role/unit; write authorization additionally evaluates node and aggregate state. Returned action metadata contains node identity, display/SLA references and stage; future HTTP adapters supply routes and group bundled submissions.
+`OwnsWorkflowNode`, `AuthorizeWorkflowNode`, and `AvailableActions` in `pkg/rbac/workflow_owner.go` accept domain values and evaluate `pkg/workflow` snapshots. Phase 3 uses them for node-based task filtering and caller-specific read projections. Ownership alone checks role/unit; Phase 4 write authorization will additionally evaluate node and aggregate state at each activity endpoint.
 
-- Replace stage-derived `OwnsActivity` checks with a central `OwnsWorkflowNode(user, permohonan, nodeCode)` policy.
+- Use the central `OwnsWorkflowNode(user, permohonan, nodeCode)` policy; the numbered activity middleware remains compatibility-only.
 - `RequireWorkflowNodeOwner(nodeCode)` returns 403 for the wrong owner and 409 when the node is owned by the role but is not actionable.
-- Retire `OwnerFnOverride` as an authorization source. Available owners derive from node state.
-- `scope=mine` means at least one available node is owned by the caller, rather than matching `CurrentStage`.
-- Detail responses expose `available_actions`; a single `can_act` boolean is insufficient for parallel work.
+- `OwnerFnOverride` is retired as an authorization source. Available owners derive from node state.
+- `scope=mine` means at least one available or resumable node is owned by the caller, rather than matching `CurrentStage`.
+- Detail and list responses expose `available_actions`; a single `can_act` boolean cannot represent parallel work.
 
 Read authorization remains broader than write ownership. The existing document/permohonan read-access gap remains tracked in `PHASE5_DOCUMENTS.md` and must be resolved consistently across both modules.

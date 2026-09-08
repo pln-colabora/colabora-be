@@ -42,6 +42,9 @@ func (f *fakeUserRepository) Update(ctx context.Context, tx *gorm.DB, user entit
 func (f *fakeUserRepository) Delete(ctx context.Context, tx *gorm.DB, userId string) error {
 	return nil
 }
+func (f *fakeUserRepository) ExistsByUnitAndRoles(ctx context.Context, tx *gorm.DB, unit string, roles []string) (bool, error) {
+	return true, nil
+}
 
 type fakePermohonanRepository struct {
 	permohonan entities.Permohonan
@@ -59,6 +62,12 @@ func (f *fakePermohonanRepository) List(ctx context.Context, tx *gorm.DB, filter
 }
 func (f *fakePermohonanRepository) CountByNoPermohonanPrefix(ctx context.Context, tx *gorm.DB, prefix string) (int64, error) {
 	return 0, nil
+}
+func (f *fakePermohonanRepository) ListWorkflowNodes(ctx context.Context, tx *gorm.DB, permohonanID string) ([]entities.PermohonanActivity, error) {
+	return nil, nil
+}
+func (f *fakePermohonanRepository) ListActivityLogs(ctx context.Context, tx *gorm.DB, permohonanID string) ([]entities.ActivityLog, error) {
+	return nil, nil
 }
 
 func newTestInjector(user entities.User, userErr error, permohonan entities.Permohonan, permohonanErr error) *do.Injector {

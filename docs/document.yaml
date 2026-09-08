@@ -4,8 +4,8 @@ info:
   description: >-
     Upload-first evidence storage: POST /api/documents uploads a raw file
     standalone and returns an id; it gets attached to a specific permohonan +
-    activity later (DocumentService.AttachToActivity), by whichever Phase 4
-    activity endpoint references that id when the activity form is submitted
+    workflow node later (DocumentService.AttachToWorkflowNode), by whichever Phase 4
+    workflow endpoint references that id when its form is submitted
     — not yet exposed as its own HTTP endpoint. See `modules/document` and
     `PHASE5_DOCUMENTS.md`.
   version: "1.0.0"
@@ -23,10 +23,10 @@ paths:
       tags: [Document]
       summary: Upload a raw evidence file (standalone, not yet attached to any permohonan)
       description: >-
-        No RBAC/ownership check here — there's no permohonan/activity context
+        No RBAC/ownership check here — there's no permohonan/workflow-node context
         yet to check ownership against. Max 10MB; application/pdf,
         image/jpeg, or image/png only. The returned id is later attached to a
-        permohonan + activity by an activity-submission endpoint.
+        permohonan + workflow node by an activity-submission endpoint.
       security:
         - bearerAuth: []
       requestBody:
@@ -69,10 +69,10 @@ paths:
           in: path
           required: true
           schema: { type: string, format: uuid }
-        - name: activity_number
+        - name: workflow_node
           in: query
-          description: Filter to one activity's evidence
-          schema: { type: integer, minimum: 1, maximum: 17 }
+          description: Filter to one canonical workflow node's evidence
+          schema: { type: string, example: survei }
       responses:
         "200":
           description: Documents for this permohonan
@@ -162,9 +162,9 @@ components:
           format: uuid
           nullable: true
           description: Null until attached
-        activity_number:
-          type: integer
-          nullable: true
-          description: Null until attached
+        workflow_nodes:
+          type: array
+          description: Canonical workflow nodes this file evidences; empty until attached
+          items: { type: string }
         uploaded_by: { type: string, format: uuid }
         created_at: { type: string, format: date-time }

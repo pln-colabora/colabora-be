@@ -19,7 +19,8 @@ const (
 var (
 	ErrPermohonanNotFound      = errors.New("permohonan not found")
 	ErrDocumentNotFound        = errors.New("document not found")
-	ErrNotActivityOwner        = errors.New("user does not own this activity")
+	ErrNotWorkflowNodeOwner    = errors.New("user does not own this workflow node")
+	ErrWorkflowNodeNotFound    = errors.New("workflow node not found")
 	ErrInvalidFileType         = errors.New("file type not allowed")
 	ErrFileTooLarge            = errors.New("file exceeds max upload size")
 	ErrInvalidDocumentType     = errors.New("type is required")
@@ -33,11 +34,11 @@ type (
 	}
 
 	DocumentResponse struct {
-		ID             string  `json:"id"`
-		Type           string  `json:"type"`
-		PermohonanID   *string `json:"permohonan_id"`
-		ActivityNumber *int16  `json:"activity_number"`
-		UploadedBy     string  `json:"uploaded_by"`
-		CreatedAt      string  `json:"created_at"`
+		ID            string   `json:"id"`
+		Type          string   `json:"type"`
+		PermohonanID  *string  `json:"permohonan_id"`
+		WorkflowNodes []string `json:"workflow_nodes"`
+		UploadedBy    string   `json:"uploaded_by"`
+		CreatedAt     string   `json:"created_at"`
 	}
 )

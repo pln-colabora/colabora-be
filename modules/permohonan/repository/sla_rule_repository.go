@@ -11,6 +11,7 @@ import (
 // currently the only consumer, so it lives here rather than as its own top-level module.
 type SLARuleRepository interface {
 	GetByActivityAndJenis(ctx context.Context, tx *gorm.DB, activityNumber int16, jenisSambungan string) (entities.SLARule, error)
+	ListByJenis(ctx context.Context, tx *gorm.DB, jenisSambungan string) ([]entities.SLARule, error)
 }
 
 type slaRuleRepository struct {
@@ -36,4 +37,16 @@ func (r *slaRuleRepository) GetByActivityAndJenis(ctx context.Context, tx *gorm.
 	}
 
 	return rule, nil
+}
+
+func (r *slaRuleRepository) ListByJenis(ctx context.Context, tx *gorm.DB, jenisSambungan string) ([]entities.SLARule, error) {
+	if tx == nil {
+		tx = r.db
+	}
+
+	var rules []entities.SLARule
+	if err := tx.WithContext(ctx).Where("jenis_sambungan = ?", jenisSambungan).Find(&rules).Error; err != nil {
+		return nil, err
+	}
+	return rules, nil
 }

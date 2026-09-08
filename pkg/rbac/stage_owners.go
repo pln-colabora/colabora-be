@@ -3,6 +3,7 @@ package rbac
 import (
 	"strings"
 
+	"github.com/pln-colabora/colabora-be/pkg/workflow"
 	"gorm.io/gorm"
 )
 
@@ -103,41 +104,45 @@ func OwnsStage(role, unit string, currentStage int16, jenisSambungan, ulpUnit, o
 	return true
 }
 
-// ApplyScopeMine is the SQL-composed equivalent of OwnsStage, for filtering a list of
-// permohonan down to the rows the given role/unit owns right now (`scope=mine`).
+// ApplyScopeMine selects aggregates with at least one actionable persisted node owned
+// by the caller. CurrentStage remains presentation metadata and is not consulted.
 func ApplyScopeMine(query *gorm.DB, role, unit string) *gorm.DB {
 	if role == RoleSuperUser {
-		// super-user is read-only cross-unit monitoring, never a stage owner.
 		return query.Where("1 = 0")
 	}
 
-	var ownedStages []int16
-	for stage, owners := range StageOwners {
-		if contains(owners, role) {
-			ownedStages = append(ownedStages, stage)
+	var jtrJtmNodes []string
+	var plgTMNodes []string
+	for _, definition := range workflow.Definitions() {
+		if definition.OwnerJTRJTM == role {
+			jtrJtmNodes = append(jtrJtmNodes, string(definition.Code))
+		}
+		if definition.OwnerPLGTM == role {
+			plgTMNodes = append(plgTMNodes, string(definition.Code))
 		}
 	}
-	if len(ownedStages) == 0 {
+	if len(jtrJtmNodes) == 0 && len(plgTMNodes) == 0 {
 		return query.Where("1 = 0")
 	}
 
-	query = query.Where("current_stage IN (?)", ownedStages)
-
-	if allowed, restricted := stage3JenisRestriction[role]; restricted {
-		query = query.Where("current_stage != 3 OR jenis_sambungan IN (?)", allowed)
+	conditions := make([]string, 0, 2)
+	args := make([]any, 0, 4)
+	if len(jtrJtmNodes) > 0 {
+		conditions = append(conditions, "(permohonan.jenis_sambungan IN ? AND mine_node.workflow_node IN ?)")
+		args = append(args, []string{JenisSambunganJTR, JenisSambunganJTMGardu}, jtrJtmNodes)
 	}
-	if allowed, restricted := stage6JenisRestriction[role]; restricted {
-		query = query.Where("current_stage != 6 OR jenis_sambungan IN (?)", allowed)
+	if len(plgTMNodes) > 0 {
+		conditions = append(conditions, "(permohonan.jenis_sambungan IN ? AND mine_node.workflow_node IN ?)")
+		args = append(args, []string{JenisSambunganPlgTmKurang5, JenisSambunganPlgTmLebih5}, plgTMNodes)
 	}
-
-	if ulpScopedRoles[role] {
-		query = query.Where("ulp_unit = ?", unit)
-	}
-
+	ownership := strings.Join(conditions, " OR ")
 	query = query.Where(
-		"owner_fn_override = '' OR owner_fn_override IS NULL OR (',' || owner_fn_override || ',') LIKE ?",
-		"%,"+role+",%",
+		"EXISTS (SELECT 1 FROM permohonan_activities mine_node WHERE mine_node.permohonan_id = permohonan.id AND mine_node.status IN ('available', 'in_progress') AND ("+ownership+"))",
+		args...,
 	)
 
+	if ulpScopedRoles[role] {
+		query = query.Where("permohonan.ulp_unit = ?", unit)
+	}
 	return query
 }

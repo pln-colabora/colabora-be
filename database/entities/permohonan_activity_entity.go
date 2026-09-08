@@ -9,12 +9,13 @@ import (
 
 type PermohonanActivity struct {
 	ID             uuid.UUID  `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
-	PermohonanID   uuid.UUID  `gorm:"type:uuid;not null;uniqueIndex:idx_permohonan_activity_number" json:"permohonan_id"`
+	PermohonanID   uuid.UUID  `gorm:"type:uuid;not null;uniqueIndex:idx_permohonan_workflow_node" json:"permohonan_id"`
 	Permohonan     Permohonan `gorm:"foreignKey:PermohonanID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
-	ActivityNumber int16      `gorm:"type:smallint;not null;uniqueIndex:idx_permohonan_activity_number" json:"activity_number"`
+	WorkflowNode   string     `gorm:"type:varchar(50);not null;uniqueIndex:idx_permohonan_workflow_node" json:"workflow_node"`
+	ActivityNumber *int16     `gorm:"type:smallint" json:"activity_number"`
 	StageNumber    int16      `gorm:"type:smallint;not null" json:"stage_number"`
-	Status         string     `gorm:"type:varchar(20);not null;default:'not_started'" json:"status"`
-	SlaDeadline    time.Time  `gorm:"type:date;not null" json:"sla_deadline"`
+	Status         string     `gorm:"type:varchar(20);not null;default:'locked'" json:"status"`
+	SlaDeadline    *time.Time `gorm:"type:date" json:"sla_deadline"`
 	Payload        string     `gorm:"type:jsonb;default:'{}'" json:"payload"`
 	CompletedBy    *uuid.UUID `gorm:"type:uuid" json:"completed_by"`
 	CompletedAt    *time.Time `json:"completed_at"`

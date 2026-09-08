@@ -2,6 +2,8 @@ package query
 
 import (
 	"github.com/Caknoooo/go-pagination"
+	"github.com/pln-colabora/colabora-be/database/entities"
+	"github.com/pln-colabora/colabora-be/modules/permohonan/dto"
 	"github.com/pln-colabora/colabora-be/pkg/rbac"
 	"gorm.io/gorm"
 )
@@ -10,24 +12,25 @@ import (
 // separate from dto.PermohonanResponse, matching how modules/user/query/user_query.go
 // keeps its list projection separate from dto.UserResponse.
 type Permohonan struct {
-	ID              string  `json:"id"`
-	NoPermohonan    string  `json:"no_permohonan"`
-	JenisPermohonan string  `json:"jenis_permohonan"`
-	JenisSambungan  string  `json:"jenis_sambungan"`
-	UlpUnit         string  `json:"ulp_unit"`
-	PelangganNama   string  `json:"pelanggan_nama"`
-	PelangganAlamat string  `json:"pelanggan_alamat"`
-	PelangganNoHp   string  `json:"pelanggan_no_hp"`
-	RequestDate     string  `json:"request_date"`
-	CurrentStage    int16   `json:"current_stage"`
-	Status          string  `json:"status"`
-	KebutuhanTiang  *bool   `json:"kebutuhan_tiang"`
-	NpsKeputusan    *string `json:"nps_keputusan"`
-	PerluPdkb       *bool   `json:"perlu_pdkb"`
-	OwnerFnOverride string  `json:"owner_fn_override"`
-	CreatedBy       string  `json:"created_by"`
-	CreatedAt       string  `json:"created_at"`
-	UpdatedAt       string  `json:"updated_at"`
+	ID                  string                        `json:"id"`
+	NoPermohonan        string                        `json:"no_permohonan"`
+	JenisPermohonan     string                        `json:"jenis_permohonan"`
+	JenisSambungan      string                        `json:"jenis_sambungan"`
+	UlpUnit             string                        `json:"ulp_unit"`
+	PelangganNama       string                        `json:"pelanggan_nama"`
+	PelangganAlamat     string                        `json:"pelanggan_alamat"`
+	PelangganNoHp       string                        `json:"pelanggan_no_hp"`
+	RequestDate         string                        `json:"request_date"`
+	CurrentStage        int16                         `json:"current_stage"`
+	Status              string                        `json:"status"`
+	KebutuhanTiang      *bool                         `json:"kebutuhan_tiang"`
+	NpsDelegationStatus *string                       `json:"nps_delegation_status"`
+	PerluPdkb           *bool                         `json:"perlu_pdkb"`
+	CreatedBy           string                        `json:"created_by"`
+	CreatedAt           string                        `json:"created_at"`
+	UpdatedAt           string                        `json:"updated_at"`
+	WorkflowNodes       []entities.PermohonanActivity `gorm:"-" json:"-"`
+	AvailableActions    []dto.AvailableAction         `gorm:"-" json:"available_actions"`
 }
 
 // sla bucket thresholds — "due soon" isn't specified anywhere in the source docs, 2 days
@@ -64,19 +67,16 @@ func (f *PermohonanFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
 	}
 
 	if f.Sla != "" {
-		query = query.Joins(
-			"LEFT JOIN permohonan_activities pa ON pa.permohonan_id = permohonan.id AND pa.status = 'in_progress'",
-		)
 		switch f.Sla {
 		case "overdue":
-			query = query.Where("pa.sla_deadline < CURRENT_DATE")
+			query = query.Where("EXISTS (SELECT 1 FROM permohonan_activities sla_node WHERE sla_node.permohonan_id = permohonan.id AND sla_node.status IN ('available', 'in_progress') AND sla_node.sla_deadline < CURRENT_DATE)")
 		case "duesoon":
 			query = query.Where(
-				"pa.sla_deadline >= CURRENT_DATE AND pa.sla_deadline <= CURRENT_DATE + CAST(? AS integer)",
+				"EXISTS (SELECT 1 FROM permohonan_activities sla_node WHERE sla_node.permohonan_id = permohonan.id AND sla_node.status IN ('available', 'in_progress') AND sla_node.sla_deadline >= CURRENT_DATE AND sla_node.sla_deadline <= CURRENT_DATE + CAST(? AS integer))",
 				slaDueSoonDays,
 			)
 		case "ontime":
-			query = query.Where("pa.sla_deadline > CURRENT_DATE + CAST(? AS integer)", slaDueSoonDays)
+			query = query.Where("EXISTS (SELECT 1 FROM permohonan_activities sla_node WHERE sla_node.permohonan_id = permohonan.id AND sla_node.status IN ('available', 'in_progress') AND sla_node.sla_deadline > CURRENT_DATE + CAST(? AS integer))", slaDueSoonDays)
 		}
 	}
 
