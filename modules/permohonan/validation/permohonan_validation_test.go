@@ -40,3 +40,31 @@ func TestValidateSequenceOneRequests(t *testing.T) {
 		NpsDelegationStatus: "approved", DocumentIDs: []string{documentID},
 	}))
 }
+
+func TestValidateSequenceTwoRequests(t *testing.T) {
+	v := NewPermohonanValidation()
+	documentID := uuid.NewString()
+	pdkbRequired := false
+
+	require.NoError(t, v.ValidateEvidenceSubmitRequest(dto.EvidenceSubmitRequest{
+		Notes: "synthetic evidence", DocumentIDs: []string{documentID},
+	}))
+	require.Error(t, v.ValidateEvidenceSubmitRequest(dto.EvidenceSubmitRequest{}))
+	require.Error(t, v.ValidateEvidenceSubmitRequest(dto.EvidenceSubmitRequest{
+		DocumentIDs: []string{documentID, documentID},
+	}))
+
+	require.NoError(t, v.ValidateWOConstructionSubmitRequest(dto.WOConstructionSubmitRequest{
+		PerluPdkb: &pdkbRequired, DocumentIDs: []string{documentID},
+	}))
+	require.Error(t, v.ValidateWOConstructionSubmitRequest(dto.WOConstructionSubmitRequest{
+		DocumentIDs: []string{documentID},
+	}))
+
+	require.NoError(t, v.ValidateReservationTeraSubmitRequest(dto.ReservationTeraSubmitRequest{
+		DocumentIDs: []string{documentID},
+	}))
+	require.Error(t, v.ValidateReservationTeraSubmitRequest(dto.ReservationTeraSubmitRequest{
+		DocumentIDs: []string{"not-a-uuid"},
+	}))
+}

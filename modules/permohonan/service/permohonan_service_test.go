@@ -506,6 +506,10 @@ func advancePhase4(t *testing.T, p *entities.Permohonan, decisions *workflow.Dec
 		if decisions.NPS != "" {
 			snapshot.Decisions.NPS = decisions.NPS
 		}
+		if decisions.PerluPDKB != nil {
+			value := *decisions.PerluPDKB
+			snapshot.Decisions.PerluPDKB = &value
+		}
 	}
 	var result workflow.Result
 	var err error
@@ -519,6 +523,7 @@ func advancePhase4(t *testing.T, p *entities.Permohonan, decisions *workflow.Dec
 	p.CurrentStage = result.CurrentStage
 	p.Status = string(result.Status)
 	p.KebutuhanTiang = cloneBool(snapshot.Decisions.KebutuhanTiang)
+	p.PerluPdkb = cloneBool(snapshot.Decisions.PerluPDKB)
 	if snapshot.Decisions.NPS != "" {
 		value := string(snapshot.Decisions.NPS)
 		p.NpsDelegationStatus = &value

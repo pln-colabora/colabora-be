@@ -44,12 +44,13 @@ The remaining hifi forms, detail pages, demo navigation, and client-side RBAC ar
 - Exact-node role/unit ownership helpers, plus a compatibility middleware for remaining numbered routes.
 - Private Garage/S3-compatible document upload, list, download, validation, and upload-first node-evidence helpers. One stored file may evidence multiple nodes of the same request.
 - Runtime OpenAPI for the currently implemented auth, user, permohonan, document, and health endpoints.
+- Phase 4 activity submissions through Sequence 2: survey/planning/NPS decisions, parallel Stage 4 work orders, the PDKB decision and conditional WO, material reservation/tera, and PK Vendor.
 
 ### Known gaps
 
-- No activity-submission HTTP endpoints exist. Document attachment and evidence checks therefore have no production caller.
+- Phase 4 Sequences 3–5 activity-submission endpoints are not implemented yet.
 - Document evidence attaches by workflow node, but list/download access has the same unresolved read-authorization/IDOR gap as permohonan detail.
-- Generated permohonan test files under `modules/permohonan/tests` remain placeholders; meaningful Phase 3 coverage now lives beside the controller/service and in RBAC tests.
+- Generated permohonan test files under `modules/permohonan/tests` remain placeholders; meaningful workflow coverage lives beside the controller/service/repository and in RBAC tests.
 
 ### Verified baseline
 
@@ -120,12 +121,12 @@ Implemented connection-aware request creation, configured target-ULP validation 
 
 **Exit gate:** create/list/detail behavior matches `API_SPEC.md`; wrong role/type combinations return 403, invalid PLG TM target ULP returns 400, node-based task filtering works for parallel actions, and `docs/permohonan.yaml` is updated in the same change.
 
-### Phase 4 — Activity endpoints — In progress (Sequence 1 complete)
+### Phase 4 — Activity endpoints — In progress (Sequences 1–2 complete)
 
 Deliver write behavior in dependency slices so each slice is usable and tested before the next:
 
 1. **Complete:** Survey, RAB/KKO/KKF with pole decision, Permohonan Perluasan, and NPS delegation/terminal return.
-2. Parallel WO Tiang/Konstruksi/APP, material reservation and tera, PK Vendor, and conditional WO PDKB.
+2. **Complete:** Parallel WO Tiang/Konstruksi/APP, material reservation and tera, PK Vendor, and conditional WO PDKB.
 3. Conditional pole installation, construction, and PDKB documentation.
 4. Parallel network energization and SR/APP installation.
 5. Ordered PDL entry/mutation, AIL/DIJ archive, and terminal completion.
@@ -137,6 +138,8 @@ Every endpoint must authorize the exact node, reject unmet/non-applicable/comple
 Detailed production payloads must be derived from `DOCUMENT_WORKFLOW_REFERENCE.md` and confirmed with business owners. For uncovered activities, implement only agreed workflow-critical fields and evidence requirements—do not infer a full production form from the hifi mockup.
 
 Sequence 1 delivers the three authenticated write routes with exact node/ULP authorization, row-locked service transactions, required evidence attachment, validated workflow-critical fields, JSONB payloads, projections, node completion, and audit logs. Bundled RAB/pole and expansion/NPS nodes complete in dependency order within one transaction. Tests cover JTR/JTM and PLG TM ownership, duplicate and out-of-order rejection, delegated and terminal-return outcomes, repository persistence, controller error mapping, and rollback when evidence attachment fails. The RAB workbook is retained as evidence; calculation parity remains intentionally out of scope pending authoritative formulas and catalogue ownership.
+
+Sequence 2 delivers the six Stage 4 routes for the three parallel WO branches, bundled material reservation/tera, conditional WO PDKB, and PK Vendor. WO Konstruksi records the typed `perlu_pdkb` decision: the false branch audits and persists both PDKB skips before opening PK Vendor, while the true branch gates PK Vendor on WO PDKB. Tests cover both connection families, parallel completion in opposite orders, both pole/PDKB branches, exact owners, terminal/out-of-order/duplicate rejection, bundled evidence rollback, and audit events for derived skips. Payloads remain intentionally minimal where production fields are still discovery gates.
 
 ### Phase 5 — Evidence and access hardening — Queued
 

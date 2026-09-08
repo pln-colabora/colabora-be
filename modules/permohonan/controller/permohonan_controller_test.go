@@ -47,6 +47,24 @@ func (f phase3ControllerService) SubmitRAB(context.Context, string, string, dto.
 func (f phase3ControllerService) SubmitExpansion(context.Context, string, string, dto.ExpansionSubmitRequest) (dto.PermohonanResponse, error) {
 	return dto.PermohonanResponse{}, f.activityErr
 }
+func (f phase3ControllerService) SubmitWOTiang(context.Context, string, string, dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
+	return dto.PermohonanResponse{}, f.activityErr
+}
+func (f phase3ControllerService) SubmitWOConstruction(context.Context, string, string, dto.WOConstructionSubmitRequest) (dto.PermohonanResponse, error) {
+	return dto.PermohonanResponse{}, f.activityErr
+}
+func (f phase3ControllerService) SubmitWOAPP(context.Context, string, string, dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
+	return dto.PermohonanResponse{}, f.activityErr
+}
+func (f phase3ControllerService) SubmitReservationTera(context.Context, string, string, dto.ReservationTeraSubmitRequest) (dto.PermohonanResponse, error) {
+	return dto.PermohonanResponse{}, f.activityErr
+}
+func (f phase3ControllerService) SubmitPKVendor(context.Context, string, string, dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
+	return dto.PermohonanResponse{}, f.activityErr
+}
+func (f phase3ControllerService) SubmitWOPDKB(context.Context, string, string, dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
+	return dto.PermohonanResponse{}, f.activityErr
+}
 
 func TestSubmitSurveyMapsActivityErrors(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -97,6 +115,43 @@ func TestSubmitSurveyRejectsInvalidDateBeforeService(t *testing.T) {
 	ctx.Set("user_id", "actor-id")
 
 	controller.SubmitSurvey(ctx)
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
+func TestSubmitWOConstructionAcceptsExplicitFalseDecision(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	controller := &permohonanController{
+		permohonanService:    phase3ControllerService{},
+		permohonanValidation: validation.NewPermohonanValidation(),
+	}
+	body := []byte(`{"perlu_pdkb":false,"document_ids":["` + uuid.NewString() + `"]}`)
+	request := httptest.NewRequest(http.MethodPost, "/api/permohonan/id/wo-vendor/konstruksi", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = request
+	ctx.Params = gin.Params{{Key: "id", Value: "id"}}
+	ctx.Set("user_id", "actor-id")
+
+	controller.SubmitWOConstruction(ctx)
+	require.Equal(t, http.StatusOK, recorder.Code)
+}
+
+func TestSubmitWOConstructionRejectsMissingDecision(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	controller := &permohonanController{
+		permohonanService:    phase3ControllerService{},
+		permohonanValidation: validation.NewPermohonanValidation(),
+	}
+	body := []byte(`{"document_ids":["` + uuid.NewString() + `"]}`)
+	request := httptest.NewRequest(http.MethodPost, "/api/permohonan/id/wo-vendor/konstruksi", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = request
+	ctx.Set("user_id", "actor-id")
+
+	controller.SubmitWOConstruction(ctx)
 	require.Equal(t, http.StatusBadRequest, recorder.Code)
 }
 

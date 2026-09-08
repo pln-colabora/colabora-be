@@ -4,7 +4,7 @@ info:
   description: >-
     Workflow-node API: connection-specific request creation, dashboard list,
     detail with caller-owned actions, full activity timeline and logs, plus
-    Phase 4 Sequence 1 submissions through the NPS delegation decision.
+    Phase 4 Sequences 1-2 submissions through Stage 4 preparation.
   version: "1.0.0"
 servers:
   - url: https://api-colabora.anargya.fun
@@ -284,6 +284,151 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  /api/permohonan/{id}/wo-vendor/tiang:
+    post:
+      tags: [Permohonan]
+      summary: Complete pole-vendor work order (Activity #6)
+      description: >-
+        Owned by `perencanaan`; available only after NPS delegation when poles
+        are required. The uploaded work-order artefact remains authoritative evidence.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PermohonanID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/ActivitySubmitted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/permohonan/{id}/wo-vendor/konstruksi:
+    post:
+      tags: [Permohonan]
+      summary: Complete construction-vendor work order and PDKB decision (Activity #7)
+      description: >-
+        Owned by `konstruksi`. The required `perlu_pdkb` decision controls the
+        conditional WO PDKB and documentation nodes. Explicit false is valid.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PermohonanID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WOConstructionSubmitRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/ActivitySubmitted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/permohonan/{id}/wo-vendor/app:
+    post:
+      tags: [Permohonan]
+      summary: Complete APP-vendor work order (Activity #8)
+      description: >-
+        Owned by `transaksi-energi`. Detailed production fields remain a discovery
+        gate, so this contract requires evidence and accepts only optional notes.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PermohonanID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/ActivitySubmitted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/permohonan/{id}/reservasi-material:
+    post:
+      tags: [Permohonan]
+      summary: Complete material reservation and APP assembly/tera (Activities #9-#10)
+      description: >-
+        Owned by `transaksi-energi`. Atomically completes `reservasi_material`
+        followed by `tera_app` and classifies the evidence under both nodes.
+        Relay/OCR field boundaries remain subject to business confirmation.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PermohonanID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReservationTeraSubmitRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/ActivitySubmitted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/permohonan/{id}/wo-pdkb:
+    post:
+      tags: [Permohonan]
+      summary: Complete conditional PDKB work order
+      description: >-
+        Owned by `konstruksi`; available only after WO Konstruksi when
+        `perlu_pdkb` is true. Completing it unlocks PK Vendor.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PermohonanID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/ActivitySubmitted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/permohonan/{id}/pk-vendor:
+    post:
+      tags: [Permohonan]
+      summary: Complete vendor execution instruction
+      description: >-
+        Owned by `konstruksi`. Requires WO Konstruksi and, when applicable,
+        WO PDKB to be completed before it unlocks construction execution.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PermohonanID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/ActivitySubmitted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -430,6 +575,40 @@ components:
       properties:
         nps_delegation_status: { type: string, enum: [delegated, returned] }
         notes: { type: string, maxLength: 2000 }
+        document_ids:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, format: uuid }
+    EvidenceSubmitRequest:
+      type: object
+      required: [document_ids]
+      properties:
+        notes: { type: string, maxLength: 2000 }
+        document_ids:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, format: uuid }
+    WOConstructionSubmitRequest:
+      type: object
+      required: [perlu_pdkb, document_ids]
+      properties:
+        perlu_pdkb:
+          type: boolean
+          description: Typed branch decision; false is a valid explicit value.
+        notes: { type: string, maxLength: 2000 }
+        document_ids:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, format: uuid }
+    ReservationTeraSubmitRequest:
+      type: object
+      required: [document_ids]
+      properties:
+        reservation_notes: { type: string, maxLength: 2000 }
+        tera_notes: { type: string, maxLength: 2000 }
         document_ids:
           type: array
           minItems: 1

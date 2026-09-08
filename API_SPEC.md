@@ -66,6 +66,8 @@ Only actions owned by the authenticated caller appear in `available_actions`. Th
 
 The NPS request body uses `nps_delegation_status: delegated|returned`. `returned` terminally closes the workflow with aggregate status `returned`; it is not a draft/rework loop.
 
+The WO Konstruksi request body requires the typed decision `perlu_pdkb: true|false`. Sequence 2 activities without another confirmed workflow-critical field accept optional notes and require evidence. The bundled reservasi/tera request exposes separate optional `reservation_notes` and `tera_notes`; detailed material and relay/OCR fields remain discovery items rather than inferred production contracts.
+
 Every write endpoint:
 
 1. authenticates the caller and authorizes the exact workflow node;
@@ -93,4 +95,4 @@ An attachment request must fail atomically if any document is missing, already a
 
 ## Runtime OpenAPI policy
 
-`docs/permohonan.yaml` documents the implemented Phase 3 create/read contract and Phase 4 Sequence 1 write endpoints through NPS delegation. Later Phase 4 write endpoints remain target-only here until their runtime handlers are delivered.
+`docs/permohonan.yaml` documents the implemented Phase 3 create/read contract and Phase 4 Sequences 1–2 write endpoints through Stage 4 preparation. Later Phase 4 write endpoints remain target-only here until their runtime handlers are delivered.

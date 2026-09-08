@@ -25,6 +25,18 @@ func TestMergedOpenAPIContainsOnlyResolvableLocalComponentReferences(t *testing.
 	parameters, ok := components["parameters"].(map[string]any)
 	require.True(t, ok)
 	require.Contains(t, parameters, "PermohonanID")
+	paths, ok := document["paths"].(map[string]any)
+	require.True(t, ok)
+	for _, path := range []string{
+		"/api/permohonan/{id}/wo-vendor/tiang",
+		"/api/permohonan/{id}/wo-vendor/konstruksi",
+		"/api/permohonan/{id}/wo-vendor/app",
+		"/api/permohonan/{id}/reservasi-material",
+		"/api/permohonan/{id}/wo-pdkb",
+		"/api/permohonan/{id}/pk-vendor",
+	} {
+		require.Contains(t, paths, path)
+	}
 	assertResolvableReferences(t, document, document)
 }
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/pln-colabora/colabora-be/database/entities"
@@ -30,6 +31,12 @@ type PermohonanService interface {
 	SubmitSurvey(ctx context.Context, id, userID string, req dto.SurveySubmitRequest) (dto.PermohonanResponse, error)
 	SubmitRAB(ctx context.Context, id, userID string, req dto.RABSubmitRequest) (dto.PermohonanResponse, error)
 	SubmitExpansion(ctx context.Context, id, userID string, req dto.ExpansionSubmitRequest) (dto.PermohonanResponse, error)
+	SubmitWOTiang(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
+	SubmitWOConstruction(ctx context.Context, id, userID string, req dto.WOConstructionSubmitRequest) (dto.PermohonanResponse, error)
+	SubmitWOAPP(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
+	SubmitReservationTera(ctx context.Context, id, userID string, req dto.ReservationTeraSubmitRequest) (dto.PermohonanResponse, error)
+	SubmitPKVendor(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
+	SubmitWOPDKB(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
 }
 
 type permohonanService struct {
@@ -57,7 +64,7 @@ func NewPermohonanService(
 }
 
 func (s *permohonanService) SubmitSurvey(ctx context.Context, id, userID string, req dto.SurveySubmitRequest) (dto.PermohonanResponse, error) {
-	if _, err := time.Parse("2006-01-02", req.SurveyedAt); err != nil || len(req.Notes) > 2000 {
+	if _, err := time.Parse("2006-01-02", req.SurveyedAt); err != nil || !notesWithinLimit(req.Notes) {
 		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
 	}
 	payloads := map[workflow.Code]any{
@@ -70,7 +77,7 @@ func (s *permohonanService) SubmitSurvey(ctx context.Context, id, userID string,
 }
 
 func (s *permohonanService) SubmitRAB(ctx context.Context, id, userID string, req dto.RABSubmitRequest) (dto.PermohonanResponse, error) {
-	if req.KebutuhanTiang == nil || len(req.Notes) > 2000 {
+	if req.KebutuhanTiang == nil || !notesWithinLimit(req.Notes) {
 		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
 	}
 	payloads := map[workflow.Code]any{
@@ -91,7 +98,7 @@ func (s *permohonanService) SubmitRAB(ctx context.Context, id, userID string, re
 
 func (s *permohonanService) SubmitExpansion(ctx context.Context, id, userID string, req dto.ExpansionSubmitRequest) (dto.PermohonanResponse, error) {
 	delegation := workflow.Delegation(req.NpsDelegationStatus)
-	if (delegation != workflow.Delegated && delegation != workflow.Return) || len(req.Notes) > 2000 {
+	if (delegation != workflow.Delegated && delegation != workflow.Return) || !notesWithinLimit(req.Notes) {
 		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
 	}
 	payloads := map[workflow.Code]any{
@@ -106,6 +113,75 @@ func (s *permohonanService) SubmitExpansion(ctx context.Context, id, userID stri
 	actions := map[workflow.Code]string{workflow.NPS: "nps_" + req.NpsDelegationStatus}
 	return s.completeWorkflowNodes(ctx, id, userID, req.DocumentIDs,
 		[]workflow.Code{workflow.Perluasan, workflow.NPS}, payloads, applyDecision, actions)
+}
+
+func (s *permohonanService) SubmitWOTiang(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
+	return s.completeEvidenceNode(ctx, id, userID, req, workflow.WOTiang)
+}
+
+func (s *permohonanService) SubmitWOConstruction(ctx context.Context, id, userID string, req dto.WOConstructionSubmitRequest) (dto.PermohonanResponse, error) {
+	if req.PerluPdkb == nil || !notesWithinLimit(req.Notes) {
+		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
+	}
+	payloads := map[workflow.Code]any{
+		workflow.WOKonstruksi: struct {
+			PerluPDKB bool   `json:"perlu_pdkb"`
+			Notes     string `json:"notes,omitempty"`
+		}{PerluPDKB: *req.PerluPdkb, Notes: req.Notes},
+	}
+	applyDecision := func(snapshot *workflow.Snapshot) {
+		value := *req.PerluPdkb
+		snapshot.Decisions.PerluPDKB = &value
+	}
+	decision := "not_required"
+	if *req.PerluPdkb {
+		decision = "required"
+	}
+	actions := map[workflow.Code]string{workflow.WOKonstruksi: "pdkb_" + decision}
+	return s.completeWorkflowNodes(ctx, id, userID, req.DocumentIDs,
+		[]workflow.Code{workflow.WOKonstruksi}, payloads, applyDecision, actions)
+}
+
+func (s *permohonanService) SubmitWOAPP(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
+	return s.completeEvidenceNode(ctx, id, userID, req, workflow.WOAPP)
+}
+
+func (s *permohonanService) SubmitReservationTera(ctx context.Context, id, userID string, req dto.ReservationTeraSubmitRequest) (dto.PermohonanResponse, error) {
+	if !notesWithinLimit(req.ReservationNotes, req.TeraNotes) {
+		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
+	}
+	payloads := map[workflow.Code]any{
+		workflow.Reservasi: struct {
+			Notes string `json:"notes,omitempty"`
+		}{Notes: req.ReservationNotes},
+		workflow.Tera: struct {
+			Notes string `json:"notes,omitempty"`
+		}{Notes: req.TeraNotes},
+	}
+	return s.completeWorkflowNodes(ctx, id, userID, req.DocumentIDs,
+		[]workflow.Code{workflow.Reservasi, workflow.Tera}, payloads, nil, nil)
+}
+
+func (s *permohonanService) SubmitPKVendor(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
+	return s.completeEvidenceNode(ctx, id, userID, req, workflow.PKVendor)
+}
+
+func (s *permohonanService) SubmitWOPDKB(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
+	return s.completeEvidenceNode(ctx, id, userID, req, workflow.WOPDKB)
+}
+
+func (s *permohonanService) completeEvidenceNode(
+	ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest, code workflow.Code,
+) (dto.PermohonanResponse, error) {
+	if !notesWithinLimit(req.Notes) {
+		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
+	}
+	payloads := map[workflow.Code]any{
+		code: struct {
+			Notes string `json:"notes,omitempty"`
+		}{Notes: req.Notes},
+	}
+	return s.completeWorkflowNodes(ctx, id, userID, req.DocumentIDs, []workflow.Code{code}, payloads, nil, nil)
 }
 
 func (s *permohonanService) completeWorkflowNodes(
@@ -148,6 +224,10 @@ func (s *permohonanService) completeWorkflowNodes(
 		snapshot := permohonan.WorkflowSnapshot()
 		if applyDecision != nil {
 			applyDecision(&snapshot)
+		}
+		before, err := workflow.Evaluate(snapshot)
+		if err != nil {
+			return err
 		}
 		var result workflow.Result
 		for _, code := range codes {
@@ -225,6 +305,16 @@ func (s *permohonanService) completeWorkflowNodes(
 				Actor: actor.ID, Action: action, WorkflowNode: &codeValue,
 			})
 		}
+		for _, definition := range workflow.Definitions() {
+			if before.Nodes[definition.Code] == workflow.Skipped || result.Nodes[definition.Code] != workflow.Skipped {
+				continue
+			}
+			codeValue := string(definition.Code)
+			logs = append(logs, entities.ActivityLog{
+				PermohonanID: permohonan.ID, ActivityNumber: definition.ActivityNumber,
+				Actor: actor.ID, Action: "node_skipped", WorkflowNode: &codeValue,
+			})
+		}
 		if err := s.permohonanRepository.SaveWorkflow(ctx, tx, permohonan, logs); err != nil {
 			return dto.ErrSubmitActivity
 		}
@@ -265,6 +355,15 @@ func cloneBool(value *bool) *bool {
 	}
 	copy := *value
 	return &copy
+}
+
+func notesWithinLimit(values ...string) bool {
+	for _, value := range values {
+		if utf8.RuneCountInString(value) > 2000 {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *permohonanService) Create(ctx context.Context, req dto.PermohonanCreateRequest, userId string) (dto.PermohonanResponse, error) {

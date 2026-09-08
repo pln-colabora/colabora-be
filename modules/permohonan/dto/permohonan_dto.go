@@ -63,6 +63,23 @@ type (
 		DocumentIDs         []string `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
 	}
 
+	EvidenceSubmitRequest struct {
+		Notes       string   `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
+		DocumentIDs []string `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
+	}
+
+	WOConstructionSubmitRequest struct {
+		PerluPdkb   *bool    `json:"perlu_pdkb" binding:"required" validate:"required"`
+		Notes       string   `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
+		DocumentIDs []string `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
+	}
+
+	ReservationTeraSubmitRequest struct {
+		ReservationNotes string   `json:"reservation_notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
+		TeraNotes        string   `json:"tera_notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
+		DocumentIDs      []string `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
+	}
+
 	PermohonanResponse struct {
 		ID                  string                 `json:"id"`
 		NoPermohonan        string                 `json:"no_permohonan"`

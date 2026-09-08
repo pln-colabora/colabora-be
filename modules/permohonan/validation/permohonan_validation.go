@@ -41,6 +41,27 @@ func (v *PermohonanValidation) ValidateExpansionSubmitRequest(req dto.ExpansionS
 	return validateDocumentIDs(req.DocumentIDs)
 }
 
+func (v *PermohonanValidation) ValidateEvidenceSubmitRequest(req dto.EvidenceSubmitRequest) error {
+	if err := v.validate.Struct(req); err != nil {
+		return err
+	}
+	return validateDocumentIDs(req.DocumentIDs)
+}
+
+func (v *PermohonanValidation) ValidateWOConstructionSubmitRequest(req dto.WOConstructionSubmitRequest) error {
+	if err := v.validate.Struct(req); err != nil {
+		return err
+	}
+	return validateDocumentIDs(req.DocumentIDs)
+}
+
+func (v *PermohonanValidation) ValidateReservationTeraSubmitRequest(req dto.ReservationTeraSubmitRequest) error {
+	if err := v.validate.Struct(req); err != nil {
+		return err
+	}
+	return validateDocumentIDs(req.DocumentIDs)
+}
+
 func validateDocumentIDs(ids []string) error {
 	seen := make(map[string]struct{}, len(ids))
 	for _, id := range ids {

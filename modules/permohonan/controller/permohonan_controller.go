@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -29,6 +30,12 @@ type (
 		SubmitSurvey(ctx *gin.Context)
 		SubmitRAB(ctx *gin.Context)
 		SubmitExpansion(ctx *gin.Context)
+		SubmitWOTiang(ctx *gin.Context)
+		SubmitWOConstruction(ctx *gin.Context)
+		SubmitWOAPP(ctx *gin.Context)
+		SubmitReservationTera(ctx *gin.Context)
+		SubmitPKVendor(ctx *gin.Context)
+		SubmitWOPDKB(ctx *gin.Context)
 	}
 
 	permohonanController struct {
@@ -49,52 +56,56 @@ func NewPermohonanController(injector *do.Injector, s service.PermohonanService)
 }
 
 func (c *permohonanController) SubmitSurvey(ctx *gin.Context) {
-	var req dto.SurveySubmitRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		writeActivityError(ctx, err)
-		return
-	}
-	if err := c.permohonanValidation.ValidateSurveySubmitRequest(req); err != nil {
-		writeActivityError(ctx, err)
-		return
-	}
-	result, err := c.permohonanService.SubmitSurvey(ctx, ctx.Param("id"), ctx.MustGet("user_id").(string), req)
-	if err != nil {
-		writeActivityError(ctx, err)
-		return
-	}
-	ctx.JSON(http.StatusOK, utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_SUBMIT_ACTIVITY, result))
+	submitActivityRequest(ctx, c.permohonanValidation.ValidateSurveySubmitRequest, c.permohonanService.SubmitSurvey)
 }
 
 func (c *permohonanController) SubmitRAB(ctx *gin.Context) {
-	var req dto.RABSubmitRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		writeActivityError(ctx, err)
-		return
-	}
-	if err := c.permohonanValidation.ValidateRABSubmitRequest(req); err != nil {
-		writeActivityError(ctx, err)
-		return
-	}
-	result, err := c.permohonanService.SubmitRAB(ctx, ctx.Param("id"), ctx.MustGet("user_id").(string), req)
-	if err != nil {
-		writeActivityError(ctx, err)
-		return
-	}
-	ctx.JSON(http.StatusOK, utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_SUBMIT_ACTIVITY, result))
+	submitActivityRequest(ctx, c.permohonanValidation.ValidateRABSubmitRequest, c.permohonanService.SubmitRAB)
 }
 
 func (c *permohonanController) SubmitExpansion(ctx *gin.Context) {
-	var req dto.ExpansionSubmitRequest
+	submitActivityRequest(ctx, c.permohonanValidation.ValidateExpansionSubmitRequest, c.permohonanService.SubmitExpansion)
+}
+
+func (c *permohonanController) SubmitWOTiang(ctx *gin.Context) {
+	submitActivityRequest(ctx, c.permohonanValidation.ValidateEvidenceSubmitRequest, c.permohonanService.SubmitWOTiang)
+}
+
+func (c *permohonanController) SubmitWOConstruction(ctx *gin.Context) {
+	submitActivityRequest(ctx, c.permohonanValidation.ValidateWOConstructionSubmitRequest, c.permohonanService.SubmitWOConstruction)
+}
+
+func (c *permohonanController) SubmitWOAPP(ctx *gin.Context) {
+	submitActivityRequest(ctx, c.permohonanValidation.ValidateEvidenceSubmitRequest, c.permohonanService.SubmitWOAPP)
+}
+
+func (c *permohonanController) SubmitReservationTera(ctx *gin.Context) {
+	submitActivityRequest(ctx, c.permohonanValidation.ValidateReservationTeraSubmitRequest, c.permohonanService.SubmitReservationTera)
+}
+
+func (c *permohonanController) SubmitPKVendor(ctx *gin.Context) {
+	submitActivityRequest(ctx, c.permohonanValidation.ValidateEvidenceSubmitRequest, c.permohonanService.SubmitPKVendor)
+}
+
+func (c *permohonanController) SubmitWOPDKB(ctx *gin.Context) {
+	submitActivityRequest(ctx, c.permohonanValidation.ValidateEvidenceSubmitRequest, c.permohonanService.SubmitWOPDKB)
+}
+
+func submitActivityRequest[T any](
+	ctx *gin.Context,
+	validate func(T) error,
+	submit func(context.Context, string, string, T) (dto.PermohonanResponse, error),
+) {
+	var req T
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		writeActivityError(ctx, err)
 		return
 	}
-	if err := c.permohonanValidation.ValidateExpansionSubmitRequest(req); err != nil {
+	if err := validate(req); err != nil {
 		writeActivityError(ctx, err)
 		return
 	}
-	result, err := c.permohonanService.SubmitExpansion(ctx, ctx.Param("id"), ctx.MustGet("user_id").(string), req)
+	result, err := submit(ctx, ctx.Param("id"), ctx.MustGet("user_id").(string), req)
 	if err != nil {
 		writeActivityError(ctx, err)
 		return

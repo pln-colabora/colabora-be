@@ -95,7 +95,7 @@ One file belongs to at most one `Permohonan`, but may evidence multiple nodes of
 | `WorkflowNode` | nullable varchar(50) | Null for aggregate-only events |
 | `ActivityNumber` | nullable smallint | Display/reporting metadata |
 | `Actor` | UUID FK → users | Event actor |
-| `Action` | varchar(100) | For example `node_completed`, `node_skipped`, `nps_delegated`, `nps_returned` |
+| `Action` | varchar(100) | For example `node_completed`, `node_skipped`, `nps_delegated`, `nps_returned`, `pdkb_required`, or `pdkb_not_required` |
 | `Detail` | nullable text | Human-readable context |
 | Timestamps | | `created_at` is event time |
 

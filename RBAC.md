@@ -45,7 +45,7 @@ Activity 1 is special because the aggregate does not yet exist:
 
 ## Implementation target
 
-`OwnsWorkflowNode`, `AuthorizeWorkflowNode`, and `AvailableActions` in `pkg/rbac/workflow_owner.go` accept domain values and evaluate `pkg/workflow` snapshots. Phase 3 uses them for node-based task filtering and caller-specific read projections. Ownership alone checks role/unit; Phase 4 write authorization will additionally evaluate node and aggregate state at each activity endpoint.
+`OwnsWorkflowNode`, `AuthorizeWorkflowNode`, and `AvailableActions` in `pkg/rbac/workflow_owner.go` accept domain values and evaluate `pkg/workflow` snapshots. Read projections use them for node-based task filtering and caller-specific actions. Implemented Phase 4 write endpoints use `AuthorizeWorkflowNode` inside the service-owned transaction so ownership, applicability, prerequisites, and aggregate state are checked against the locked aggregate.
 
 - Use the central `OwnsWorkflowNode(user, permohonan, nodeCode)` policy; the numbered activity middleware remains compatibility-only.
 - `RequireWorkflowNodeOwner(nodeCode)` returns 403 for the wrong owner and 409 when the node is owned by the role but is not actionable.
