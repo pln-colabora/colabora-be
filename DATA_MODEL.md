@@ -58,7 +58,7 @@ One row per source activity number and connection type where an SLA is defined:
 - `ActivityNumber`, `ActivityName`, `JenisSambungan`, `OffsetDays`, and `ReferencePoint`.
 - Unique constraint on `(activity_number, jenis_sambungan)`.
 - Activity #5 and supporting workflow nodes have no rule and therefore a null node deadline.
-- The SLA seed remains synchronized with the table in `hifi-colabora/DEVELOPMENT.md`.
+- The SLA seed remains synchronized with the table in [`DEVELOPMENT.md`](./DEVELOPMENT.md).
 
 ## `Document`
 

@@ -25,7 +25,7 @@ Implemented:
 - private Garage-backed document upload/download module;
 - Scalar/OpenAPI documentation for implemented endpoints.
 
-Next work is documented in [`ROADMAP.md`](./ROADMAP.md): introduce canonical workflow-node definitions and a transition evaluator, refactor persistence/RBAC, then add activity endpoints in dependency order. Breaking development schema/API changes are allowed.
+The canonical development plan is [`DEVELOPMENT.md`](./DEVELOPMENT.md). Phase 1's pure workflow engine and exact-node authorization are implemented and tested. Next is workflow-node persistence, followed by service integration and activity endpoints in dependency order. Existing HTTP endpoints still use the legacy stage model. Breaking development schema/API changes are allowed.
 
 ## Documentation map
 
@@ -33,8 +33,10 @@ Next work is documented in [`ROADMAP.md`](./ROADMAP.md): introduce canonical wor
 - [`DATA_MODEL.md`](./DATA_MODEL.md) — target workflow-node persistence model.
 - [`API_SPEC.md`](./API_SPEC.md) — target REST contract.
 - [`RBAC.md`](./RBAC.md) — target per-node authorization.
-- [`ROADMAP.md`](./ROADMAP.md) — implementation order and current state.
+- [`DEVELOPMENT.md`](./DEVELOPMENT.md) — canonical implementation status, phases, exit gates, and SLA reference.
+- [`ROADMAP.md`](./ROADMAP.md) — concise phase overview linking to the canonical plan.
 - [`PHASE5_DOCUMENTS.md`](./PHASE5_DOCUMENTS.md) — implemented evidence-storage design and known view-access gap.
+- [`DOCUMENT_WORKFLOW_REFERENCE.md`](./DOCUMENT_WORKFLOW_REFERENCE.md) — findings from real operational samples and guidance for future activity forms/document modeling.
 - [`DEPLOY.md`](./DEPLOY.md) — production deployment.
 - [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) — repository guidance for coding agents.
 - `docs/*.yaml` — runtime OpenAPI; these describe actual code rather than future design.

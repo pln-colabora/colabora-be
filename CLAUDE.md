@@ -6,12 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Go backend built on the `go-gin-clean-starter` template (Gin + GORM + `samber/do` DI), implementing Controller → Service → Repository clean architecture with feature modules under `modules/`. Note: `hifi-colabora/` is a separate nested git repository (a static HTML high-fidelity prototype/mockup set) — it is not part of this Go codebase and has its own `CLAUDE.md`.
 
-**This backend implements the COLABORA workflow tracked by the living diagrams under `hifi-colabora/workflow/`.** Before starting feature work, read [`PRD.md`](./PRD.md), [`DATA_MODEL.md`](./DATA_MODEL.md), [`API_SPEC.md`](./API_SPEC.md), [`RBAC.md`](./RBAC.md), and [`ROADMAP.md`](./ROADMAP.md). The design documents describe the target refactor; `docs/*.yaml` and the code describe what is implemented today.
+**This backend implements the COLABORA workflow tracked by the living diagrams under `hifi-colabora/workflow/`.** Before starting feature work, read [`DEVELOPMENT.md`](./DEVELOPMENT.md), [`PRD.md`](./PRD.md), [`DATA_MODEL.md`](./DATA_MODEL.md), [`API_SPEC.md`](./API_SPEC.md), and [`RBAC.md`](./RBAC.md). The development plan records phase status, the design documents describe the target refactor, and `docs/*.yaml` plus the code describe what is implemented today.
 
 ### Workflow source of truth
 
 - At the beginning of every workflow-related task, read both `hifi-colabora/workflow/jtr-jtm.html` and `hifi-colabora/workflow/plg-tm.html`. They are continuously updated and are authoritative for order, dependencies, branches, and ownership.
-- `hifi-colabora/DEVELOPMENT.md` provides supporting domain/SLA detail. The remaining forms/detail pages are illustrative, can lag the diagrams, and may be retired when detailed production forms are specified.
+- Root `DEVELOPMENT.md` provides implementation status, delivery gates, and supporting SLA detail. The remaining forms/detail pages are illustrative, can lag the diagrams, and may be retired when detailed production forms are specified.
 - Activity numbers are display/SLA labels, not a sequential state machine. Model conditional and parallel work through explicit workflow-node prerequisites.
 - Compare the nested repository HEAD with the parent gitlink before assuming the root documentation includes the newest workflow update.
 

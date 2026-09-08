@@ -1,5 +1,7 @@
 # Phase 5 — documents (evidence uploads)
 
+> Historical implementation note: this filename reflects the delivery context in which the Garage document module was built. Current phase status and future delivery gates are governed by [`DEVELOPMENT.md`](./DEVELOPMENT.md).
+
 ## Context
 
 Every workflow completion requires the responsible role to upload its specified evidence before the permohonan can advance (`PRD.md` §5; `DATA_MODEL.md`'s `Document` entity; `API_SPEC.md`'s "Documents" section).

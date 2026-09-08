@@ -45,6 +45,8 @@ Activity 1 is special because the aggregate does not yet exist:
 
 ## Implementation target
 
+Phase 1 provides `OwnsWorkflowNode`, `AuthorizeWorkflowNode`, and `AvailableActions` in `pkg/rbac/workflow_owner.go`. They accept domain values and evaluate `pkg/workflow` snapshots; they are not yet wired into HTTP middleware or existing services. Ownership alone checks role/unit; write authorization additionally evaluates node and aggregate state. Returned action metadata contains node identity, display/SLA references and stage; future HTTP adapters supply routes and group bundled submissions.
+
 - Replace stage-derived `OwnsActivity` checks with a central `OwnsWorkflowNode(user, permohonan, nodeCode)` policy.
 - `RequireWorkflowNodeOwner(nodeCode)` returns 403 for the wrong owner and 409 when the node is owned by the role but is not actionable.
 - Retire `OwnerFnOverride` as an authorization source. Available owners derive from node state.

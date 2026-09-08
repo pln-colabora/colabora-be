@@ -6,10 +6,10 @@ COLABORA is a workflow-tracking backend for PLN Permohonan PB/PD. It persists pr
 
 1. [`hifi-colabora/workflow/jtr-jtm.html`](./hifi-colabora/workflow/jtr-jtm.html) and [`hifi-colabora/workflow/plg-tm.html`](./hifi-colabora/workflow/plg-tm.html) are the living source of truth for process order, dependencies, branches, and role ownership. Agents must inspect both before changing workflow behavior.
 2. This PRD translates those diagrams into backend behavior. When the diagrams change, update this PRD and its companion documents before implementing code.
-3. `hifi-colabora/DEVELOPMENT.md` carries supporting domain and SLA detail. The remaining hifi forms/detail pages are illustrative prototypes, may lag the workflow diagrams, and may be retired when detailed production forms are specified. Do not infer backend behavior from their filenames or hardcoded demo state.
+3. [`DEVELOPMENT.md`](./DEVELOPMENT.md) carries implementation status, delivery gates, and supporting SLA detail. The remaining hifi forms/detail pages are illustrative prototypes, may lag the workflow diagrams, and may be retired when detailed production forms are specified. Do not infer backend behavior from their filenames or hardcoded demo state.
 4. `docs/*.yaml` describes APIs that are actually implemented. [`API_SPEC.md`](./API_SPEC.md) describes the target contract.
 
-Companion documents: [`DATA_MODEL.md`](./DATA_MODEL.md), [`API_SPEC.md`](./API_SPEC.md), [`RBAC.md`](./RBAC.md), and [`ROADMAP.md`](./ROADMAP.md).
+Companion documents: [`DEVELOPMENT.md`](./DEVELOPMENT.md), [`DATA_MODEL.md`](./DATA_MODEL.md), [`API_SPEC.md`](./API_SPEC.md), and [`RBAC.md`](./RBAC.md). [`ROADMAP.md`](./ROADMAP.md) is a concise entry point to the canonical development plan.
 
 ## 1. Product behavior
 
@@ -59,7 +59,7 @@ Stages are visual groupings, not global barriers. A later-stage node may become 
 | `wo_app` | #8 WO Vendor APP | `transaksi-energi` | NPS delegated |
 | `reservasi_material` | #9 Reservasi Material | `transaksi-energi` | WO APP completed |
 | `tera_app` | #10 Perakitan dan Tera APP | `transaksi-energi` | Reservasi material completed |
-| `pk_vendor` | Supporting workflow node | `konstruksi` | WO Konstruksi completed |
+| `pk_vendor` | Supporting workflow node | `konstruksi` | WO Konstruksi completed, plus WO PDKB completed when required |
 | `wo_pdkb` | Conditional supporting node | `konstruksi` | WO Konstruksi completed and `perlu_pdkb = true`; otherwise skipped |
 | `pemasangan_tiang` | #11 Pemasangan Tiang | `vendor-tiang` | WO Tiang completed; skipped when poles are not required |
 | `pelaksanaan_konstruksi` | #12 Pelaksanaan Konstruksi | `vendor-konstruksi` | WO Konstruksi and PK Vendor completed, plus WO PDKB when required |
@@ -81,7 +81,7 @@ The filenames `forms/03-permohonan-perluasan.html` and `forms/04-rab-kko-kkf.htm
 
 ## 4. Workflow and SLA state
 
-Workflow-node status is one of `locked`, `available`, `in_progress`, `completed`, or `skipped`. SLA state is derived separately as `on_time`, `due_soon`, `overdue`, or `none`. A node without an SLA rule must not receive a fabricated deadline. The exact day offsets remain in `hifi-colabora/DEVELOPMENT.md` and the `sla_rules` seed.
+Workflow-node status is one of `locked`, `available`, `in_progress`, `completed`, or `skipped`. SLA state is derived separately as `on_time`, `due_soon`, `overdue`, or `none`. A node without an SLA rule must not receive a fabricated deadline. The exact day offsets remain in [`DEVELOPMENT.md`](./DEVELOPMENT.md) and the `sla_rules` seed.
 
 Aggregate status is `in_progress`, `completed`, or `returned`. `CurrentStage` is the lowest presentation stage containing an applicable unfinished node; clients must use `available_actions` to render actionable work.
 

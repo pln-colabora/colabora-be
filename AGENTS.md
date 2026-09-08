@@ -6,13 +6,14 @@ This file provides guidance to coding agents working in this repository.
 
 Go backend built on the `go-gin-clean-starter` template (Gin + GORM + `samber/do` DI), implementing Controller → Service → Repository clean architecture with feature modules under `modules/`. Note: `hifi-colabora/` is a separate nested git repository (a static HTML high-fidelity prototype/mockup set) — it is not part of this Go codebase and has its own `CLAUDE.md`.
 
-**This backend implements the COLABORA workflow tracked by the living diagrams under `hifi-colabora/workflow/`.** Before starting feature work, read [`PRD.md`](./PRD.md), [`DATA_MODEL.md`](./DATA_MODEL.md), [`API_SPEC.md`](./API_SPEC.md), [`RBAC.md`](./RBAC.md), and [`ROADMAP.md`](./ROADMAP.md). The design documents describe the target refactor; `docs/*.yaml` and the code describe what is implemented today.
+**This backend implements the COLABORA workflow tracked by the living diagrams under `hifi-colabora/workflow/`.** Before starting feature work, read [`DEVELOPMENT.md`](./DEVELOPMENT.md), [`PRD.md`](./PRD.md), [`DATA_MODEL.md`](./DATA_MODEL.md), [`API_SPEC.md`](./API_SPEC.md), and [`RBAC.md`](./RBAC.md). The development plan records phase status, the design documents describe the target refactor, and `docs/*.yaml` plus the code describe what is implemented today.
 
 ### Workflow source and nested-repository checks
 
 - Before workflow work, compare the `hifi-colabora` commit checked out in the working tree with the gitlink recorded by this repository (`git ls-tree HEAD hifi-colabora` and `git -C hifi-colabora log`). Review the intervening commits rather than assuming the parent repository's docs already include them.
 - Treat `hifi-colabora/workflow/jtr-jtm.html` and `hifi-colabora/workflow/plg-tm.html` as the continuously updated source of truth for order, dependencies, branches, and ownership. Read both at the beginning of every workflow-related task.
-- Use `hifi-colabora/DEVELOPMENT.md` for supporting domain/SLA detail. Forms and detail pages are illustrative, may lag, and may be retired when detailed production forms arrive. Never infer backend order from form filenames or demo navigation.
+- Use root [`DEVELOPMENT.md`](./DEVELOPMENT.md) for implementation status, delivery gates, and supporting SLA detail. Forms and detail pages are illustrative, may lag, and may be retired when detailed production forms arrive. Never infer backend order from form filenames or demo navigation.
+- Before designing activity payloads, production forms, or document persistence, read [`DOCUMENT_WORKFLOW_REFERENCE.md`](./DOCUMENT_WORKFLOW_REFERENCE.md). It summarizes findings from the sensitive real samples under `BA & DOKUMEN COLABORA/` without duplicating their PII; the samples are evidence references, not workflow authority.
 - Activity numbers are labels from the source process, not a guarantee of simple sequential execution. Stages 4–6 contain conditional and parallel work. Do not advance by incrementing an activity number; evaluate the applicable prerequisites and completion gates.
 - Keep connection-type ownership explicit: JTR/JTM and PLG TM can have different owners for the same numbered activity. Model authorization per workflow node, not per stage alone.
 
