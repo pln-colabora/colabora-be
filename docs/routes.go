@@ -14,6 +14,10 @@ const referenceHTML = `<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
   </head>
   <body>
+    <a
+      href="/docs/architecture"
+      style="position:fixed;right:16px;top:12px;z-index:9999;padding:8px 12px;border-radius:8px;background:#1769aa;color:white;font:600 13px system-ui;text-decoration:none"
+    >Architecture diagrams</a>
     <div id="app"></div>
     <script
       src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.66.1"
@@ -59,6 +63,8 @@ func RegisterRoutes(server *gin.Engine) {
 	server.StaticFile("/docs/user.yaml", "./docs/user.yaml")
 	server.StaticFile("/docs/permohonan.yaml", "./docs/permohonan.yaml")
 	server.StaticFile("/docs/document.yaml", "./docs/document.yaml")
+	server.StaticFile("/docs/architecture", "./docs/architecture/index.html")
+	server.StaticFS("/docs/architecture/diagrams", http.Dir("./docs/architecture/diagrams"))
 
 	server.GET("/docs/openapi.yaml", func(ctx *gin.Context) {
 		body, err := buildMergedOpenAPI()

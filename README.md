@@ -89,6 +89,11 @@ Features live under `modules/<name>/` and normally contain controller, service, 
 
 Use `pkg/utils.BuildResponseSuccess`/`BuildResponseFailed` for response envelopes. Keep workflow and role resolution centralized; do not duplicate ownership or transition checks in controllers.
 
+The implemented workflow, RBAC, data model, API actions, evidence lifecycle, SLA,
+and runtime components are visualized in the [architecture diagram catalog](./docs/architecture/README.md).
+When the server is running, the same Mermaid sources are available at
+`GET /docs/architecture`.
+
 ## Deployment
 
 Production uses Docker Compose, GHCR, GitHub Actions, nginx, PostgreSQL, and Garage. See [`DEPLOY.md`](./DEPLOY.md) for setup, deployment, and rollback instructions.
