@@ -47,6 +47,18 @@ Only actions owned by the authenticated caller appear in `available_actions`. Th
 
 ## Write endpoints
 
+`POST /api/permohonan/:id/vendor-assignments` records a vendor account assignment
+using `{"vendor_id":"<UUID>","vendor_role":"vendor-tiang|vendor-konstruksi|vendor-sr-app"}`.
+It returns the aggregate with HTTP 200; an occupied role slot returns 409.
+Assignment ownership, applicability and read scope are specified in `RBAC.md`.
+No automatic vendor grants are created for existing requests.
+
+All request-resource HTTP endpoints enforce the same read policy: matching ULP
+for ULP roles, explicit assignment for vendors, cross-ULP operational access for
+the listed UP3 roles, and read-only monitoring for super-user. Inaccessible IDs
+return 404. List totals and pages include only visible requests, even with
+`scope=all`.
+
 | Method | Path | Workflow node(s) | Owner |
 |---|---|---|---|
 | `POST` | `/api/permohonan/:id/survei` | `survei` | `teknik` JTR/JTM; `perencanaan` PLG TM |
@@ -84,12 +96,13 @@ Every write endpoint:
 
 ## Documents
 
-- `POST /api/documents` uploads a private, unattached file and returns its ID.
+- `POST /api/documents` uploads a private, unattached file and returns its ID plus provenance. Optional `supersedes_document_id` creates the next revision only when the prior file is a same-type, unattached upload owned by the caller.
 - Activity submissions attach `document_ids` to their exact `workflow_node`.
 - `GET /api/permohonan/:id/documents?workflow_node=...` filters attached evidence.
 - `GET /api/permohonan/:id/documents/:doc_id` returns/redirects to a short-lived download URL.
 
 An attachment request must fail atomically if any document is missing, already attached, or the caller does not own the target node.
+Superseded documents cannot be attached. Attached evidence cannot be revised or replaced through the current API because correction/reopen ownership remains a discovery gate. Uploads record detected MIME, measured size, SHA-256, original filename, `uploaded` source, `restricted` classification, scan status, and revision links. Configured ClamAV scanning is synchronous and fail-closed; without a configured scanner, status is explicitly `not_scanned`. Downloads redirect to private 15-minute presigned URLs. The operational `make cleanup-orphan-documents` command removes unattached uploads older than the configured TTL.
 
 ## Error semantics
 

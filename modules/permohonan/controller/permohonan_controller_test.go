@@ -24,6 +24,10 @@ type phase3ControllerService struct {
 	activityErr error
 }
 
+func (f phase3ControllerService) AssignVendor(context.Context, string, string, dto.VendorAssignmentRequest) (dto.PermohonanResponse, error) {
+	return dto.PermohonanResponse{}, f.activityErr
+}
+
 func (f phase3ControllerService) SubmitClosing(context.Context, string, string, dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
 	return dto.PermohonanResponse{}, f.activityErr
 }

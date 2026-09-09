@@ -22,6 +22,7 @@ import (
 
 type (
 	PermohonanController interface {
+		AssignVendor(ctx *gin.Context)
 		Create(ctx *gin.Context)
 		GetAll(ctx *gin.Context)
 		GetById(ctx *gin.Context)
@@ -114,6 +115,10 @@ func (c *permohonanController) SubmitSRAPP(ctx *gin.Context) {
 
 func (c *permohonanController) SubmitClosing(ctx *gin.Context) {
 	submitActivityRequest(ctx, c.permohonanValidation.ValidateEvidenceSubmitRequest, c.permohonanService.SubmitClosing)
+}
+
+func (c *permohonanController) AssignVendor(ctx *gin.Context) {
+	submitActivityRequest(ctx, func(req dto.VendorAssignmentRequest) error { return nil }, c.permohonanService.AssignVendor)
 }
 
 func submitActivityRequest[T any](

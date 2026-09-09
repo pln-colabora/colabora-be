@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/pln-colabora/colabora-be/database"
+	documentService "github.com/pln-colabora/colabora-be/modules/document/service"
 	"github.com/pln-colabora/colabora-be/pkg/constants"
 	"github.com/samber/do"
 	"gorm.io/gorm"
@@ -119,7 +120,7 @@ func Commands(injector *do.Injector) bool {
 	}
 
 	if scriptFlag {
-		if err := Script(scriptName, db); err != nil {
+		if err := Script(scriptName, db, do.MustInvoke[documentService.DocumentService](injector)); err != nil {
 			log.Fatalf("error script: %v", err)
 		}
 		log.Println("script run successfully")

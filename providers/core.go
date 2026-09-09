@@ -10,6 +10,7 @@ import (
 	authService "github.com/pln-colabora/colabora-be/modules/auth/service"
 	documentController "github.com/pln-colabora/colabora-be/modules/document/controller"
 	documentRepo "github.com/pln-colabora/colabora-be/modules/document/repository"
+	documentScanning "github.com/pln-colabora/colabora-be/modules/document/scanning"
 	documentService "github.com/pln-colabora/colabora-be/modules/document/service"
 	documentStorage "github.com/pln-colabora/colabora-be/modules/document/storage"
 	permohonanController "github.com/pln-colabora/colabora-be/modules/permohonan/controller"
@@ -47,6 +48,10 @@ func RegisterDependencies(injector *do.Injector) {
 	jwtService := do.MustInvokeNamed[authService.JWTService](injector, constants.JWTService)
 	storageClientRaw := do.MustInvokeNamed[*awsS3.Client](injector, constants.Storage)
 	storageClient := documentStorage.NewS3Client(storageClientRaw, os.Getenv("GARAGE_BUCKET"))
+	var documentScanner documentScanning.Scanner = documentScanning.DisabledScanner{}
+	if address := os.Getenv("CLAMAV_ADDRESS"); address != "" {
+		documentScanner = documentScanning.ClamAVScanner{Address: address}
+	}
 
 	userRepository := repository.NewUserRepository(db)
 	refreshTokenRepository := authRepo.NewRefreshTokenRepository(db)
@@ -56,8 +61,12 @@ func RegisterDependencies(injector *do.Injector) {
 
 	userService := userService.NewUserService(userRepository, db)
 	authService := authService.NewAuthService(userRepository, refreshTokenRepository, jwtService, db)
-	permohonanService := permohonanService.NewPermohonanService(permohonanRepository, slaRuleRepository, userRepository, documentRepository, db)
-	documentService := documentService.NewDocumentService(documentRepository, permohonanRepository, userRepository, storageClient, db)
+	permohonanService := permohonanService.NewPermohonanService(permohonanRepository, slaRuleRepository, userRepository, documentRepository, permohonanRepo.NewVendorAssignmentRepository(), db)
+	documentSvc := documentService.NewDocumentService(documentRepository, permohonanRepository, userRepository, storageClient, documentScanner, db)
+
+	do.Provide(injector, func(i *do.Injector) (documentService.DocumentService, error) {
+		return documentSvc, nil
+	})
 
 	do.Provide(injector, func(i *do.Injector) (repository.UserRepository, error) {
 		return userRepository, nil
@@ -87,7 +96,7 @@ func RegisterDependencies(injector *do.Injector) {
 
 	do.Provide(
 		injector, func(i *do.Injector) (documentController.DocumentController, error) {
-			return documentController.NewDocumentController(i, documentService), nil
+			return documentController.NewDocumentController(i, documentSvc), nil
 		},
 	)
 }

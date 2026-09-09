@@ -7,6 +7,7 @@ import (
 	"github.com/pln-colabora/colabora-be/modules/document/controller"
 	"github.com/pln-colabora/colabora-be/pkg/constants"
 	"github.com/samber/do"
+	"gorm.io/gorm"
 )
 
 // Two route groups: a top-level /api/documents for standalone upload (no permohonan known
@@ -25,6 +26,7 @@ func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
 
 	permohonanDocumentRoutes := server.Group("/api/permohonan/:id/documents")
 	permohonanDocumentRoutes.Use(middlewares.Authenticate(jwtService))
+	permohonanDocumentRoutes.Use(middlewares.RequirePermohonanAccess(do.MustInvokeNamed[*gorm.DB](injector, constants.DB)))
 	{
 		permohonanDocumentRoutes.GET("", documentController.List)
 		permohonanDocumentRoutes.GET("/:doc_id", documentController.Download)

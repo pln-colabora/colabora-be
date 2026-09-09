@@ -2,8 +2,8 @@
 
 This is the canonical implementation plan for the COLABORA backend. It records what is implemented, what remains, and the exit gate for each delivery phase. Detailed product behavior, persistence, API, and authorization contracts remain in `PRD.md`, `DATA_MODEL.md`, `API_SPEC.md`, and `RBAC.md`.
 
-**Baseline verified:** 8 September 2026  
-**Next phase:** Phase 5 — Evidence and access hardening
+**Baseline verified:** 9 September 2026
+**Next phase:** Phase 6 — Integration readiness and frontend handoff
 
 **Compatibility policy:** breaking development schema and API changes are allowed; runtime OpenAPI must continue to describe only behavior that is actually implemented.
 
@@ -49,7 +49,7 @@ The remaining hifi forms, detail pages, demo navigation, and client-side RBAC ar
 ### Known gaps
 
 - Detailed production forms and document-content verification remain subject to the discovery gates below.
-- Document evidence attaches by workflow node, but list/download access has the same unresolved read-authorization/IDOR gap as permohonan detail.
+- Vendor reassignment/revocation and correction of already-attached evidence remain discovery gates; Phase 5 deliberately keeps both immutable.
 - Generated permohonan test files under `modules/permohonan/tests` remain placeholders; meaningful workflow coverage lives beside the controller/service/repository and in RBAC tests.
 
 ### Verified baseline
@@ -147,7 +147,23 @@ Sequence 4 delivers the two independent Stage 6 completion routes. Energize requ
 
 Sequence 5 delivers `POST /api/permohonan/:id/closing`, recording PDL → AIL/DIJ → selesai in one transaction after both Stage 6 branches complete. Matching-ULP pelayanan-pelanggan owns all three nodes for every connection type. Required documents and optional notes are shared across the closing package; each node receives completion metadata and an audit event. Successful closing returns completed status with no available actions. Tests cover all four connection types, role/unit rejection, both unmet join inputs, terminal return, duplicates, input validation, and real-repository transaction rollback on last-node evidence conflict or audit insertion failure. Fields for #15–#17 remain minimal pending detailed production-form confirmation.
 
-### Phase 5 — Evidence and access hardening — Queued
+### Phase 5 — Evidence and access hardening — Complete
+
+Upload hardening validates actual file bytes against the declared PDF/JPEG/PNG MIME type, enforces the 10 MiB service limit and 11 MiB multipart limit, bounds document categories and filenames, and uses opaque storage keys. Every new row records original filename, detected MIME, measured size, SHA-256 checksum, source, classification, scan status and revision provenance. A configured ClamAV daemon scans bytes synchronously and scanner failures reject the upload; deployments without `CLAMAV_ADDRESS` explicitly record `not_scanned` rather than claiming a clean verdict.
+
+Decision: vendor access is limited to explicitly assigned accounts, not all accounts
+sharing a role. The new vendor_assignments table and assignment endpoint implement
+this policy. Shared HTTP access guards protect request detail/history/logs,
+documents/downloads and activity writes; list filtering uses the same predicate
+before pagination/counting. ULP roles are unit-scoped; UP3 operational roles retain
+cross-ULP access and super-user remains read-only. Existing requests receive no
+automatic vendor grants. Revisions may supersede only the caller's same-type upload
+while it remains unattached; attached evidence is immutable until the business defines
+correction/reopen semantics. Superseded uploads cannot be attached. Attached evidence
+is retained indefinitely, while `make cleanup-orphan-documents` deletes private
+objects and rows for unattached uploads older than `DOCUMENT_ORPHAN_TTL_HOURS` (24 hours
+by default), with a row lock preventing attachment races. Apply both Phase 5 migrations
+before serving these routes.
 
 - Define one read policy for permohonan detail, activity history, logs, and documents, including ULP participants, UP3 roles, vendors, and cross-unit read-only super-user access.
 - Apply that policy consistently to list/detail/document reads so closing the document IDOR does not leave customer data exposed elsewhere.
@@ -155,6 +171,8 @@ Sequence 5 delivers `POST /api/permohonan/:id/closing`, recording PDL → AIL/DI
 - Finalize required provenance fields, MIME/size enforcement, private object access, short-lived downloads, malware-scanning integration point, revision/supersession behavior, and orphan-upload cleanup.
 
 **Exit gate:** authorization matrix tests cover every role and unit boundary; guessed IDs cannot expose aggregate or document data; failed attachment leaves both workflow and documents unchanged; and security-sensitive audit events contain no PII or secret URLs.
+
+Exit gate passed in unit/integration coverage. PostgreSQL migrations for vendor assignment and document hardening were verified up/down/up in isolated schemas. Audit events contain identifiers and action/node codes only; object keys, original filenames, customer fields and presigned URLs are not written to activity logs.
 
 ### Phase 6 — Integration readiness and frontend handoff — Queued
 

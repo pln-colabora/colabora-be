@@ -39,6 +39,7 @@ func TestMergedOpenAPIContainsOnlyResolvableLocalComponentReferences(t *testing.
 		"/api/permohonan/{id}/energize-jaringan",
 		"/api/permohonan/{id}/pemasangan-sr-app",
 		"/api/permohonan/{id}/closing",
+		"/api/permohonan/{id}/vendor-assignments",
 	} {
 		require.Contains(t, paths, path)
 	}

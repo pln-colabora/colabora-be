@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pln-colabora/colabora-be/database/entities"
@@ -23,9 +24,19 @@ type DocumentRepository interface {
 	AttachToWorkflowNode(ctx context.Context, tx *gorm.DB, documentIDs []string, permohonanID, workflowNode, attachedBy string) (int64, error)
 }
 
+type DocumentLifecycleRepository interface {
+	DocumentRepository
+	GetByIdForUpdate(ctx context.Context, tx *gorm.DB, id string) (entities.Document, error)
+	MarkSuperseded(ctx context.Context, tx *gorm.DB, oldID, newID uuid.UUID) (bool, error)
+	ListOrphans(ctx context.Context, tx *gorm.DB, before time.Time, limit int) ([]entities.Document, error)
+	DeleteUnattached(ctx context.Context, tx *gorm.DB, id uuid.UUID) (bool, error)
+}
+
 type documentRepository struct{ db *gorm.DB }
 
-func NewDocumentRepository(db *gorm.DB) DocumentRepository { return &documentRepository{db: db} }
+func NewDocumentRepository(db *gorm.DB) DocumentLifecycleRepository {
+	return &documentRepository{db: db}
+}
 
 func (r *documentRepository) database(tx *gorm.DB) *gorm.DB {
 	if tx != nil {
@@ -47,6 +58,33 @@ func (r *documentRepository) GetById(ctx context.Context, tx *gorm.DB, id string
 		return entities.Document{}, err
 	}
 	return document, nil
+}
+
+func (r *documentRepository) GetByIdForUpdate(ctx context.Context, tx *gorm.DB, id string) (entities.Document, error) {
+	var document entities.Document
+	err := r.database(tx).WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).
+		Preload("Evidence").Where("id = ?", id).Take(&document).Error
+	return document, err
+}
+
+func (r *documentRepository) MarkSuperseded(ctx context.Context, tx *gorm.DB, oldID, newID uuid.UUID) (bool, error) {
+	result := r.database(tx).WithContext(ctx).Model(&entities.Document{}).
+		Where("id = ? AND permohonan_id IS NULL AND superseded_by_id IS NULL", oldID).
+		Update("superseded_by_id", newID)
+	return result.RowsAffected == 1, result.Error
+}
+
+func (r *documentRepository) ListOrphans(ctx context.Context, tx *gorm.DB, before time.Time, limit int) ([]entities.Document, error) {
+	var documents []entities.Document
+	err := r.database(tx).WithContext(ctx).Where("permohonan_id IS NULL AND created_at < ?", before).
+		Order("created_at ASC").Limit(limit).Find(&documents).Error
+	return documents, err
+}
+
+func (r *documentRepository) DeleteUnattached(ctx context.Context, tx *gorm.DB, id uuid.UUID) (bool, error) {
+	result := r.database(tx).WithContext(ctx).Where("id = ? AND permohonan_id IS NULL", id).
+		Delete(&entities.Document{})
+	return result.RowsAffected == 1, result.Error
 }
 
 func (r *documentRepository) ListByPermohonan(ctx context.Context, tx *gorm.DB, permohonanID string, workflowNode *string) ([]entities.Document, error) {
@@ -99,13 +137,21 @@ func (r *documentRepository) AttachToWorkflowNode(ctx context.Context, tx *gorm.
 
 	var documents []entities.Document
 	if err := db.Clauses(clause.Locking{Strength: "UPDATE"}).
-		Select("id", "permohonan_id").Where("id IN ?", ids).Find(&documents).Error; err != nil {
+		Select("id", "permohonan_id", "uploaded_by", "scan_status", "superseded_by_id").Where("id IN ?", ids).Find(&documents).Error; err != nil {
 		return 0, err
 	}
 	if len(documents) != len(ids) {
 		return 0, ErrDocumentNotFound
 	}
 	for _, document := range documents {
+		if document.ScanStatus == "infected" || document.SupersededByID != nil {
+			return 0, ErrDocumentNotFound
+		}
+		// Unattached uploads are private to their uploader. Same-request evidence
+		// remains reusable by authorized node owners after its first attachment.
+		if document.PermohonanID == nil && document.UploadedBy != attachedByUUID {
+			return 0, ErrDocumentNotFound
+		}
 		if document.PermohonanID != nil && *document.PermohonanID != permohonanUUID {
 			return 0, ErrDocumentAttachConflict
 		}

@@ -29,6 +29,14 @@ func (c *s3Client) PutObject(ctx context.Context, key string, r io.Reader, size 
 	return err
 }
 
+func (c *s3Client) DeleteObject(ctx context.Context, key string) error {
+	_, err := c.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(key),
+	})
+	return err
+}
+
 func (c *s3Client) PresignGetObject(ctx context.Context, key string, ttl time.Duration) (string, error) {
 	presignClient := s3.NewPresignClient(c.client)
 

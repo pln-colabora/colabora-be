@@ -3,20 +3,24 @@ package service
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/textproto"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/pln-colabora/colabora-be/database/entities"
 	"github.com/pln-colabora/colabora-be/modules/document/dto"
+	"github.com/pln-colabora/colabora-be/modules/document/scanning"
 	permohonanQuery "github.com/pln-colabora/colabora-be/modules/permohonan/query"
 	"github.com/pln-colabora/colabora-be/pkg/rbac"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -29,6 +33,9 @@ type fakeDocumentRepository struct {
 	existsOK           bool
 	attachRowsAffected int64
 	attachErr          error
+	markSuperseded     bool
+	orphans            []entities.Document
+	deleted            bool
 }
 
 func (f *fakeDocumentRepository) Create(ctx context.Context, tx *gorm.DB, document entities.Document) (entities.Document, error) {
@@ -39,6 +46,19 @@ func (f *fakeDocumentRepository) Create(ctx context.Context, tx *gorm.DB, docume
 
 func (f *fakeDocumentRepository) GetById(ctx context.Context, tx *gorm.DB, id string) (entities.Document, error) {
 	return f.byId, f.byIdErr
+}
+func (f *fakeDocumentRepository) GetByIdForUpdate(ctx context.Context, tx *gorm.DB, id string) (entities.Document, error) {
+	return f.byId, f.byIdErr
+}
+func (f *fakeDocumentRepository) MarkSuperseded(context.Context, *gorm.DB, uuid.UUID, uuid.UUID) (bool, error) {
+	return f.markSuperseded, nil
+}
+func (f *fakeDocumentRepository) ListOrphans(context.Context, *gorm.DB, time.Time, int) ([]entities.Document, error) {
+	return f.orphans, nil
+}
+func (f *fakeDocumentRepository) DeleteUnattached(context.Context, *gorm.DB, uuid.UUID) (bool, error) {
+	f.deleted = true
+	return true, nil
 }
 
 func (f *fakeDocumentRepository) ListByPermohonan(ctx context.Context, tx *gorm.DB, permohonanId string, workflowNode *string) ([]entities.Document, error) {
@@ -116,11 +136,125 @@ func (f *fakeUserRepository) ExistsByUnitAndRoles(ctx context.Context, tx *gorm.
 type fakeStorageClient struct {
 	putErr       error
 	presignedURL string
+	putCalls     int
+	key          string
+	size         int64
+	contentType  string
+	deleteCalls  int
+	deleteErr    error
+}
+
+func (f *fakeStorageClient) DeleteObject(context.Context, string) error {
+	f.deleteCalls++
+	return f.deleteErr
 }
 
 func (f *fakeStorageClient) PutObject(ctx context.Context, key string, r io.Reader, size int64, contentType string) error {
+	f.putCalls++
+	f.key, f.size, f.contentType = key, size, contentType
 	return f.putErr
 }
+
+func TestUploadRejectsSpoofedContentAndActualOversize(t *testing.T) {
+	for _, tc := range []struct {
+		name, content string
+		want          error
+	}{
+		{"spoofed PDF", "<html>not a PDF</html>", dto.ErrInvalidFileType},
+		{"empty", "", dto.ErrInvalidFileType},
+		{"actual oversize", "%PDF-1.7\n" + strings.Repeat("x", 10<<20), dto.ErrFileTooLarge},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := &fakeStorageClient{}
+			repo := &fakeDocumentRepository{}
+			s := &documentService{documentRepository: repo, userRepository: &fakeUserRepository{user: entities.User{ID: uuid.New()}}, storageClient: store}
+			file := newFileHeader(t, "private-customer-name.pdf", "application/pdf", tc.content)
+			file.Size = 1 // A service caller cannot bypass the limit by forging metadata.
+			_, err := s.Upload(context.Background(), uuid.NewString(), dto.DocumentUploadRequest{File: file, Type: "evidence"})
+			require.ErrorIs(t, err, tc.want)
+			require.Zero(t, store.putCalls)
+			require.Equal(t, uuid.Nil, repo.created.ID)
+		})
+	}
+}
+
+func TestUploadUsesOpaqueKeyAndMeasuredSize(t *testing.T) {
+	store := &fakeStorageClient{}
+	s := &documentService{documentRepository: &fakeDocumentRepository{}, userRepository: &fakeUserRepository{user: entities.User{ID: uuid.New()}}, storageClient: store}
+	content := "%PDF-1.7\nsynthetic"
+	file := newFileHeader(t, "private-customer-name.pdf", "application/pdf", content)
+	file.Size = 1
+	_, err := s.Upload(context.Background(), uuid.NewString(), dto.DocumentUploadRequest{File: file, Type: "evidence"})
+	require.NoError(t, err)
+	require.NotContains(t, store.key, file.Filename)
+	_, err = uuid.Parse(strings.TrimPrefix(store.key, "documents/"))
+	require.NoError(t, err)
+	require.EqualValues(t, len(content), store.size)
+	require.Equal(t, "application/pdf", store.contentType)
+	require.Equal(t, "private-customer-name.pdf", s.documentRepository.(*fakeDocumentRepository).created.OriginalFilename)
+	require.Len(t, s.documentRepository.(*fakeDocumentRepository).created.ChecksumSHA256, 64)
+}
+
+type fakeScanner struct {
+	status string
+	err    error
+}
+
+func (f fakeScanner) Scan(context.Context, []byte) (string, error) { return f.status, f.err }
+
+func TestUploadScannerIsFailClosedWhenConfigured(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		scanner scanning.Scanner
+		want    error
+	}{
+		{"infected", fakeScanner{status: scanning.StatusInfected}, dto.ErrMalwareDetected},
+		{"scanner failure", fakeScanner{err: errors.New("synthetic")}, dto.ErrScanFailed},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := &fakeStorageClient{}
+			s := &documentService{documentRepository: &fakeDocumentRepository{}, userRepository: &fakeUserRepository{user: entities.User{ID: uuid.New()}}, storageClient: store, scanner: tc.scanner}
+			_, err := s.Upload(context.Background(), uuid.NewString(), dto.DocumentUploadRequest{File: newFileHeader(t, "evidence.pdf", "application/pdf", "%PDF-1.7\nsynthetic"), Type: "evidence"})
+			require.ErrorIs(t, err, tc.want)
+			require.Zero(t, store.putCalls)
+		})
+	}
+}
+
+func TestUploadRevisionOnlySupersedesOwnUnattachedUpload(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:"+uuid.NewString()+"?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	uploader := uuid.New()
+	previous := entities.Document{ID: uuid.New(), Type: "evidence", UploadedBy: uploader, Revision: 1}
+	repo := &fakeDocumentRepository{byId: previous, markSuperseded: true}
+	s := &documentService{documentRepository: repo, userRepository: &fakeUserRepository{user: entities.User{ID: uploader}}, storageClient: &fakeStorageClient{}, scanner: fakeScanner{status: scanning.StatusClean}, db: db}
+	result, err := s.Upload(context.Background(), uploader.String(), dto.DocumentUploadRequest{File: newFileHeader(t, "replacement.pdf", "application/pdf", "%PDF-1.7\nreplacement"), Type: "evidence", SupersedesDocumentID: previous.ID.String()})
+	require.NoError(t, err)
+	require.EqualValues(t, 2, result.Revision)
+	require.Equal(t, previous.ID.String(), *result.SupersedesID)
+	require.NotNil(t, result.ScanCheckedAt)
+
+	previous.PermohonanID = ptrUUID(uuid.New())
+	repo.byId = previous
+	_, err = s.Upload(context.Background(), uploader.String(), dto.DocumentUploadRequest{File: newFileHeader(t, "replacement.pdf", "application/pdf", "%PDF-1.7\nreplacement"), Type: "evidence", SupersedesDocumentID: previous.ID.String()})
+	require.ErrorIs(t, err, dto.ErrInvalidRevision)
+}
+
+func TestCleanupOrphansDeletesStorageBeforeMetadata(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:"+uuid.NewString()+"?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	old := entities.Document{ID: uuid.New(), FilePath: "documents/opaque", Timestamp: entities.Timestamp{CreatedAt: time.Now().Add(-48 * time.Hour)}}
+	repo := &fakeDocumentRepository{orphans: []entities.Document{old}, byId: old}
+	store := &fakeStorageClient{}
+	s := &documentService{documentRepository: repo, storageClient: store, db: db}
+	deleted, err := s.CleanupOrphans(context.Background(), time.Now().Add(-24*time.Hour), 100)
+	require.NoError(t, err)
+	require.Equal(t, 1, deleted)
+	require.Equal(t, 1, store.deleteCalls)
+	require.True(t, repo.deleted)
+}
+
+func ptrUUID(value uuid.UUID) *uuid.UUID { return &value }
 
 func (f *fakeStorageClient) PresignGetObject(ctx context.Context, key string, ttl time.Duration) (string, error) {
 	return f.presignedURL, nil
@@ -161,7 +295,7 @@ func TestDocumentService_Upload(t *testing.T) {
 	}
 
 	req := dto.DocumentUploadRequest{
-		File: newFileHeader(t, "evidence.pdf", "application/pdf", "hello"),
+		File: newFileHeader(t, "evidence.pdf", "application/pdf", "%PDF-1.7\nsynthetic evidence"),
 		Type: "evidence",
 	}
 
@@ -273,6 +407,14 @@ func TestDocumentService_Download(t *testing.T) {
 
 		_, err := s.Download(context.Background(), permohonanId.String(), docId.String())
 		assert.ErrorIs(t, err, dto.ErrDocumentNotFound)
+	})
+
+	t.Run("infected document is unavailable", func(t *testing.T) {
+		infected := document
+		infected.ScanStatus = scanning.StatusInfected
+		s := &documentService{documentRepository: &fakeDocumentRepository{byId: infected}, storageClient: &fakeStorageClient{}}
+		_, err := s.Download(context.Background(), permohonanId.String(), docId.String())
+		assert.ErrorIs(t, err, dto.ErrDocumentUnavailable)
 	})
 }
 

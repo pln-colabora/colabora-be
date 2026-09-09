@@ -1,16 +1,24 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/pln-colabora/colabora-be/database/entities"
 	"github.com/pln-colabora/colabora-be/modules/document/dto"
 	"github.com/pln-colabora/colabora-be/modules/document/repository"
+	"github.com/pln-colabora/colabora-be/modules/document/scanning"
 	"github.com/pln-colabora/colabora-be/modules/document/storage"
+	"github.com/pln-colabora/colabora-be/modules/document/validation"
 	permohonanRepository "github.com/pln-colabora/colabora-be/modules/permohonan/repository"
 	userRepository "github.com/pln-colabora/colabora-be/modules/user/repository"
 	"github.com/pln-colabora/colabora-be/pkg/rbac"
@@ -26,28 +34,30 @@ type DocumentService interface {
 	// Upload stores a raw file standalone — no permohonan/activity context yet, so no
 	// ownership check happens here. It's attached later via AttachToWorkflowNode.
 	Upload(ctx context.Context, userId string, req dto.DocumentUploadRequest) (dto.DocumentResponse, error)
-	// AttachToWorkflowNode is not yet wired to any HTTP endpoint — built for Phase 4's
-	// activity-submission endpoints to call once they exist, referencing documents that
-	// were uploaded earlier via Upload.
+	// Activity-submission endpoints call AttachToWorkflowNode in their transaction,
+	// referencing documents uploaded earlier via Upload.
 	AttachToWorkflowNode(ctx context.Context, userId, permohonanId, workflowNode string, documentIds []string) error
 	Download(ctx context.Context, permohonanId, docId string) (string, error)
 	List(ctx context.Context, permohonanId string, workflowNode *string) ([]dto.DocumentResponse, error)
 	HasEvidence(ctx context.Context, permohonanId, workflowNode string) (bool, error)
+	CleanupOrphans(ctx context.Context, before time.Time, limit int) (int, error)
 }
 
 type documentService struct {
-	documentRepository   repository.DocumentRepository
+	documentRepository   repository.DocumentLifecycleRepository
 	permohonanRepository permohonanRepository.PermohonanRepository
 	userRepository       userRepository.UserRepository
 	storageClient        storage.Client
+	scanner              scanning.Scanner
 	db                   *gorm.DB
 }
 
 func NewDocumentService(
-	documentRepo repository.DocumentRepository,
+	documentRepo repository.DocumentLifecycleRepository,
 	permohonanRepo permohonanRepository.PermohonanRepository,
 	userRepo userRepository.UserRepository,
 	storageClient storage.Client,
+	scanner scanning.Scanner,
 	db *gorm.DB,
 ) DocumentService {
 	return &documentService{
@@ -55,11 +65,15 @@ func NewDocumentService(
 		permohonanRepository: permohonanRepo,
 		userRepository:       userRepo,
 		storageClient:        storageClient,
+		scanner:              scanner,
 		db:                   db,
 	}
 }
 
 func (s *documentService) Upload(ctx context.Context, userId string, req dto.DocumentUploadRequest) (dto.DocumentResponse, error) {
+	if err := validation.NewDocumentValidation().ValidateDocumentUploadRequest(req); err != nil {
+		return dto.DocumentResponse{}, err
+	}
 	uploader, err := s.userRepository.GetUserById(ctx, s.db, userId)
 	if err != nil {
 		return dto.DocumentResponse{}, err
@@ -71,21 +85,88 @@ func (s *documentService) Upload(ctx context.Context, userId string, req dto.Doc
 	}
 	defer file.Close()
 
-	key := fmt.Sprintf("documents/%s/%s", uuid.New().String(), req.File.Filename)
-	contentType := req.File.Header.Get("Content-Type")
+	// Bound the actual bytes even when a caller supplies an incorrect FileHeader.Size.
+	content, err := io.ReadAll(io.LimitReader(file, validation.MaxUploadSizeBytes+1))
+	if err != nil {
+		return dto.DocumentResponse{}, dto.ErrInvalidFileType
+	}
+	if len(content) > validation.MaxUploadSizeBytes {
+		return dto.DocumentResponse{}, dto.ErrFileTooLarge
+	}
+	contentType := http.DetectContentType(content)
+	if len(content) == 0 || contentType != req.File.Header.Get("Content-Type") {
+		return dto.DocumentResponse{}, dto.ErrInvalidFileType
+	}
+	scanner := s.scanner
+	if scanner == nil {
+		scanner = scanning.DisabledScanner{}
+	}
+	scanStatus, err := scanner.Scan(ctx, content)
+	if err != nil {
+		return dto.DocumentResponse{}, dto.ErrScanFailed
+	}
+	if scanStatus == scanning.StatusInfected {
+		return dto.DocumentResponse{}, dto.ErrMalwareDetected
+	}
+	if scanStatus != scanning.StatusClean && scanStatus != scanning.StatusNotScanned {
+		return dto.DocumentResponse{}, dto.ErrScanFailed
+	}
+	key := fmt.Sprintf("documents/%s", uuid.New().String())
 
-	if err := s.storageClient.PutObject(ctx, key, file, req.File.Size, contentType); err != nil {
+	if err := s.storageClient.PutObject(ctx, key, bytes.NewReader(content), int64(len(content)), contentType); err != nil {
 		return dto.DocumentResponse{}, err
 	}
 
+	checksum := sha256.Sum256(content)
 	document := entities.Document{
-		Type:       req.Type,
-		FilePath:   key,
+		Type: strings.TrimSpace(req.Type), FilePath: key, OriginalFilename: strings.TrimSpace(filepath.Base(req.File.Filename)),
+		MimeType: contentType, SizeBytes: int64(len(content)), ChecksumSHA256: fmt.Sprintf("%x", checksum),
+		Source: "uploaded", Classification: "restricted", ScanStatus: scanStatus, Revision: 1,
 		UploadedBy: uploader.ID,
 	}
+	if scanStatus == scanning.StatusClean {
+		now := time.Now()
+		document.ScanCheckedAt = &now
+	}
 
-	created, err := s.documentRepository.Create(ctx, s.db, document)
+	var created entities.Document
+	if req.SupersedesDocumentID == "" {
+		created, err = s.documentRepository.Create(ctx, s.db, document)
+	} else {
+		err = s.db.Transaction(func(tx *gorm.DB) error {
+			previous, txErr := s.documentRepository.GetByIdForUpdate(ctx, tx, req.SupersedesDocumentID)
+			if txErr != nil {
+				if errors.Is(txErr, gorm.ErrRecordNotFound) {
+					return dto.ErrInvalidRevision
+				}
+				return txErr
+			}
+			if previous.UploadedBy != uploader.ID || previous.PermohonanID != nil || len(previous.Evidence) != 0 || previous.SupersededByID != nil || previous.Type != document.Type || previous.Revision >= 32767 {
+				return dto.ErrInvalidRevision
+			}
+			document.Revision = previous.Revision + 1
+			if document.Revision < 2 {
+				document.Revision = 2
+			}
+			document.SupersedesID = &previous.ID
+			created, txErr = s.documentRepository.Create(ctx, tx, document)
+			if txErr != nil {
+				return txErr
+			}
+			updated, txErr := s.documentRepository.MarkSuperseded(ctx, tx, previous.ID, created.ID)
+			if txErr != nil {
+				return txErr
+			}
+			if !updated {
+				return dto.ErrInvalidRevision
+			}
+			return nil
+		})
+	}
 	if err != nil {
+		// The opaque upload is not referenced if persistence fails. S3 deletion is
+		// idempotent and is attempted immediately as compensation.
+		_ = s.storageClient.DeleteObject(ctx, key)
 		return dto.DocumentResponse{}, err
 	}
 
@@ -140,8 +221,51 @@ func (s *documentService) Download(ctx context.Context, permohonanId, docId stri
 	if err != nil || document.PermohonanID == nil || document.PermohonanID.String() != permohonanId {
 		return "", dto.ErrDocumentNotFound
 	}
+	if document.ScanStatus == scanning.StatusInfected {
+		return "", dto.ErrDocumentUnavailable
+	}
 
 	return s.storageClient.PresignGetObject(ctx, document.FilePath, presignTTL)
+}
+
+func (s *documentService) CleanupOrphans(ctx context.Context, before time.Time, limit int) (int, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 100
+	}
+	documents, err := s.documentRepository.ListOrphans(ctx, s.db, before, limit)
+	if err != nil {
+		return 0, err
+	}
+	deleted := 0
+	for _, candidate := range documents {
+		err = s.db.Transaction(func(tx *gorm.DB) error {
+			document, txErr := s.documentRepository.GetByIdForUpdate(ctx, tx, candidate.ID.String())
+			if txErr != nil {
+				return txErr
+			}
+			if document.PermohonanID != nil || !document.CreatedAt.Before(before) {
+				return nil
+			}
+			if txErr = s.storageClient.DeleteObject(ctx, document.FilePath); txErr != nil {
+				return txErr
+			}
+			removed, txErr := s.documentRepository.DeleteUnattached(ctx, tx, document.ID)
+			if txErr != nil {
+				return txErr
+			}
+			if removed {
+				deleted++
+			}
+			return nil
+		})
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				continue
+			}
+			return deleted, err
+		}
+	}
+	return deleted, nil
 }
 
 func (s *documentService) List(ctx context.Context, permohonanId string, workflowNode *string) ([]dto.DocumentResponse, error) {
@@ -171,9 +295,26 @@ func toDocumentResponse(d entities.Document) dto.DocumentResponse {
 		permohonanId = &id
 	}
 
+	var supersedesID, supersededByID *string
+	if d.SupersedesID != nil {
+		value := d.SupersedesID.String()
+		supersedesID = &value
+	}
+	if d.SupersededByID != nil {
+		value := d.SupersededByID.String()
+		supersededByID = &value
+	}
+	var scanCheckedAt *string
+	if d.ScanCheckedAt != nil {
+		value := d.ScanCheckedAt.Format(time.RFC3339)
+		scanCheckedAt = &value
+	}
 	return dto.DocumentResponse{
-		ID:            d.ID.String(),
-		Type:          d.Type,
+		ID:               d.ID.String(),
+		Type:             d.Type,
+		OriginalFilename: d.OriginalFilename, MimeType: d.MimeType, SizeBytes: d.SizeBytes,
+		ChecksumSHA256: d.ChecksumSHA256, Source: d.Source, Classification: d.Classification,
+		ScanStatus: d.ScanStatus, ScanCheckedAt: scanCheckedAt, Revision: d.Revision, SupersedesID: supersedesID, SupersededByID: supersededByID,
 		PermohonanID:  permohonanId,
 		WorkflowNodes: evidenceNodes(d.Evidence),
 		UploadedBy:    d.UploadedBy.String(),

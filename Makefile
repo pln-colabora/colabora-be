@@ -68,6 +68,9 @@ seed:
 migrate-seed: 
 	go run cmd/main.go --migrate:run --seed
 
+cleanup-orphan-documents:
+	go run cmd/main.go --script:cleanup_orphan_documents
+
 # Postgres commands
 container-postgres:
 	docker exec -it ${POSTGRES_CONTAINER_NAME} /bin/sh
@@ -125,6 +128,9 @@ seed-docker:
 
 migrate-seed-docker: 
 	docker exec -it ${CONTAINER_NAME} /bin/sh -c "go run cmd/main.go --migrate:run --seed"
+
+cleanup-orphan-documents-docker:
+	docker exec -it ${CONTAINER_NAME} /bin/sh -c "go run cmd/main.go --script:cleanup_orphan_documents"
 
 go-tidy-docker:
 	docker exec -it ${CONTAINER_NAME} /bin/sh -c "go mod tidy"

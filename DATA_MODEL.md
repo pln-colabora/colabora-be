@@ -69,10 +69,18 @@ Evidence remains stored privately in Garage and downloaded through a presigned U
 | `ID` | UUID | Primary key |
 | `PermohonanID` | nullable UUID FK | Null during upload-first state |
 | `FilePath` | varchar | Private object key, not a public URL |
+| `OriginalFilename` | varchar(255) | Authorized-display provenance only; never part of the object key or audit log |
+| `MimeType`, `SizeBytes` | varchar, bigint | Detected MIME and measured bytes, not trusted multipart metadata |
+| `ChecksumSHA256` | char(64) | Lowercase digest of uploaded bytes |
+| `Source`, `Classification` | enums | New uploads are `uploaded` and `restricted` |
+| `ScanStatus`, `ScanCheckedAt` | enum, nullable timestamp | `not_scanned`, `clean`, or `infected`; timestamp is set for a clean synchronous verdict |
+| `Revision` | positive smallint | Starts at 1 |
+| `SupersedesID`, `SupersededByID` | nullable self-FKs | One-to-one replacement chain for unattached uploads |
 | `UploadedBy` | UUID FK | Uploading actor |
 | Timestamps | | Created/updated timestamps |
 
 One file belongs to at most one `Permohonan`, but may evidence multiple nodes of that request through `DocumentEvidence`.
+Only a same-type, same-uploader, unattached current upload may be superseded. Once evidence is attached it is immutable; correction/reopen behavior remains a business discovery gate. Superseded uploads cannot be attached. Attached evidence has no automatic expiry. The orphan cleanup command deletes unattached objects older than the configured TTL before deleting their rows while holding a row lock.
 
 ## `DocumentEvidence`
 
@@ -85,6 +93,18 @@ One file belongs to at most one `Permohonan`, but may evidence multiple nodes of
 | Timestamps | | Created/updated timestamps |
 
 `(DocumentID, WorkflowNode)` is unique. Attachment authorization evaluates the target `WorkflowNode`, not stage or activity number alone.
+
+## `VendorAssignment`
+
+`vendor_assignments` has a composite primary key on `permohonan_id, vendor_role`.
+`vendor_id` identifies the assigned user account; `assigned_by` identifies the
+actor issuing the assignment. All three identifiers have foreign keys, with
+cascading request deletion and restricted deletion of referenced accounts.
+Timestamps record assignment creation. Vendor roles are constrained to the three
+supported vendor roles. Assignments are immutable through the current API.
+Migration `20260908130000_create_vendor_assignments` creates this table; rollback
+drops it and removes its access grants. It does not infer assignments from roles
+or historical completion actors.
 
 ## `ActivityLog`
 

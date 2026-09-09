@@ -48,11 +48,13 @@ type PermohonanFilter struct {
 	Scope          string `json:"scope" form:"scope"`
 
 	// Set by the controller from the authenticated user, never bound from the query string.
-	CurrentRole string `form:"-"`
-	CurrentUnit string `form:"-"`
+	CurrentRole   string `form:"-"`
+	CurrentUnit   string `form:"-"`
+	CurrentUserID string `form:"-" json:"-"`
 }
 
 func (f *PermohonanFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
+	query = rbac.ApplyReadScope(query, f.CurrentRole, f.CurrentUnit, f.CurrentUserID)
 	if f.Ulp != "" {
 		query = query.Where("ulp_unit = ?", f.Ulp)
 	}

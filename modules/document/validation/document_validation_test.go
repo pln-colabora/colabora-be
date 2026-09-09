@@ -67,6 +67,11 @@ func TestValidateDocumentUploadRequest(t *testing.T) {
 			},
 			wantErr: dto.ErrInvalidFileType,
 		},
+		{
+			name:    "invalid supersedes id",
+			req:     dto.DocumentUploadRequest{File: fileHeader(10, "application/pdf"), Type: "evidence", SupersedesDocumentID: "not-a-uuid"},
+			wantErr: dto.ErrInvalidSupersedesID,
+		},
 	}
 
 	for _, tt := range tests {
@@ -75,4 +80,10 @@ func TestValidateDocumentUploadRequest(t *testing.T) {
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}
+}
+
+func TestUploadRejectsMissingFileAndOversizeCategory(t *testing.T) {
+	v := NewDocumentValidation()
+	assert.ErrorIs(t, v.ValidateDocumentUploadRequest(dto.DocumentUploadRequest{Type: "evidence"}), dto.ErrInvalidFileType)
+	assert.ErrorIs(t, v.ValidateDocumentUploadRequest(dto.DocumentUploadRequest{Type: string(make([]byte, 51)), File: fileHeader(10, "application/pdf")}), dto.ErrInvalidDocumentType)
 }

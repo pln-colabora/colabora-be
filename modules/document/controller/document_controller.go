@@ -42,6 +42,14 @@ func NewDocumentController(injector *do.Injector, s service.DocumentService) Doc
 // a document is uploaded standalone and attached to a permohonan+activity later, when a
 // Phase 4 activity endpoint calls DocumentService.AttachToWorkflowNode.
 func (c *documentController) Upload(ctx *gin.Context) {
+	ctx.Header("Cache-Control", "no-store")
+	// Include bounded multipart overhead as well as the file itself.
+	ctx.Request.Body = http.MaxBytesReader(ctx.Writer, ctx.Request.Body, validation.MaxUploadSizeBytes+(1<<20))
+	defer func() {
+		if ctx.Request.MultipartForm != nil {
+			_ = ctx.Request.MultipartForm.RemoveAll()
+		}
+	}()
 	var req dto.DocumentUploadRequest
 	if err := ctx.ShouldBind(&req); err != nil {
 		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_DATA_FROM_BODY, err.Error(), nil)
@@ -59,8 +67,14 @@ func (c *documentController) Upload(ctx *gin.Context) {
 
 	result, err := c.documentService.Upload(ctx, userId, req)
 	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, dto.ErrScanFailed) {
+			status = http.StatusServiceUnavailable
+		} else if errors.Is(err, dto.ErrMalwareDetected) {
+			status = http.StatusUnprocessableEntity
+		}
 		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_UPLOAD_DOCUMENT, err.Error(), nil)
-		ctx.JSON(http.StatusBadRequest, res)
+		ctx.JSON(status, res)
 		return
 	}
 
@@ -96,6 +110,8 @@ func (c *documentController) Download(ctx *gin.Context) {
 		status := http.StatusBadRequest
 		if errors.Is(err, dto.ErrDocumentNotFound) {
 			status = http.StatusNotFound
+		} else if errors.Is(err, dto.ErrDocumentUnavailable) {
+			status = http.StatusConflict
 		}
 		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_DOCUMENT, err.Error(), nil)
 		ctx.JSON(status, res)

@@ -36,6 +36,10 @@ var (
 )
 
 type (
+	VendorAssignmentRequest struct {
+		VendorID   string `json:"vendor_id" binding:"required,uuid" validate:"required,uuid"`
+		VendorRole string `json:"vendor_role" binding:"required,oneof=vendor-tiang vendor-konstruksi vendor-sr-app" validate:"required,oneof=vendor-tiang vendor-konstruksi vendor-sr-app"`
+	}
 	PermohonanCreateRequest struct {
 		JenisPermohonan string  `json:"jenis_permohonan" binding:"required"`
 		JenisSambungan  string  `json:"jenis_sambungan" binding:"required"`

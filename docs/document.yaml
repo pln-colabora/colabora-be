@@ -25,7 +25,19 @@ paths:
       description: >-
         No RBAC/ownership check here — there's no permohonan/workflow-node context
         yet to check ownership against. Max 10MB; application/pdf,
-        image/jpeg, or image/png only. The returned id is later attached to a
+        image/jpeg, or image/png only. The service checks the actual file bytes
+        against the declared MIME type and enforces the actual byte limit.
+        The full multipart request is limited to 11 MiB. Storage keys are opaque
+        and exclude the original filename. Upload provenance records the original
+        filename, detected MIME, measured size, SHA-256, classification and scan
+        status. When CLAMAV_ADDRESS is configured, scanning is synchronous and a
+        scanner error or infected verdict rejects the upload. Otherwise scan_status
+        is explicitly not_scanned.
+        Unattached uploads may only be attached by their uploader. Once bound,
+        the file may evidence other nodes of that same request.
+        Optional supersedes_document_id replaces only a same-type upload owned by
+        the caller while it remains unattached. Attached evidence is immutable.
+        The returned id is later attached to a
         permohonan + workflow node by an activity-submission endpoint.
       security:
         - bearerAuth: []
@@ -40,7 +52,12 @@ paths:
                 file: { type: string, format: binary }
                 type:
                   type: string
+                  maxLength: 50
                   description: Business document category, e.g. "evidence"
+                supersedes_document_id:
+                  type: string
+                  format: uuid
+                  description: Optional current unattached upload to supersede
       responses:
         "201":
           description: Document uploaded, unattached
@@ -56,12 +73,26 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: Malware was detected in the uploaded bytes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "503":
+          description: Configured malware scanner is unavailable or returned an invalid result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
 
   /api/permohonan/{id}/documents:
     get:
       tags: [Document]
       summary: List documents attached to a permohonan
-      description: Detail page's "Dokumen Terunggah" panel. Only ever returns attached documents.
+      description: >-
+        Only returns attached documents for requests the caller can access.
+        Vendors require an explicit account/role assignment; ULP roles require
+        matching ULP. UP3 operational roles and super-user have cross-ULP read
+        access. Inaccessible requests return 404.
       security:
         - bearerAuth: []
       parameters:
@@ -98,7 +129,8 @@ paths:
       description: >-
         Redirects (302) to a short-lived (15 minute) presigned URL. 404s if
         the document doesn't exist, isn't attached to this permohonan, or
-        isn't attached to any permohonan yet.
+        isn't attached to any permohonan yet, or the caller cannot access the
+        request. Vendors require an explicit account/role assignment.
       security:
         - bearerAuth: []
       parameters:
@@ -117,6 +149,11 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           description: Document not found (or not attached to this permohonan)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "409":
+          description: Document is unavailable because its scan status is infected
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiResponse" }
@@ -157,6 +194,17 @@ components:
       properties:
         id: { type: string, format: uuid }
         type: { type: string, example: "evidence" }
+        original_filename: { type: string, example: "bukti.pdf" }
+        mime_type: { type: string, example: "application/pdf" }
+        size_bytes: { type: integer, format: int64, minimum: 1 }
+        checksum_sha256: { type: string, minLength: 64, maxLength: 64 }
+        source: { type: string, enum: [uploaded, generated, imported, scanned] }
+        classification: { type: string, enum: [internal, restricted, public] }
+        scan_status: { type: string, enum: [not_scanned, clean, infected] }
+        scan_checked_at: { type: string, format: date-time, nullable: true }
+        revision: { type: integer, minimum: 1 }
+        supersedes_id: { type: string, format: uuid, nullable: true }
+        superseded_by_id: { type: string, format: uuid, nullable: true }
         permohonan_id:
           type: string
           format: uuid

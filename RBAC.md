@@ -53,4 +53,30 @@ Activity 1 is special because the aggregate does not yet exist:
 - `scope=mine` means at least one available or resumable node is owned by the caller, rather than matching `CurrentStage`.
 - Detail and list responses expose `available_actions`; a single `can_act` boolean cannot represent parallel work.
 
-Read authorization remains broader than write ownership. The existing document/permohonan read-access gap remains tracked in `PHASE5_DOCUMENTS.md` and must be resolved consistently across both modules.
+## Read access and vendor assignment
+
+The interim policy is shared by list queries and the HTTP guard on all request
+resources (detail, activities, logs, documents, downloads and activity writes):
+
+| Caller | Visible requests |
+|---|---|
+| pelayanan-pelanggan, teknik | Matching nonempty ULP |
+| nps, perencanaan, konstruksi, transaksi-energi, jaringan, pdkb | Cross-ULP operational access within this deployment |
+| vendor-tiang, vendor-konstruksi, vendor-sr-app | Explicitly assigned request AND matching assigned role/account |
+| super-user | Cross-unit read access; no workflow or assignment writes |
+| Other roles | None |
+
+An inaccessible request returns 404, including document routes, before data or
+presigned URLs are produced. List filtering applies before pagination and counts;
+`scope=all` cannot bypass it. HTTP handlers must retain the shared access guard;
+internal service methods do not independently implement the HTTP read policy.
+
+`POST /api/permohonan/:id/vendor-assignments` accepts `vendor_id` and
+`vendor_role`. Perencanaan assigns vendor-tiang, Konstruksi assigns
+vendor-konstruksi, and Transaksi Energi assigns vendor-sr-app for JTR/JTM.
+PLG TM SR/APP uses its vendor-konstruksi assignment. Assignment requires an active,
+NPS-delegated request and an applicable vendor branch. One account occupies each
+request/vendor-role slot. Existing assignments cannot be replaced through this API;
+reassignment and revocation require a separately defined lifecycle.
+Assignments remain readable after workflow completion, while writes still obey
+exact-node prerequisites and terminal-state rules.

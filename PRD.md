@@ -89,6 +89,8 @@ Aggregate status is `in_progress`, `completed`, or `returned`. `CurrentStage` is
 
 Every completion endpoint validates its required evidence server-side. Evidence attaches to a stable workflow-node code, with the display activity number retained as metadata where applicable. Each transition, branch decision, skip, terminal return, and completion is written to `ActivityLog` in the same transaction as the state change.
 
+Evidence storage is private. Upload provenance includes detected MIME, measured size, SHA-256, original filename, source, classification, scan status, and revision links. A file can be superseded only while it is still an unattached upload owned by the same actor; attached evidence remains immutable until correction/reopen semantics are confirmed. Superseded uploads are ineligible for attachment, and expired unattached objects are removed by the orphan-cleanup command.
+
 ## 6. Hifi lifecycle
 
 The hifi forms and detail pages validate concepts and presentation only. They are not permanent backend contracts and can be retired when detailed production form specifications arrive. The two files under `hifi-colabora/workflow/` remain the continuously updated workflow reference and must be reviewed at the start of every workflow-related task.

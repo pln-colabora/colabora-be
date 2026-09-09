@@ -7,6 +7,7 @@ import (
 	"github.com/pln-colabora/colabora-be/modules/permohonan/controller"
 	"github.com/pln-colabora/colabora-be/pkg/constants"
 	"github.com/samber/do"
+	"gorm.io/gorm"
 )
 
 func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
@@ -15,6 +16,7 @@ func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
 
 	permohonanRoutes := server.Group("/api/permohonan")
 	permohonanRoutes.Use(middlewares.Authenticate(jwtService))
+	permohonanRoutes.Use(middlewares.RequirePermohonanAccess(do.MustInvokeNamed[*gorm.DB](injector, constants.DB)))
 	{
 		permohonanRoutes.POST("", permohonanController.Create)
 		permohonanRoutes.POST("/:id/survei", permohonanController.SubmitSurvey)
@@ -31,6 +33,7 @@ func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
 		permohonanRoutes.POST("/:id/energize-jaringan", permohonanController.SubmitEnergize)
 		permohonanRoutes.POST("/:id/pemasangan-sr-app", permohonanController.SubmitSRAPP)
 		permohonanRoutes.POST("/:id/closing", permohonanController.SubmitClosing)
+		permohonanRoutes.POST("/:id/vendor-assignments", permohonanController.AssignVendor)
 		permohonanRoutes.GET("", permohonanController.GetAll)
 		permohonanRoutes.GET("/:id/activities", permohonanController.GetActivities)
 		permohonanRoutes.GET("/:id/logs", permohonanController.GetLogs)

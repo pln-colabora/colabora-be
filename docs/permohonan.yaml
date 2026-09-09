@@ -4,7 +4,11 @@ info:
   description: >-
     Workflow-node API: connection-specific request creation, dashboard list,
     detail with caller-owned actions, full activity timeline and logs, plus
-    Phase 4 Sequences 1-5 submissions through terminal completion.
+    Phase 4 Sequences 1-5 submissions through terminal completion. Request
+    resources enforce matching ULP access for ULP roles, explicit account
+    assignment for vendors, and cross-ULP reads for UP3 operational roles and
+    super-user. Inaccessible requests return 404. List scope=all does not bypass
+    access filtering.
   version: "1.0.0"
 servers:
   - url: https://api-colabora.anargya.fun
@@ -556,6 +560,41 @@ paths:
         content:
           application/json:
             schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/ActivitySubmitted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/permohonan/{id}/vendor-assignments:
+    post:
+      tags: [Permohonan]
+      summary: Assign a vendor account to a request
+      description: >-
+        Requires active NPS delegation. Perencanaan assigns vendor-tiang for an
+        applicable pole branch, Konstruksi assigns vendor-konstruksi, and
+        Transaksi Energi assigns vendor-sr-app for JTR/JTM. PLG TM uses
+        vendor-konstruksi for SR/APP. The target account must have the requested
+        role. One immutable assignment per request and vendor role; an existing
+        slot returns 409. Assignment and its audit event commit atomically.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PermohonanID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vendor_id, vendor_role]
+              properties:
+                vendor_id: { type: string, format: uuid }
+                vendor_role:
+                  type: string
+                  enum: [vendor-tiang, vendor-konstruksi, vendor-sr-app]
       responses:
         "200": { $ref: "#/components/responses/ActivitySubmitted" }
         "400": { $ref: "#/components/responses/BadRequest" }

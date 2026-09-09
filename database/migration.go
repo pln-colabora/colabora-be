@@ -21,6 +21,7 @@ func Migrate(db *gorm.DB) error {
 		&entities.ActivityLog{},
 		&entities.Document{},
 		&entities.DocumentEvidence{},
+		&entities.VendorAssignment{},
 	); err != nil {
 		return err
 	}

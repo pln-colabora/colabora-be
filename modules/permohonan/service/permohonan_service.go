@@ -23,6 +23,7 @@ import (
 )
 
 type PermohonanService interface {
+	AssignVendor(context.Context, string, string, dto.VendorAssignmentRequest) (dto.PermohonanResponse, error)
 	Create(ctx context.Context, req dto.PermohonanCreateRequest, userId string) (dto.PermohonanResponse, error)
 	GetById(ctx context.Context, id string, userId string) (dto.PermohonanResponse, error)
 	List(ctx context.Context, filter *query.PermohonanFilter, userId string) ([]query.Permohonan, int64, error)
@@ -45,11 +46,12 @@ type PermohonanService interface {
 }
 
 type permohonanService struct {
-	permohonanRepository repository.PermohonanRepository
-	slaRuleRepository    repository.SLARuleRepository
-	userRepository       userRepository.UserRepository
-	documentRepository   documentRepository.DocumentRepository
-	db                   *gorm.DB
+	vendorAssignmentRepository repository.VendorAssignmentRepository
+	permohonanRepository       repository.PermohonanRepository
+	slaRuleRepository          repository.SLARuleRepository
+	userRepository             userRepository.UserRepository
+	documentRepository         documentRepository.DocumentRepository
+	db                         *gorm.DB
 }
 
 func NewPermohonanService(
@@ -57,14 +59,16 @@ func NewPermohonanService(
 	slaRuleRepo repository.SLARuleRepository,
 	userRepo userRepository.UserRepository,
 	documentRepo documentRepository.DocumentRepository,
+	assignmentRepo repository.VendorAssignmentRepository,
 	db *gorm.DB,
 ) PermohonanService {
 	return &permohonanService{
-		permohonanRepository: permohonanRepo,
-		slaRuleRepository:    slaRuleRepo,
-		userRepository:       userRepo,
-		documentRepository:   documentRepo,
-		db:                   db,
+		vendorAssignmentRepository: assignmentRepo,
+		permohonanRepository:       permohonanRepo,
+		slaRuleRepository:          slaRuleRepo,
+		userRepository:             userRepo,
+		documentRepository:         documentRepo,
+		db:                         db,
 	}
 }
 
@@ -509,10 +513,9 @@ func (s *permohonanService) List(ctx context.Context, filter *query.PermohonanFi
 	if err != nil {
 		return nil, 0, err
 	}
-	if filter.Scope == "mine" {
-		filter.CurrentRole = requester.Role
-		filter.CurrentUnit = requester.Unit
-	}
+	filter.CurrentRole = requester.Role
+	filter.CurrentUnit = requester.Unit
+	filter.CurrentUserID = requester.ID.String()
 
 	results, total, err := s.permohonanRepository.List(ctx, s.db, filter)
 	if err != nil {
