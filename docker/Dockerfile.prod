@@ -16,6 +16,7 @@ RUN apk add --no-cache ca-certificates && \
 
 COPY --from=builder /app/bin/server ./server
 COPY --from=builder /app/docs/*.yaml ./docs/
+COPY --from=builder /app/docs/architecture ./docs/architecture
 COPY --from=builder /app/database/seeders/json ./database/seeders/json
 RUN mkdir -p ./assets && chown -R app:app /app
 
