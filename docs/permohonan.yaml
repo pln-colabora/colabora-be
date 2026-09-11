@@ -715,7 +715,7 @@ components:
         id: { type: string, format: uuid }
         workflow_node: { type: string, nullable: true }
         activity_number: { type: integer, nullable: true }
-        actor: { type: string, format: uuid }
+        actor: { type: string, description: Name of the user who performed the action, example: Budi Santoso }
         action: { type: string }
         detail: { type: string, nullable: true }
         created_at: { type: string, format: date-time }

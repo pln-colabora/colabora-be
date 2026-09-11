@@ -552,6 +552,41 @@ func responseNode(t *testing.T, p dto.PermohonanResponse, code workflow.Code) dt
 	return dto.WorkflowNodeResponse{}
 }
 
+func TestGetLogsReturnsActorNames(t *testing.T) {
+	db := phase4IntegrationDB(t)
+	s := &permohonanService{db: db, permohonanRepository: repository.NewPermohonanRepository(db)}
+	p := entities.Permohonan{ID: uuid.New()}
+	require.NoError(t, db.Create(&p).Error)
+	users := []entities.User{
+		{ID: uuid.New(), Name: "Budi Santoso", Email: "budi@example.test"},
+		{ID: uuid.New(), Name: "Siti Rahma", Email: "siti@example.test"},
+	}
+	require.NoError(t, db.Create(&users).Error)
+	now := time.Now().UTC().Truncate(time.Second)
+	logs := make([]entities.ActivityLog, len(users))
+	for i, user := range users {
+		logs[i] = entities.ActivityLog{
+			ID: uuid.New(), PermohonanID: p.ID, Actor: user.ID, Action: "node_completed",
+			WorkflowNode: stringPtr("survei"), Detail: stringPtr("Aktivitas selesai"),
+		}
+		logs[i].CreatedAt = now.Add(time.Duration(i) * time.Minute)
+	}
+	require.NoError(t, db.Create(&logs).Error)
+	otherLog := entities.ActivityLog{ID: uuid.New(), PermohonanID: uuid.New(), Actor: users[0].ID, Action: "created"}
+	require.NoError(t, db.Create(&otherLog).Error)
+
+	results, err := s.GetLogs(context.Background(), p.ID.String())
+	require.NoError(t, err)
+	require.Len(t, results, len(logs))
+	for i, result := range results {
+		require.Equal(t, dto.ActivityLogResponse{
+			ID: logs[i].ID.String(), Actor: users[i].Name, Action: logs[i].Action,
+			WorkflowNode: logs[i].WorkflowNode, Detail: logs[i].Detail,
+			CreatedAt: logs[i].CreatedAt.Format(time.RFC3339),
+		}, result)
+	}
+}
+
 func phase4IntegrationDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	dsn := "file:" + uuid.NewString() + "?mode=memory&cache=shared"

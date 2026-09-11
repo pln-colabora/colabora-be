@@ -188,7 +188,9 @@ func (r *permohonanRepository) ListActivityLogs(ctx context.Context, tx *gorm.DB
 		tx = r.db
 	}
 	var logs []entities.ActivityLog
-	err := tx.WithContext(ctx).Where("permohonan_id = ?", permohonanID).
+	err := tx.WithContext(ctx).Preload("ActorUser", func(db *gorm.DB) *gorm.DB {
+		return db.Select("id", "name")
+	}).Where("permohonan_id = ?", permohonanID).
 		Order("created_at asc").Find(&logs).Error
 	return logs, err
 }

@@ -573,7 +573,7 @@ func (s *permohonanService) GetLogs(ctx context.Context, id string) ([]dto.Activ
 	for _, log := range logs {
 		responses = append(responses, dto.ActivityLogResponse{
 			ID: log.ID.String(), WorkflowNode: log.WorkflowNode, ActivityNumber: log.ActivityNumber,
-			Actor: log.Actor.String(), Action: log.Action, Detail: log.Detail, CreatedAt: log.CreatedAt.Format(time.RFC3339),
+			Actor: log.ActorUser.Name, Action: log.Action, Detail: log.Detail, CreatedAt: log.CreatedAt.Format(time.RFC3339),
 		})
 	}
 	return responses, nil
