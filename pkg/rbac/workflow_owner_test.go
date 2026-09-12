@@ -14,7 +14,7 @@ func TestWorkflowOwnershipMatrix(t *testing.T) {
 		workflow.Perluasan: {RoleNps, RoleNps}, workflow.NPS: {RoleNps, RoleNps},
 		workflow.WOTiang: {RolePerencanaan, RolePerencanaan}, workflow.WOKonstruksi: {RoleKonstruksi, RoleKonstruksi},
 		workflow.WOAPP: {RoleTransaksiEnergi, RoleTransaksiEnergi}, workflow.Reservasi: {RoleTransaksiEnergi, RoleTransaksiEnergi}, workflow.Tera: {RoleTransaksiEnergi, RoleTransaksiEnergi},
-		workflow.PKVendor: {RoleKonstruksi, RoleKonstruksi}, workflow.WOPDKB: {RoleKonstruksi, RoleKonstruksi},
+		workflow.WOPDKB:          {RoleKonstruksi, RoleKonstruksi},
 		workflow.PemasanganTiang: {RoleVendorTiang, RoleVendorTiang}, workflow.Konstruksi: {RoleVendorKonstruksi, RoleVendorKonstruksi},
 		workflow.DokumentasiPDKB: {RolePdkb, RolePdkb}, workflow.Energize: {RoleTeknik, RoleJaringan}, workflow.SRAPP: {RoleVendorSrApp, RoleVendorKonstruksi},
 		workflow.PDL: {RolePelayananPelanggan, RolePelayananPelanggan}, workflow.AIL: {RolePelayananPelanggan, RolePelayananPelanggan}, workflow.Selesai: {RolePelayananPelanggan, RolePelayananPelanggan},
@@ -52,10 +52,10 @@ func TestWorkflowAuthorizationAndActions(t *testing.T) {
 	}
 	require.ErrorIs(t, AuthorizeWorkflowNode(RolePerencanaan, "UP3", "ULP Taman", s, workflow.WOTiang), workflow.ErrNotActionable)
 	require.ErrorIs(t, AuthorizeWorkflowNode(RoleKonstruksi, "UP3", "ULP Taman", s, workflow.WOAPP), ErrWorkflowForbidden)
-	actions, err := AvailableActions(RoleKonstruksi, "UP3", "ULP Taman", s)
+	actions, err := AvailableActions(RoleVendorKonstruksi, "vendor", "ULP Taman", s)
 	require.NoError(t, err)
 	require.Len(t, actions, 1)
-	require.Equal(t, workflow.PKVendor, actions[0].Code)
+	require.Equal(t, workflow.Konstruksi, actions[0].Code)
 	actions, err = AvailableActions(RoleSuperUser, "UP3", "ULP Taman", s)
 	require.NoError(t, err)
 	require.Empty(t, actions)

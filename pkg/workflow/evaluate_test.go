@@ -46,7 +46,7 @@ func TestLifecycle(t *testing.T) {
 							if pdkb {
 								s = complete(t, s, workflow.WOPDKB)
 							}
-							s = complete(t, s, workflow.PKVendor, workflow.Konstruksi)
+							s = complete(t, s, workflow.Konstruksi)
 							if pdkb {
 								s = complete(t, s, workflow.DokumentasiPDKB)
 							}
@@ -114,7 +114,7 @@ func TestJoinGatesAndStageProjection(t *testing.T) {
 	s = complete(t, s, workflow.WOKonstruksi)
 	_, _, err := workflow.Transition(s, workflow.PKVendor, workflow.Completed)
 	require.ErrorIs(t, err, workflow.ErrNotActionable)
-	s = complete(t, s, workflow.WOPDKB, workflow.PKVendor, workflow.Konstruksi)
+	s = complete(t, s, workflow.WOPDKB, workflow.Konstruksi)
 	r, err := workflow.Evaluate(s)
 	require.NoError(t, err)
 	require.EqualValues(t, 4, r.CurrentStage)
@@ -154,7 +154,7 @@ func TestReturnAndUnknownDecisions(t *testing.T) {
 	s := workflow.Snapshot{Connection: "JTR"}
 	r, err := workflow.Evaluate(s)
 	require.NoError(t, err)
-	require.Len(t, r.Nodes, 21)
+	require.Len(t, r.Nodes, 20)
 	require.Equal(t, []workflow.Code{workflow.Permohonan}, r.AvailableNodes)
 	require.Equal(t, workflow.Locked, r.Nodes[workflow.WOTiang])
 	require.Equal(t, workflow.Locked, r.Nodes[workflow.WOPDKB])
@@ -196,7 +196,7 @@ func TestValidationAndIsolation(t *testing.T) {
 	require.EqualValues(t, 1, *d.ActivityNumber)
 	d, _ = workflow.Lookup(workflow.Survei)
 	require.Equal(t, []workflow.Code{workflow.Permohonan}, d.Prerequisites)
-	for _, code := range []workflow.Code{workflow.KebutuhanTiang, workflow.PKVendor, workflow.WOPDKB, workflow.DokumentasiPDKB} {
+	for _, code := range []workflow.Code{workflow.KebutuhanTiang, workflow.WOPDKB, workflow.DokumentasiPDKB} {
 		d, _ = workflow.Lookup(code)
 		require.Nil(t, d.ActivityNumber)
 		require.Nil(t, d.SLAActivityNumber)

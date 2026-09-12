@@ -14,7 +14,11 @@ func (p Permohonan) WorkflowSnapshot() workflow.Snapshot {
 		s.Decisions.NPS = workflow.Delegation(*p.NpsDelegationStatus)
 	}
 	for _, n := range p.WorkflowNodes {
-		s.Nodes[workflow.Code(n.WorkflowNode)] = workflow.Status(n.Status)
+		code := workflow.Code(n.WorkflowNode)
+		if workflow.IsLegacy(code) {
+			continue
+		}
+		s.Nodes[code] = workflow.Status(n.Status)
 	}
 	return s
 }

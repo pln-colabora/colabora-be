@@ -35,7 +35,6 @@ type (
 		SubmitWOConstruction(ctx *gin.Context)
 		SubmitWOAPP(ctx *gin.Context)
 		SubmitReservationTera(ctx *gin.Context)
-		SubmitPKVendor(ctx *gin.Context)
 		SubmitWOPDKB(ctx *gin.Context)
 		SubmitConstructionExecution(ctx *gin.Context)
 		SubmitPDKBDocumentation(ctx *gin.Context)
@@ -87,10 +86,6 @@ func (c *permohonanController) SubmitWOAPP(ctx *gin.Context) {
 
 func (c *permohonanController) SubmitReservationTera(ctx *gin.Context) {
 	submitActivityRequest(ctx, c.permohonanValidation.ValidateReservationTeraSubmitRequest, c.permohonanService.SubmitReservationTera)
-}
-
-func (c *permohonanController) SubmitPKVendor(ctx *gin.Context) {
-	submitActivityRequest(ctx, c.permohonanValidation.ValidateEvidenceSubmitRequest, c.permohonanService.SubmitPKVendor)
 }
 
 func (c *permohonanController) SubmitWOPDKB(ctx *gin.Context) {

@@ -32,7 +32,6 @@ flowchart TD
     wo_tiang["#6 wo_tiang<br/>Perencanaan"]
     wo_konstruksi["#7 wo_konstruksi<br/>Konstruksi"]
     wo_pdkb["wo_pdkb<br/>Konstruksi"]
-    pk_vendor["pk_vendor<br/>Konstruksi"]
     wo_app["#8 wo_app<br/>Transaksi Energi"]
     reservasi_material["#9 reservasi_material<br/>Transaksi Energi"]
     tera_app["#10 tera_app<br/>Transaksi Energi"]
@@ -59,9 +58,8 @@ flowchart TD
   nps_delegation -->|delegated| wo_konstruksi
   nps_delegation -->|delegated| wo_app
   wo_tiang --> pemasangan_tiang
-  wo_konstruksi -->|perlu_pdkb=true| wo_pdkb --> pk_vendor
-  wo_konstruksi -->|perlu_pdkb=false; wo_pdkb skipped| pk_vendor
-  pk_vendor --> pelaksanaan_konstruksi
+  wo_konstruksi -->|perlu_pdkb=true| wo_pdkb --> pelaksanaan_konstruksi
+  wo_konstruksi -->|perlu_pdkb=false; wo_pdkb skipped| pelaksanaan_konstruksi
   wo_pdkb --> pelaksanaan_konstruksi
   wo_app --> reservasi_material --> tera_app
   pemasangan_tiang --> energize_jaringan
@@ -75,7 +73,7 @@ flowchart TD
   entri_mutasi_pdl --> arsip_ail --> selesai
 
   class permohonan,survei,rab_kko_kkf,energize_jaringan,entri_mutasi_pdl,arsip_ail,selesai ulp
-  class wo_tiang,wo_konstruksi,wo_pdkb,pk_vendor,wo_app,reservasi_material,tera_app up3
+  class wo_tiang,wo_konstruksi,wo_pdkb,wo_app,reservasi_material,tera_app up3
   class permohonan_perluasan,nps_delegation nps
   class pemasangan_tiang,pelaksanaan_konstruksi,pemasangan_sr_app vendor
   class pdkb_documentation pdkb

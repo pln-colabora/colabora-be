@@ -26,7 +26,6 @@ func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
 		permohonanRoutes.POST("/:id/wo-vendor/konstruksi", permohonanController.SubmitWOConstruction)
 		permohonanRoutes.POST("/:id/wo-vendor/app", permohonanController.SubmitWOAPP)
 		permohonanRoutes.POST("/:id/reservasi-material", permohonanController.SubmitReservationTera)
-		permohonanRoutes.POST("/:id/pk-vendor", permohonanController.SubmitPKVendor)
 		permohonanRoutes.POST("/:id/wo-pdkb", permohonanController.SubmitWOPDKB)
 		permohonanRoutes.POST("/:id/pelaksanaan-konstruksi", permohonanController.SubmitConstructionExecution)
 		permohonanRoutes.POST("/:id/pdkb-dokumentasi", permohonanController.SubmitPDKBDocumentation)

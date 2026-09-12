@@ -58,7 +58,7 @@ func TestStage4ParallelWorkOrdersCanCompleteInEitherOrder(t *testing.T) {
 			require.Equal(t, string(workflow.Completed), persistedNode(t, repo.byID, workflow.WOKonstruksi).Status)
 			require.Equal(t, string(workflow.Completed), persistedNode(t, repo.byID, workflow.WOAPP).Status)
 			require.Equal(t, string(workflow.Available), persistedNode(t, repo.byID, workflow.PemasanganTiang).Status)
-			require.Equal(t, string(workflow.Available), persistedNode(t, repo.byID, workflow.PKVendor).Status)
+			require.Equal(t, string(workflow.Available), persistedNode(t, repo.byID, workflow.Konstruksi).Status)
 			require.Equal(t, string(workflow.Available), persistedNode(t, repo.byID, workflow.Reservasi).Status)
 		})
 	}
@@ -92,16 +92,16 @@ func TestWOTiangRejectsWrongOwnerAndInapplicableBranch(t *testing.T) {
 
 func TestWOConstructionControlsPDKBAndAuditsDerivedSkips(t *testing.T) {
 	tests := []struct {
-		name        string
-		connection  string
-		required    bool
-		wantWOPDKB  workflow.Status
-		wantPK      workflow.Status
-		wantLogSize int
-		wantAction  string
+		name             string
+		connection       string
+		required         bool
+		wantWOPDKB       workflow.Status
+		wantConstruction workflow.Status
+		wantLogSize      int
+		wantAction       string
 	}{
-		{name: "JTR requires PDKB", connection: rbac.JenisSambunganJTR, required: true, wantWOPDKB: workflow.Available, wantPK: workflow.Locked, wantLogSize: 1, wantAction: "pdkb_required"},
-		{name: "PLG TM skips PDKB", connection: rbac.JenisSambunganPlgTmLebih5, required: false, wantWOPDKB: workflow.Skipped, wantPK: workflow.Available, wantLogSize: 3, wantAction: "pdkb_not_required"},
+		{name: "JTR requires PDKB", connection: rbac.JenisSambunganJTR, required: true, wantWOPDKB: workflow.Available, wantConstruction: workflow.Locked, wantLogSize: 1, wantAction: "pdkb_required"},
+		{name: "PLG TM skips PDKB", connection: rbac.JenisSambunganPlgTmLebih5, required: false, wantWOPDKB: workflow.Skipped, wantConstruction: workflow.Available, wantLogSize: 3, wantAction: "pdkb_not_required"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -118,13 +118,13 @@ func TestWOConstructionControlsPDKBAndAuditsDerivedSkips(t *testing.T) {
 			require.NotNil(t, response.PerluPdkb)
 			require.Equal(t, test.required, *response.PerluPdkb)
 			require.Equal(t, string(test.wantWOPDKB), responseNode(t, response, workflow.WOPDKB).Status)
-			require.Equal(t, string(test.wantPK), responseNode(t, response, workflow.PKVendor).Status)
-			require.Len(t, response.AvailableActions, 1)
-			wantActionNode := workflow.WOPDKB
-			if !test.required {
-				wantActionNode = workflow.PKVendor
+			require.Equal(t, string(test.wantConstruction), responseNode(t, response, workflow.Konstruksi).Status)
+			if test.required {
+				require.Len(t, response.AvailableActions, 1)
+				require.Equal(t, string(workflow.WOPDKB), response.AvailableActions[0].WorkflowNode)
+			} else {
+				require.Empty(t, response.AvailableActions)
 			}
-			require.Equal(t, string(wantActionNode), response.AvailableActions[0].WorkflowNode)
 			require.Len(t, repo.logs, test.wantLogSize)
 			require.Equal(t, test.wantAction, repo.logs[0].Action)
 			if !test.required {
@@ -141,44 +141,49 @@ func TestWOConstructionControlsPDKBAndAuditsDerivedSkips(t *testing.T) {
 	}
 }
 
-func TestWOPDKBMustPrecedePKVendorWhenRequired(t *testing.T) {
+func TestWOPDKBMustPrecedeConstructionWhenRequired(t *testing.T) {
 	p := delegatedRequest(t, rbac.JenisSambunganJTR, false)
 	pdkbRequired := true
 	advancePhase4(t, &p, &workflow.Decisions{PerluPDKB: &pdkbRequired}, workflow.WOKonstruksi)
 	repo := &phase3PermohonanRepository{byID: p}
 	docRepo := &phase4DocumentRepository{}
-	user := entities.User{ID: uuid.New(), Role: rbac.RoleKonstruksi, Unit: "UP3"}
+	user := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
 	s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: user}, documentRepository: docRepo, db: phase3DB(t)}
 
-	_, err := s.SubmitPKVendor(context.Background(), p.ID.String(), user.ID.String(), evidenceRequest())
+	_, err := s.SubmitConstructionExecution(context.Background(), p.ID.String(), user.ID.String(), executionRequest(workflow.Konstruksi))
 	require.ErrorIs(t, err, workflow.ErrNotActionable)
 	require.Empty(t, docRepo.attachCalls)
 
-	response, err := s.SubmitWOPDKB(context.Background(), p.ID.String(), user.ID.String(), evidenceRequest())
+	construction := entities.User{ID: uuid.New(), Role: rbac.RoleKonstruksi, Unit: "UP3"}
+	s.userRepository = &phase3UserRepository{user: construction}
+	response, err := s.SubmitWOPDKB(context.Background(), p.ID.String(), construction.ID.String(), evidenceRequest())
 	require.NoError(t, err)
 	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.WOPDKB).Status)
-	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.PKVendor).Status)
-
-	response, err = s.SubmitPKVendor(context.Background(), p.ID.String(), user.ID.String(), evidenceRequest())
-	require.NoError(t, err)
-	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.PKVendor).Status)
 	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.Konstruksi).Status)
+
+	vendor := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
+	s.userRepository = &phase3UserRepository{user: vendor}
+	response, err = s.SubmitConstructionExecution(context.Background(), p.ID.String(), vendor.ID.String(), executionRequest(workflow.Konstruksi))
+	require.NoError(t, err)
+	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.Konstruksi).Status)
 }
 
-func TestPKVendorOpensDirectlyWhenPDKBNotRequired(t *testing.T) {
+func TestConstructionOpensDirectlyWhenPDKBNotRequired(t *testing.T) {
 	p := delegatedRequest(t, rbac.JenisSambunganPlgTmKurang5, false)
 	pdkbRequired := false
 	advancePhase4(t, &p, &workflow.Decisions{PerluPDKB: &pdkbRequired}, workflow.WOKonstruksi)
 	repo := &phase3PermohonanRepository{byID: p}
 	docRepo := &phase4DocumentRepository{}
-	user := entities.User{ID: uuid.New(), Role: rbac.RoleKonstruksi, Unit: "UP3"}
-	s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: user}, documentRepository: docRepo, db: phase3DB(t)}
+	construction := entities.User{ID: uuid.New(), Role: rbac.RoleKonstruksi, Unit: "UP3"}
+	s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: construction}, documentRepository: docRepo, db: phase3DB(t)}
 
-	_, err := s.SubmitWOPDKB(context.Background(), p.ID.String(), user.ID.String(), evidenceRequest())
+	_, err := s.SubmitWOPDKB(context.Background(), p.ID.String(), construction.ID.String(), evidenceRequest())
 	require.ErrorIs(t, err, workflow.ErrNotActionable)
-	response, err := s.SubmitPKVendor(context.Background(), p.ID.String(), user.ID.String(), evidenceRequest())
+	vendor := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
+	s.userRepository = &phase3UserRepository{user: vendor}
+	response, err := s.SubmitConstructionExecution(context.Background(), p.ID.String(), vendor.ID.String(), executionRequest(workflow.Konstruksi))
 	require.NoError(t, err)
-	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.PKVendor).Status)
+	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.Konstruksi).Status)
 }
 
 func TestWOAPPThenReservationAndTeraBundle(t *testing.T) {
@@ -305,7 +310,9 @@ func TestSequence2ExitUnlocksApplicableStage5Branches(t *testing.T) {
 		PerluPdkb: &pdkbRequired, DocumentIDs: []string{uuid.NewString()},
 	})
 	require.NoError(t, err)
-	_, err = s.SubmitPKVendor(context.Background(), p.ID.String(), construction.ID.String(), evidenceRequest())
+	vendor := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
+	s.userRepository = &phase3UserRepository{user: vendor}
+	_, err = s.SubmitConstructionExecution(context.Background(), p.ID.String(), vendor.ID.String(), executionRequest(workflow.Konstruksi))
 	require.NoError(t, err)
 
 	transactionEnergy := entities.User{ID: uuid.New(), Role: rbac.RoleTransaksiEnergi, Unit: "UP3"}
@@ -318,7 +325,7 @@ func TestSequence2ExitUnlocksApplicableStage5Branches(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int16(5), response.CurrentStage)
 	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.PemasanganTiang).Status)
-	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.Konstruksi).Status)
+	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.Konstruksi).Status)
 	require.Equal(t, string(workflow.Skipped), responseNode(t, response, workflow.WOPDKB).Status)
 	require.Equal(t, string(workflow.Skipped), responseNode(t, response, workflow.DokumentasiPDKB).Status)
 }

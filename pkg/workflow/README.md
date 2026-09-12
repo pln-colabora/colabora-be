@@ -3,10 +3,12 @@
 This package is the pure Phase 1 domain engine. Definitions follow both living
 diagrams in `hifi-colabora/workflow/`. It imports only the standard library.
 
-`Evaluate(Snapshot)` validates completed/in-progress history and derives all 21
-node states, aggregate status, the lowest unfinished stage, and actionable codes
+`Evaluate(Snapshot)` validates completed/in-progress history and derives all 20
+active node states, aggregate status, the lowest unfinished stage, and actionable codes
 in deterministic topological order. Missing nodes start locked. Persisted
-available/locked values are projections and cannot override prerequisites.
+available/locked values are projections and cannot override prerequisites. The
+retired `pk_vendor` code is accepted only as historical input and is never
+actionable.
 Skipped values are accepted only when backed by a completed branch decision.
 Unknown connection types, nodes, statuses, missing completion decisions, and
 impossible histories return `ErrInvalidState`.

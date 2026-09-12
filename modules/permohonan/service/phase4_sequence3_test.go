@@ -82,7 +82,7 @@ func TestConstructionExecutionRejectsInvalidSelectorWrongOwnerAndInvalidState(t 
 		require.Empty(t, docRepo.attachCalls)
 	})
 
-	t.Run("construction waits for PK Vendor", func(t *testing.T) {
+	t.Run("construction waits for WO Konstruksi", func(t *testing.T) {
 		p := delegatedRequest(t, rbac.JenisSambunganPlgTmKurang5, false)
 		repo := &phase3PermohonanRepository{byID: p}
 		docRepo := &phase4DocumentRepository{}
@@ -211,7 +211,7 @@ func stage5Request(t *testing.T, connection string, poleRequired, pdkbRequired b
 	if pdkbRequired {
 		codes = append(codes, workflow.WOPDKB)
 	}
-	codes = append(codes, workflow.PKVendor, workflow.WOAPP, workflow.Reservasi, workflow.Tera)
+	codes = append(codes, workflow.WOAPP, workflow.Reservasi, workflow.Tera)
 	advancePhase4(t, &p, &decisions, codes...)
 	return p
 }

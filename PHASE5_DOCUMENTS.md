@@ -29,7 +29,7 @@ The document lifecycle is two-phase, not "upload = attach":
 1. `POST /api/documents` (top-level, no permohonan in the path) — uploads a raw file standalone. `Document.PermohonanID`/`ActivityNumber` are **nullable** and left `NULL` here. No RBAC check happens at this step — there's no permohonan/activity context yet to check ownership against.
 2. Phase 4 activity services call `DocumentRepository.AttachToWorkflowNode(...)` inside the same database transaction as node completion. Exact-node authorization is evaluated by the activity service, and the repository prevents cross-request moves, foreign-uploader attachment, superseded-file attachment, and duplicate evidence classification.
 
-The workflow-node code is the attachment and authorization identity. `activity_number` remains optional reporting/SLA metadata; it is not sufficient for 3b, PK Vendor, or PDKB supporting nodes. See `DATA_MODEL.md` and `API_SPEC.md`.
+The workflow-node code is the attachment and authorization identity. `activity_number` remains optional reporting/SLA metadata; it is not sufficient for 3b or PDKB supporting nodes. See `DATA_MODEL.md` and `API_SPEC.md`.
 
 We considered a genuinely generic `documents(id, type, file_path)` table + `document_permohonan` pivot for this (polymorphic attachment) and rejected it after a dedicated stress-test: a document is still only ever attached to **one** permohonan+activity, ever — just possibly later than upload rather than at upload. That's 1:N, not N:M. Nullable columns directly on `documents` give the identical two-phase UX (upload → get an id → reference it later) without a join table, without an extra transaction per attach, and without needing a uniqueness constraint to fake 1:1 behavior on a structurally N:M table.
 

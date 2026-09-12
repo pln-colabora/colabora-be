@@ -35,7 +35,7 @@ flowchart LR
 | `survei`, `rab_kko_kkf`, `kebutuhan_tiang` | teknik | perencanaan | teknik harus matching ULP |
 | `permohonan_perluasan`, `nps_delegation` | nps | nps | UP3 operational |
 | `wo_tiang` | perencanaan | perencanaan | branch tiang applicable |
-| `wo_konstruksi`, `wo_pdkb`, `pk_vendor` | konstruksi | konstruksi | branch PDKB diperiksa per node |
+| `wo_konstruksi`, `wo_pdkb` | konstruksi | konstruksi | branch PDKB diperiksa per node |
 | `wo_app`, `reservasi_material`, `tera_app` | transaksi-energi | transaksi-energi | UP3 operational |
 | `pemasangan_tiang` | vendor-tiang | vendor-tiang | explicit vendor assignment |
 | `pelaksanaan_konstruksi` | vendor-konstruksi | vendor-konstruksi | explicit vendor assignment |

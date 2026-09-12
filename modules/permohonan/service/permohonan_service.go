@@ -36,7 +36,6 @@ type PermohonanService interface {
 	SubmitWOConstruction(ctx context.Context, id, userID string, req dto.WOConstructionSubmitRequest) (dto.PermohonanResponse, error)
 	SubmitWOAPP(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
 	SubmitReservationTera(ctx context.Context, id, userID string, req dto.ReservationTeraSubmitRequest) (dto.PermohonanResponse, error)
-	SubmitPKVendor(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
 	SubmitWOPDKB(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
 	SubmitConstructionExecution(ctx context.Context, id, userID string, req dto.ConstructionExecutionSubmitRequest) (dto.PermohonanResponse, error)
 	SubmitPDKBDocumentation(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
@@ -169,10 +168,6 @@ func (s *permohonanService) SubmitReservationTera(ctx context.Context, id, userI
 	}
 	return s.completeWorkflowNodes(ctx, id, userID, req.DocumentIDs,
 		[]workflow.Code{workflow.Reservasi, workflow.Tera}, payloads, nil, nil)
-}
-
-func (s *permohonanService) SubmitPKVendor(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
-	return s.completeEvidenceNode(ctx, id, userID, req, workflow.PKVendor)
 }
 
 func (s *permohonanService) SubmitWOPDKB(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
@@ -336,7 +331,9 @@ func (s *permohonanService) completeWorkflowNodes(
 		found := 0
 		for i := range permohonan.WorkflowNodes {
 			code := workflow.Code(permohonan.WorkflowNodes[i].WorkflowNode)
-			permohonan.WorkflowNodes[i].Status = string(result.Nodes[code])
+			if status, ok := result.Nodes[code]; ok {
+				permohonan.WorkflowNodes[i].Status = string(status)
+			}
 			if _, ok := completed[code]; ok {
 				found++
 				actorID := actor.ID
@@ -706,6 +703,29 @@ func workflowNodeResponses(nodes []entities.PermohonanActivity, evaluated workfl
 			CompletedBy: completedBy, CompletedAt: completedAt,
 		})
 	}
+	for _, node := range nodes {
+		if !workflow.IsLegacy(workflow.Code(node.WorkflowNode)) {
+			continue
+		}
+		var completedBy, completedAt *string
+		if node.CompletedBy != nil {
+			value := node.CompletedBy.String()
+			completedBy = &value
+		}
+		if node.CompletedAt != nil {
+			value := node.CompletedAt.Format(time.RFC3339)
+			completedAt = &value
+		}
+		payload := json.RawMessage(node.Payload)
+		if !json.Valid(payload) {
+			payload = json.RawMessage(`{}`)
+		}
+		responses = append(responses, dto.WorkflowNodeResponse{
+			WorkflowNode: node.WorkflowNode, ActivityNumber: node.ActivityNumber, StageNumber: node.StageNumber,
+			Status: node.Status, SlaDeadline: nil, SlaStatus: "none", Payload: payload,
+			CompletedBy: completedBy, CompletedAt: completedAt,
+		})
+	}
 	return responses
 }
 
@@ -754,7 +774,7 @@ func actionPath(code workflow.Code) string {
 		workflow.Perluasan: "/api/permohonan/{id}/permohonan-perluasan", workflow.NPS: "/api/permohonan/{id}/permohonan-perluasan",
 		workflow.WOTiang: "/api/permohonan/{id}/wo-vendor/tiang", workflow.WOKonstruksi: "/api/permohonan/{id}/wo-vendor/konstruksi",
 		workflow.WOAPP: "/api/permohonan/{id}/wo-vendor/app", workflow.Reservasi: "/api/permohonan/{id}/reservasi-material",
-		workflow.Tera: "/api/permohonan/{id}/reservasi-material", workflow.PKVendor: "/api/permohonan/{id}/pk-vendor",
+		workflow.Tera:   "/api/permohonan/{id}/reservasi-material",
 		workflow.WOPDKB: "/api/permohonan/{id}/wo-pdkb", workflow.PemasanganTiang: "/api/permohonan/{id}/pelaksanaan-konstruksi",
 		workflow.Konstruksi: "/api/permohonan/{id}/pelaksanaan-konstruksi", workflow.DokumentasiPDKB: "/api/permohonan/{id}/pdkb-dokumentasi",
 		workflow.Energize: "/api/permohonan/{id}/energize-jaringan", workflow.SRAPP: "/api/permohonan/{id}/pemasangan-sr-app",

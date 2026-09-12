@@ -4,18 +4,20 @@ package workflow
 type Code string
 
 const (
-	Permohonan      Code = "permohonan"
-	Survei          Code = "survei"
-	RAB             Code = "rab_kko_kkf"
-	KebutuhanTiang  Code = "kebutuhan_tiang"
-	Perluasan       Code = "permohonan_perluasan"
-	NPS             Code = "nps_delegation"
-	WOTiang         Code = "wo_tiang"
-	WOKonstruksi    Code = "wo_konstruksi"
-	WOAPP           Code = "wo_app"
-	Reservasi       Code = "reservasi_material"
-	Tera            Code = "tera_app"
-	WOPDKB          Code = "wo_pdkb"
+	Permohonan     Code = "permohonan"
+	Survei         Code = "survei"
+	RAB            Code = "rab_kko_kkf"
+	KebutuhanTiang Code = "kebutuhan_tiang"
+	Perluasan      Code = "permohonan_perluasan"
+	NPS            Code = "nps_delegation"
+	WOTiang        Code = "wo_tiang"
+	WOKonstruksi   Code = "wo_konstruksi"
+	WOAPP          Code = "wo_app"
+	Reservasi      Code = "reservasi_material"
+	Tera           Code = "tera_app"
+	WOPDKB         Code = "wo_pdkb"
+	// PKVendor is retained only to recognize historical records created before
+	// the supporting workflow node was retired.
 	PKVendor        Code = "pk_vendor"
 	PemasanganTiang Code = "pemasangan_tiang"
 	Konstruksi      Code = "pelaksanaan_konstruksi"
@@ -62,8 +64,12 @@ func def(c Code, activity, stage int16, owner, tm string, condition Condition, d
 	if activity == 5 {
 		sla = 0
 	}
-	return Definition{c, number(activity), number(sla), stage, owner, tm, condition, deps}
+	return Definition{Code: c, ActivityNumber: number(activity), SLAActivityNumber: number(sla), Stage: stage,
+		OwnerJTRJTM: owner, OwnerPLGTM: tm, Applicability: condition, Prerequisites: deps}
 }
+
+// IsLegacy reports whether a workflow code is retained for historical data only.
+func IsLegacy(c Code) bool { return c == PKVendor }
 
 // Topological order is deterministic, including within presentation stages.
 var definitions = []Definition{
@@ -79,9 +85,8 @@ var definitions = []Definition{
 	def(Reservasi, 9, 4, "transaksi-energi", "", Always, WOAPP),
 	def(Tera, 10, 4, "transaksi-energi", "", Always, Reservasi),
 	def(WOPDKB, 0, 4, "konstruksi", "", PDKBRequired, WOKonstruksi),
-	def(PKVendor, 0, 4, "konstruksi", "", Always, WOKonstruksi, WOPDKB),
 	def(PemasanganTiang, 11, 5, "vendor-tiang", "", PolesRequired, WOTiang),
-	def(Konstruksi, 12, 5, "vendor-konstruksi", "", Always, WOKonstruksi, PKVendor, WOPDKB),
+	def(Konstruksi, 12, 5, "vendor-konstruksi", "", Always, WOKonstruksi, WOPDKB),
 	def(DokumentasiPDKB, 0, 5, "pdkb", "", PDKBRequired, Konstruksi),
 	def(Energize, 13, 6, "teknik", "jaringan", Always, Konstruksi, PemasanganTiang, DokumentasiPDKB),
 	def(SRAPP, 14, 6, "vendor-sr-app", "vendor-konstruksi", Always, Konstruksi, Tera),

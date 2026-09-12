@@ -141,7 +141,7 @@ func TestSequenceFourIndependentGates(t *testing.T) {
 		p := delegatedRequest(t, rbac.JenisSambunganJTR, false)
 		pdkbRequired := false
 		advancePhase4(t, &p, &workflow.Decisions{PerluPDKB: &pdkbRequired},
-			workflow.WOKonstruksi, workflow.PKVendor, workflow.Konstruksi)
+			workflow.WOKonstruksi, workflow.Konstruksi)
 		repo := &phase3PermohonanRepository{byID: p}
 		docRepo := &phase4DocumentRepository{}
 		user := entities.User{ID: uuid.New(), Role: rbac.RoleVendorSrApp, Unit: "vendor"}

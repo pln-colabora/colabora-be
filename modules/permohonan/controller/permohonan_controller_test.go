@@ -68,9 +68,6 @@ func (f phase3ControllerService) SubmitWOAPP(context.Context, string, string, dt
 func (f phase3ControllerService) SubmitReservationTera(context.Context, string, string, dto.ReservationTeraSubmitRequest) (dto.PermohonanResponse, error) {
 	return dto.PermohonanResponse{}, f.activityErr
 }
-func (f phase3ControllerService) SubmitPKVendor(context.Context, string, string, dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
-	return dto.PermohonanResponse{}, f.activityErr
-}
 func (f phase3ControllerService) SubmitWOPDKB(context.Context, string, string, dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
 	return dto.PermohonanResponse{}, f.activityErr
 }

@@ -18,7 +18,7 @@ flowchart TB
   parallel_start --> app["#8 WO APP<br/>JTR/JTM H+2 · PLG TM H+1"]
   app --> reserve["#9 Reservasi<br/>H+2"] --> tera["#10 Tera APP<br/>JTR/JTM H+3 · PLG TM H+2"]
   pole --> install_pole["#11 Pemasangan Tiang<br/>H+6 / H+8 / H+8 / H+12"]
-  construction_wo --> support["WO PDKB + PK Vendor<br/>Tanpa SLA independen"] --> construction["#12 Konstruksi<br/>H+8 / H+12 / H+19 / H+49"]
+  construction_wo --> support["WO PDKB bila diperlukan<br/>Tanpa SLA independen"] --> construction["#12 Konstruksi<br/>H+8 / H+12 / H+19 / H+49"]
   construction --> pdkb["Dokumentasi PDKB<br/>Tanpa SLA independen"]
   install_pole --> energize["#13 Energize<br/>H+9 / H+13 / H+20 / H+50"]
   construction --> energize

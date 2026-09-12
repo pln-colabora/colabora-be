@@ -5,7 +5,7 @@ This is the data model for the dependency-based workflow in `PRD.md`. Phase 2 im
 ## Design principles
 
 - A stable workflow-node code is the persistence and authorization identity.
-- The source activity number remains nullable display/SLA metadata. It cannot represent decision `3b` or supporting nodes such as PK Vendor and PDKB documentation by itself.
+- The source activity number remains nullable display/SLA metadata. It cannot represent decision `3b` or supporting nodes such as PDKB documentation by itself.
 - Presentation stage is derived and must never determine transition order.
 - Workflow status and SLA state are separate concerns.
 - Branch fields used outside one form remain typed columns on `Permohonan`; other form data stays JSONB on the node record.

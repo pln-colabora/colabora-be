@@ -19,7 +19,7 @@ The living ownership source is `hifi-colabora/workflow/jtr-jtm.html` plus `hifi-
 | `rab_kko_kkf`, `kebutuhan_tiang` | `teknik` | `perencanaan` |
 | `permohonan_perluasan`, `nps_delegation` | `nps` | `nps` |
 | `wo_tiang` | `perencanaan` | `perencanaan` |
-| `wo_konstruksi`, `pk_vendor`, `wo_pdkb` | `konstruksi` | `konstruksi` |
+| `wo_konstruksi`, `wo_pdkb` | `konstruksi` | `konstruksi` |
 | `wo_app`, `reservasi_material`, `tera_app` | `transaksi-energi` | `transaksi-energi` |
 | `pemasangan_tiang` | `vendor-tiang` | `vendor-tiang` |
 | `pelaksanaan_konstruksi` | `vendor-konstruksi` | `vendor-konstruksi` |

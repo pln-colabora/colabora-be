@@ -68,7 +68,6 @@ return 404. List totals and pages include only visible requests, even with
 | `POST` | `/api/permohonan/:id/wo-vendor/konstruksi` | `wo_konstruksi`; records `perlu_pdkb` | `konstruksi` |
 | `POST` | `/api/permohonan/:id/wo-vendor/app` | `wo_app` | `transaksi-energi` |
 | `POST` | `/api/permohonan/:id/reservasi-material` | `reservasi_material`, `tera_app` | `transaksi-energi` |
-| `POST` | `/api/permohonan/:id/pk-vendor` | `pk_vendor` | `konstruksi` |
 | `POST` | `/api/permohonan/:id/wo-pdkb` | `wo_pdkb` | `konstruksi` when PDKB required |
 | `POST` | `/api/permohonan/:id/pelaksanaan-konstruksi` | `pemasangan_tiang` or `pelaksanaan_konstruksi`, selected explicitly in body | Matching vendor role |
 | `POST` | `/api/permohonan/:id/pdkb-dokumentasi` | `pdkb_documentation` | `pdkb` when required |
@@ -80,7 +79,7 @@ The NPS request body uses `nps_delegation_status: delegated|returned`. `returned
 
 The WO Konstruksi request body requires the typed decision `perlu_pdkb: true|false`. Sequence 2 activities without another confirmed workflow-critical field accept optional notes and require evidence. The bundled reservasi/tera request exposes separate optional `reservation_notes` and `tera_notes`; detailed material and relay/OCR fields remain discovery items rather than inferred production contracts.
 
-The construction-execution request body selects the exact node with `workflow_node: pemasangan_tiang|pelaksanaan_konstruksi`; the service then applies that node's vendor ownership and prerequisites. PDKB documentation uses its dedicated endpoint. Sequence 3 keeps uncovered production fields minimal—required evidence plus optional notes—until the business confirms the detailed forms.
+The construction-execution request body selects the exact node with `workflow_node: pemasangan_tiang|pelaksanaan_konstruksi`; the service then applies that node's vendor ownership and prerequisites. `pelaksanaan_konstruksi` requires `wo_konstruksi` and, when applicable, `wo_pdkb`; there is no separate PK Vendor gate. PDKB documentation uses its dedicated endpoint. Sequence 3 keeps uncovered production fields minimal—required evidence plus optional notes—until the business confirms the detailed forms.
 
 The energize request requires `operation_result` plus document evidence for the operation BA and optional notes. SR/APP installation requires evidence plus optional notes while its detailed production form remains a discovery gate. These two Sequence 4 nodes are independent: each uses its own prerequisites and Activity #15 opens only after both complete.
 

@@ -43,6 +43,18 @@ func TestInitializeWorkflowPersistsEveryCanonicalNode(t *testing.T) {
 	require.Nil(t, byCode[string(workflow.KebutuhanTiang)].ActivityNumber)
 	require.Nil(t, byCode[string(workflow.KebutuhanTiang)].SlaDeadline)
 	require.NotNil(t, byCode[string(workflow.Survei)].SlaDeadline)
+	require.NotContains(t, byCode, string(workflow.PKVendor))
+}
+
+func TestWorkflowSnapshotIgnoresRetiredPKVendorHistory(t *testing.T) {
+	p := Permohonan{
+		JenisSambungan: "JTR",
+		WorkflowNodes:  []PermohonanActivity{{WorkflowNode: string(workflow.PKVendor), Status: string(workflow.Completed)}},
+	}
+
+	result, err := workflow.Evaluate(p.WorkflowSnapshot())
+	require.NoError(t, err)
+	require.NotContains(t, result.Nodes, workflow.PKVendor)
 }
 
 func TestInitializeWorkflowRejectsMissingSLARule(t *testing.T) {

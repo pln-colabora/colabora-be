@@ -391,31 +391,7 @@ paths:
       summary: Complete conditional PDKB work order
       description: >-
         Owned by `konstruksi`; available only after WO Konstruksi when
-        `perlu_pdkb` is true. Completing it unlocks PK Vendor.
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/PermohonanID"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" }
-      responses:
-        "200": { $ref: "#/components/responses/ActivitySubmitted" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/Conflict" }
-
-  /api/permohonan/{id}/pk-vendor:
-    post:
-      tags: [Permohonan]
-      summary: Complete vendor execution instruction
-      description: >-
-        Owned by `konstruksi`. Requires WO Konstruksi and, when applicable,
-        WO PDKB to be completed before it unlocks construction execution.
+        `perlu_pdkb` is true. Completing it unlocks construction execution.
       security:
         - bearerAuth: []
       parameters:
@@ -442,7 +418,9 @@ paths:
         `vendor-tiang`) or `pelaksanaan_konstruksi` (Activity #12,
         `vendor-konstruksi`). Exact-node authorization prevents one vendor role
         from submitting the other node. Detailed production fields remain a
-        discovery gate, so evidence is required and notes are optional.
+        discovery gate, so evidence is required and notes are optional. The
+        construction node requires WO Konstruksi and WO PDKB when applicable;
+        there is no separate PK Vendor gate.
       security:
         - bearerAuth: []
       parameters:

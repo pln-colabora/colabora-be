@@ -40,7 +40,7 @@ The remaining hifi forms, detail pages, demo navigation, and client-side RBAC ar
 - SLA-rule persistence and seed data for numbered activities.
 - Connection-specific creation: matching-ULP `pelayanan-pelanggan` for JTR/JTM, and `nps` with a configured target ULP for PLG TM.
 - Paginated list, node-based `scope=mine`, detail with all workflow nodes and caller-owned `available_actions`, plus activity-timeline and audit-log reads.
-- Workflow-node persistence: creation initializes all 21 canonical nodes, with nullable display/SLA fields for decision and support nodes; logs carry the canonical node code.
+- Workflow-node persistence: creation initializes all 20 active canonical nodes, with nullable display/SLA fields for decision and support nodes; retired PK Vendor rows remain historical; logs carry the canonical node code.
 - Exact-node role/unit ownership helpers, plus a compatibility middleware for remaining numbered routes.
 - Private Garage/S3-compatible document upload, list, download, validation, and upload-first node-evidence helpers. One stored file may evidence multiple nodes of the same request.
 - Runtime OpenAPI for the currently implemented auth, user, permohonan, document, and health endpoints.
@@ -72,9 +72,9 @@ The existing baseline above is accepted as the starting point. `PHASE5_DOCUMENTS
 
 ### Phase 1 — Canonical workflow engine — Complete
 
-Implemented in `pkg/workflow`: 21 canonical node definitions, nullable display/SLA references, deterministic evaluation, decision-controlled skips, validated start/completion transitions, terminal outcomes, and stage/action projections. `pkg/rbac/workflow_owner.go` provides exact-node role/unit authorization and caller-specific action metadata. These functions have no HTTP or persistence side effects; existing endpoints retain their legacy behavior until integration.
+Implemented in `pkg/workflow`: 20 active canonical node definitions, nullable display/SLA references, deterministic evaluation, decision-controlled skips, validated start/completion transitions, terminal outcomes, and stage/action projections. Historical PK Vendor records remain recognized but are not actionable. `pkg/rbac/workflow_owner.go` provides exact-node role/unit authorization and caller-specific action metadata. These functions have no HTTP or persistence side effects; existing endpoints retain their legacy behavior until integration.
 
-Verified with unit tests across all four connection types, all pole/PDKB combinations, opposite branch completion orders, prerequisite rejection, terminal return/completion, ownership matrices, unit boundaries, and detached input/output state. The living diagrams' conditional WO PDKB → PK Vendor dependency is reflected in both the registry and PRD.
+Verified with unit tests across all four connection types, all pole/PDKB combinations, opposite branch completion orders, prerequisite rejection, terminal return/completion, ownership matrices, unit boundaries, and detached input/output state. The living diagrams' conditional WO PDKB dependency is reflected in both the registry and PRD; the former PK Vendor gate is retained only for historical data.
 
 Delivered one pure domain package that defines every canonical workflow node from the two living diagrams:
 
@@ -126,7 +126,7 @@ Implemented connection-aware request creation, configured target-ULP validation 
 Deliver write behavior in dependency slices so each slice is usable and tested before the next:
 
 1. **Complete:** Survey, RAB/KKO/KKF with pole decision, Permohonan Perluasan, and NPS delegation/terminal return.
-2. **Complete:** Parallel WO Tiang/Konstruksi/APP, material reservation and tera, PK Vendor, and conditional WO PDKB.
+2. **Complete:** Parallel WO Tiang/Konstruksi/APP, material reservation and tera, and conditional WO PDKB. The former PK Vendor gate has since been retired.
 3. **Complete:** Conditional pole installation, construction, and PDKB documentation.
 4. **Complete:** Parallel network energization and SR/APP installation.
 5. **Complete:** Ordered PDL entry/mutation, AIL/DIJ archive, and terminal completion.
@@ -139,7 +139,7 @@ Detailed production payloads must be derived from `DOCUMENT_WORKFLOW_REFERENCE.m
 
 Sequence 1 delivers the three authenticated write routes with exact node/ULP authorization, row-locked service transactions, required evidence attachment, validated workflow-critical fields, JSONB payloads, projections, node completion, and audit logs. Bundled RAB/pole and expansion/NPS nodes complete in dependency order within one transaction. Tests cover JTR/JTM and PLG TM ownership, duplicate and out-of-order rejection, delegated and terminal-return outcomes, repository persistence, controller error mapping, and rollback when evidence attachment fails. The RAB workbook is retained as evidence; calculation parity remains intentionally out of scope pending authoritative formulas and catalogue ownership.
 
-Sequence 2 delivers the six Stage 4 routes for the three parallel WO branches, bundled material reservation/tera, conditional WO PDKB, and PK Vendor. WO Konstruksi records the typed `perlu_pdkb` decision: the false branch audits and persists both PDKB skips before opening PK Vendor, while the true branch gates PK Vendor on WO PDKB. Tests cover both connection families, parallel completion in opposite orders, both pole/PDKB branches, exact owners, terminal/out-of-order/duplicate rejection, bundled evidence rollback, and audit events for derived skips. Payloads remain intentionally minimal where production fields are still discovery gates.
+Sequence 2 delivers the six Stage 4 routes for the three parallel WO branches, bundled material reservation/tera, and conditional WO PDKB. WO Konstruksi records the typed `perlu_pdkb` decision: the false branch audits and persists both PDKB skips, while the true branch gates construction execution on WO PDKB. The former PK Vendor gate is retired; historical rows and evidence remain available for audit. Tests cover both connection families, parallel completion in opposite orders, both pole/PDKB branches, exact owners, terminal/out-of-order/duplicate rejection, bundled evidence rollback, and audit events for derived skips. Payloads remain intentionally minimal where production fields are still discovery gates.
 
 Sequence 3 delivers the explicit vendor-execution selector for pole installation versus construction, plus conditional PDKB documentation. Exact-node authorization prevents vendor roles from submitting one another's work. Tests cover both connection families, pole and construction completion in opposite orders, inapplicable/out-of-order/duplicate rejection, PDKB required and skipped paths, evidence failure, and both Stage 6 join projections. Activity #11/#12 and PDKB payloads remain evidence-first with optional notes because their detailed production forms are still discovery gates.
 
@@ -185,7 +185,7 @@ Exit gate passed in unit/integration coverage. PostgreSQL migrations for vendor 
 
 ## 5. Canonical SLA offsets
 
-Offsets are calendar days from the request date. `H` and `G` are retained as source-process reference labels. Activity #5, #3b, PK Vendor, WO PDKB, and PDKB documentation have no independent SLA rule unless the business adds one.
+Offsets are calendar days from the request date. `H` and `G` are retained as source-process reference labels. Activity #5, #3b, WO PDKB, and PDKB documentation have no independent SLA rule unless the business adds one.
 
 | # | Activity | JTR | JTM/Gardu | PLG TM <5 GWNG | PLG TM >5 GWNG |
 |---|---|---|---|---|---|

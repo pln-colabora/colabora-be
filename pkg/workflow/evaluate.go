@@ -66,6 +66,9 @@ func Evaluate(s Snapshot) (Result, error) {
 		return fail("unknown NPS outcome")
 	}
 	for code, status := range s.Nodes {
+		if IsLegacy(code) {
+			continue
+		}
 		if _, ok := Lookup(code); !ok {
 			return fail("unknown node " + string(code))
 		}

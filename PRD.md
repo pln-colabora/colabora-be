@@ -31,7 +31,7 @@ The backend must:
 | `teknik` | Surveys and prepares RAB for JTR/JTM in its own ULP; operates JTR/JTM networks |
 | `nps` | Creates PLG TM requests, chooses their target ULP, and delegates or returns all requests after planning |
 | `perencanaan` | Surveys and prepares RAB for PLG TM; issues applicable WO Vendor Tiang |
-| `konstruksi` | Issues WO Vendor Konstruksi, PK Vendor, and conditional WO PDKB |
+| `konstruksi` | Issues WO Vendor Konstruksi and conditional WO PDKB |
 | `transaksi-energi` | Issues WO Vendor APP, reserves material, and completes APP assembly/tera |
 | `jaringan` | Operates PLG TM networks |
 | `pdkb` | Uploads conditional PDKB execution documentation |
@@ -59,10 +59,9 @@ Stages are visual groupings, not global barriers. A later-stage node may become 
 | `wo_app` | #8 WO Vendor APP | `transaksi-energi` | NPS delegated |
 | `reservasi_material` | #9 Reservasi Material | `transaksi-energi` | WO APP completed |
 | `tera_app` | #10 Perakitan dan Tera APP | `transaksi-energi` | Reservasi material completed |
-| `pk_vendor` | Supporting workflow node | `konstruksi` | WO Konstruksi completed, plus WO PDKB completed when required |
 | `wo_pdkb` | Conditional supporting node | `konstruksi` | WO Konstruksi completed and `perlu_pdkb = true`; otherwise skipped |
 | `pemasangan_tiang` | #11 Pemasangan Tiang | `vendor-tiang` | WO Tiang completed; skipped when poles are not required |
-| `pelaksanaan_konstruksi` | #12 Pelaksanaan Konstruksi | `vendor-konstruksi` | WO Konstruksi and PK Vendor completed, plus WO PDKB when required |
+| `pelaksanaan_konstruksi` | #12 Pelaksanaan Konstruksi | `vendor-konstruksi` | WO Konstruksi and WO PDKB completed when required |
 | `pdkb_documentation` | Conditional supporting node | `pdkb` | Construction completed and `perlu_pdkb = true`; otherwise skipped |
 | `energize_jaringan` | #13 Pengoperasian Jaringan | `teknik` for JTR/JTM; `jaringan` for PLG TM | Construction, applicable pole work, and applicable PDKB documentation completed |
 | `pemasangan_sr_app` | #14 Pemasangan SR/APP | `vendor-sr-app` for JTR/JTM; `vendor-konstruksi` for PLG TM | Construction and APP tera completed |
