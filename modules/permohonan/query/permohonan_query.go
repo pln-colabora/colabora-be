@@ -23,6 +23,8 @@ type Permohonan struct {
 	RequestDate         string                        `json:"request_date"`
 	CurrentStage        int16                         `json:"current_stage"`
 	Status              string                        `json:"status"`
+	SlaDeadline         *string                       `json:"sla_deadline"`
+	SlaStatus           string                        `json:"sla_status"`
 	KebutuhanTiang      *bool                         `json:"kebutuhan_tiang"`
 	NpsDelegationStatus *string                       `json:"nps_delegation_status"`
 	PerluPdkb           *bool                         `json:"perlu_pdkb"`

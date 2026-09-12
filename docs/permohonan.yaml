@@ -679,6 +679,8 @@ components:
         request_date: { type: string, format: date }
         current_stage: { type: integer }
         status: { type: string }
+        sla_deadline: { type: string, format: date, nullable: true, description: Earliest deadline among actionable workflow nodes }
+        sla_status: { type: string, enum: [none, on_time, due_soon, overdue], description: Most urgent actionable workflow-node SLA }
         kebutuhan_tiang: { type: boolean, nullable: true }
         nps_delegation_status: { type: string, nullable: true, enum: [delegated, returned] }
         perlu_pdkb: { type: boolean, nullable: true }

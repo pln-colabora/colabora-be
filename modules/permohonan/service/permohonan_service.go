@@ -536,12 +536,41 @@ func (s *permohonanService) List(ctx context.Context, filter *query.PermohonanFi
 		}
 		results[i].CurrentStage = evaluated.CurrentStage
 		results[i].Status = string(evaluated.Status)
+		results[i].SlaDeadline, results[i].SlaStatus = aggregateSLA(results[i].WorkflowNodes, evaluated, time.Now())
 		results[i].AvailableActions, err = availableActions(requester.Role, requester.Unit, p)
 		if err != nil {
 			return nil, 0, err
 		}
 	}
 	return results, total, nil
+}
+
+// aggregateSLA returns the most urgent SLA among currently actionable nodes.
+// Workflow branches can be active in parallel, so current_stage alone cannot
+// identify the deadline shown by the dashboard.
+func aggregateSLA(nodes []entities.PermohonanActivity, evaluated workflow.Result, now time.Time) (*string, string) {
+	var earliest *time.Time
+	status := "none"
+	statusPriority := map[string]int{"none": 0, "on_time": 1, "due_soon": 2, "overdue": 3}
+	for _, node := range nodes {
+		nodeStatus := evaluated.Nodes[workflow.Code(node.WorkflowNode)]
+		if node.SlaDeadline == nil || (nodeStatus != workflow.Available && nodeStatus != workflow.InProgress) {
+			continue
+		}
+		currentStatus := slaStatus(node, nodeStatus, now)
+		if statusPriority[currentStatus] > statusPriority[status] {
+			status = currentStatus
+		}
+		if earliest == nil || node.SlaDeadline.Before(*earliest) {
+			deadline := *node.SlaDeadline
+			earliest = &deadline
+		}
+	}
+	if earliest == nil {
+		return nil, "none"
+	}
+	value := earliest.Format("2006-01-02")
+	return &value, status
 }
 
 func (s *permohonanService) GetActivities(ctx context.Context, id string) ([]dto.WorkflowNodeResponse, error) {

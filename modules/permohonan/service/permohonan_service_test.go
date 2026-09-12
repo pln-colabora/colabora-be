@@ -263,6 +263,36 @@ func TestListProjectsOnlyCallerOwnedParallelAction(t *testing.T) {
 	}
 }
 
+func TestAggregateSLAUsesMostUrgentActionableNode(t *testing.T) {
+	now := time.Date(2026, 9, 12, 10, 0, 0, 0, time.UTC)
+	overdueDate := now.AddDate(0, 0, -1)
+	dueSoonDate := now.AddDate(0, 0, 1)
+	onTimeDate := now.AddDate(0, 0, 10)
+	nodes := []entities.PermohonanActivity{
+		{WorkflowNode: string(workflow.Survei), SlaDeadline: &onTimeDate},
+		{WorkflowNode: string(workflow.RAB), SlaDeadline: &dueSoonDate},
+		{WorkflowNode: string(workflow.WOAPP), SlaDeadline: &overdueDate},
+		{WorkflowNode: string(workflow.Permohonan), SlaDeadline: &now},
+	}
+	evaluated := workflow.Result{Nodes: map[workflow.Code]workflow.Status{
+		workflow.Survei:     workflow.Available,
+		workflow.RAB:        workflow.InProgress,
+		workflow.WOAPP:      workflow.Available,
+		workflow.Permohonan: workflow.Completed,
+	}}
+
+	deadline, status := aggregateSLA(nodes, evaluated, now)
+	require.NotNil(t, deadline)
+	require.Equal(t, overdueDate.Format("2006-01-02"), *deadline)
+	require.Equal(t, "overdue", status)
+}
+
+func TestAggregateSLAReturnsNoneWithoutActionableDeadline(t *testing.T) {
+	deadline, status := aggregateSLA(nil, workflow.Result{Nodes: map[workflow.Code]workflow.Status{}}, time.Now())
+	require.Nil(t, deadline)
+	require.Equal(t, "none", status)
+}
+
 func TestSubmitSurveySupportsBothConnectionFamilies(t *testing.T) {
 	tests := []struct {
 		name       string
