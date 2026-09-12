@@ -37,13 +37,17 @@ func (c *s3Client) DeleteObject(ctx context.Context, key string) error {
 	return err
 }
 
-func (c *s3Client) PresignGetObject(ctx context.Context, key string, ttl time.Duration) (string, error) {
-	presignClient := s3.NewPresignClient(c.client)
-
-	req, err := presignClient.PresignGetObject(ctx, &s3.GetObjectInput{
+func (c *s3Client) PresignGetObject(ctx context.Context, key string, ttl time.Duration, contentDisposition string) (string, error) {
+	input := &s3.GetObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(key),
-	}, s3.WithPresignExpires(ttl))
+	}
+	if contentDisposition != "" {
+		input.ResponseContentDisposition = aws.String(contentDisposition)
+	}
+	presignClient := s3.NewPresignClient(c.client)
+
+	req, err := presignClient.PresignGetObject(ctx, input, s3.WithPresignExpires(ttl))
 	if err != nil {
 		return "", err
 	}

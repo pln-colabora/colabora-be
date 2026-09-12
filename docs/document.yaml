@@ -122,6 +122,46 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/documents/{id}/preview:
+    get:
+      tags: [Document]
+      summary: Create a short-lived preview URL
+      description: >-
+        Returns a short-lived signed URL for inline preview of a PDF or image.
+        Attached documents require read access to their permohonan. Unattached
+        uploads can only be previewed by their uploader. Superseded and infected
+        documents are unavailable.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Preview URL created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/DocumentPreviewResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Document not found or caller cannot access it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "409":
+          description: Document is unavailable because it was infected or superseded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+
   /api/permohonan/{id}/documents/{doc_id}:
     get:
       tags: [Document]
@@ -216,3 +256,11 @@ components:
           items: { type: string }
         uploaded_by: { type: string, format: uuid }
         created_at: { type: string, format: date-time }
+    DocumentPreviewResponse:
+      type: object
+      required: [url, mime_type, filename, expires_at]
+      properties:
+        url: { type: string, format: uri }
+        mime_type: { type: string, example: "application/pdf" }
+        filename: { type: string, example: "bukti.pdf" }
+        expires_at: { type: string, format: date-time }

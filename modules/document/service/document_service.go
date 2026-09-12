@@ -38,6 +38,7 @@ type DocumentService interface {
 	// referencing documents uploaded earlier via Upload.
 	AttachToWorkflowNode(ctx context.Context, userId, permohonanId, workflowNode string, documentIds []string) error
 	Download(ctx context.Context, permohonanId, docId string) (string, error)
+	Preview(ctx context.Context, userID, docID string) (dto.DocumentPreviewResponse, error)
 	List(ctx context.Context, permohonanId string, workflowNode *string) ([]dto.DocumentResponse, error)
 	HasEvidence(ctx context.Context, permohonanId, workflowNode string) (bool, error)
 	CleanupOrphans(ctx context.Context, before time.Time, limit int) (int, error)
@@ -225,7 +226,46 @@ func (s *documentService) Download(ctx context.Context, permohonanId, docId stri
 		return "", dto.ErrDocumentUnavailable
 	}
 
-	return s.storageClient.PresignGetObject(ctx, document.FilePath, presignTTL)
+	return s.storageClient.PresignGetObject(ctx, document.FilePath, presignTTL, "attachment")
+}
+
+func (s *documentService) Preview(ctx context.Context, userID, docID string) (dto.DocumentPreviewResponse, error) {
+	document, err := s.documentRepository.GetById(ctx, s.db, docID)
+	if err != nil {
+		return dto.DocumentPreviewResponse{}, dto.ErrDocumentNotFound
+	}
+	if document.SupersededByID != nil || document.ScanStatus == scanning.StatusInfected {
+		return dto.DocumentPreviewResponse{}, dto.ErrDocumentUnavailable
+	}
+
+	if document.PermohonanID == nil {
+		if document.UploadedBy.String() != userID {
+			return dto.DocumentPreviewResponse{}, dto.ErrDocumentNotFound
+		}
+	} else if !s.canReadPermohonan(ctx, userID, document.PermohonanID.String()) {
+		return dto.DocumentPreviewResponse{}, dto.ErrDocumentNotFound
+	}
+
+	const previewTTL = 15 * time.Minute
+	url, err := s.storageClient.PresignGetObject(ctx, document.FilePath, previewTTL, "inline")
+	if err != nil {
+		return dto.DocumentPreviewResponse{}, err
+	}
+	return dto.DocumentPreviewResponse{
+		URL: url, MimeType: document.MimeType, Filename: document.OriginalFilename,
+		ExpiresAt: time.Now().Add(previewTTL).UTC().Format(time.RFC3339),
+	}, nil
+}
+
+func (s *documentService) canReadPermohonan(ctx context.Context, userID, permohonanID string) bool {
+	var actor entities.User
+	if err := s.db.WithContext(ctx).Where("id = ?", userID).Take(&actor).Error; err != nil {
+		return false
+	}
+	var count int64
+	err := rbac.ApplyReadScope(s.db.WithContext(ctx).Model(&entities.Permohonan{}), actor.Role, actor.Unit, actor.ID.String()).
+		Where("permohonan.id = ?", permohonanID).Count(&count).Error
+	return err == nil && count == 1
 }
 
 func (s *documentService) CleanupOrphans(ctx context.Context, before time.Time, limit int) (int, error) {

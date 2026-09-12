@@ -22,6 +22,7 @@ func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
 	documentUploadRoutes.Use(middlewares.Authenticate(jwtService))
 	{
 		documentUploadRoutes.POST("", documentController.Upload)
+		documentUploadRoutes.GET("/:id/preview", documentController.Preview)
 	}
 
 	permohonanDocumentRoutes := server.Group("/api/permohonan/:id/documents")

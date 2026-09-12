@@ -19,6 +19,7 @@ type (
 		Upload(ctx *gin.Context)
 		List(ctx *gin.Context)
 		Download(ctx *gin.Context)
+		Preview(ctx *gin.Context)
 	}
 
 	documentController struct {
@@ -119,4 +120,20 @@ func (c *documentController) Download(ctx *gin.Context) {
 	}
 
 	ctx.Redirect(http.StatusFound, url)
+}
+
+func (c *documentController) Preview(ctx *gin.Context) {
+	userID := ctx.MustGet("user_id").(string)
+	result, err := c.documentService.Preview(ctx, userID, ctx.Param("id"))
+	if err != nil {
+		status := http.StatusNotFound
+		if errors.Is(err, dto.ErrDocumentUnavailable) {
+			status = http.StatusConflict
+		}
+		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_PREVIEW_DOCUMENT, err.Error(), nil)
+		ctx.JSON(status, res)
+		return
+	}
+	ctx.Header("Cache-Control", "no-store")
+	ctx.JSON(http.StatusOK, utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_GET_DOCUMENT, result))
 }

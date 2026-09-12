@@ -25,6 +25,9 @@ func (uploadErrorService) AttachToWorkflowNode(context.Context, string, string, 
 	return nil
 }
 func (uploadErrorService) Download(context.Context, string, string) (string, error) { return "", nil }
+func (uploadErrorService) Preview(context.Context, string, string) (dto.DocumentPreviewResponse, error) {
+	return dto.DocumentPreviewResponse{}, nil
+}
 func (uploadErrorService) List(context.Context, string, *string) ([]dto.DocumentResponse, error) {
 	return nil, nil
 }

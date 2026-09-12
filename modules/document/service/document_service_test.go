@@ -254,9 +254,27 @@ func TestCleanupOrphansDeletesStorageBeforeMetadata(t *testing.T) {
 	require.True(t, repo.deleted)
 }
 
+func TestPreviewAllowsOnlyUploaderForUnattachedDocument(t *testing.T) {
+	uploader := uuid.New()
+	repo := &fakeDocumentRepository{byId: entities.Document{
+		ID: uploader, FilePath: "documents/preview", OriginalFilename: "evidence.pdf",
+		MimeType: "application/pdf", UploadedBy: uploader, ScanStatus: scanning.StatusNotScanned,
+	}}
+	store := &fakeStorageClient{presignedURL: "https://signed.example/preview"}
+	s := &documentService{documentRepository: repo, storageClient: store}
+
+	result, err := s.Preview(context.Background(), uploader.String(), uploader.String())
+	require.NoError(t, err)
+	require.Equal(t, store.presignedURL, result.URL)
+	require.Equal(t, "application/pdf", result.MimeType)
+
+	_, err = s.Preview(context.Background(), uuid.NewString(), uploader.String())
+	require.ErrorIs(t, err, dto.ErrDocumentNotFound)
+}
+
 func ptrUUID(value uuid.UUID) *uuid.UUID { return &value }
 
-func (f *fakeStorageClient) PresignGetObject(ctx context.Context, key string, ttl time.Duration) (string, error) {
+func (f *fakeStorageClient) PresignGetObject(ctx context.Context, key string, ttl time.Duration, contentDisposition string) (string, error) {
 	return f.presignedURL, nil
 }
 
