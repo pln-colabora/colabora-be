@@ -98,10 +98,11 @@ Every write endpoint:
 - `POST /api/documents` uploads a private, unattached file and returns its ID plus provenance. Optional `supersedes_document_id` creates the next revision only when the prior file is a same-type, unattached upload owned by the caller.
 - Activity submissions attach `document_ids` to their exact `workflow_node`.
 - `GET /api/permohonan/:id/documents?workflow_node=...` filters attached evidence.
-- `GET /api/permohonan/:id/documents/:doc_id` returns/redirects to a short-lived download URL.
+- `GET /api/documents/:id/preview` streams an authorized PDF/image inline.
+- `GET /api/documents/:id/download` streams an authorized attached document as an attachment.
 
 An attachment request must fail atomically if any document is missing, already attached, or the caller does not own the target node.
-Superseded documents cannot be attached. Attached evidence cannot be revised or replaced through the current API because correction/reopen ownership remains a discovery gate. Uploads record detected MIME, measured size, SHA-256, original filename, `uploaded` source, `restricted` classification, scan status, and revision links. Configured ClamAV scanning is synchronous and fail-closed; without a configured scanner, status is explicitly `not_scanned`. Downloads redirect to private 15-minute presigned URLs. The operational `make cleanup-orphan-documents` command removes unattached uploads older than the configured TTL.
+Superseded documents cannot be attached. Attached evidence cannot be revised or replaced through the current API because correction/reopen ownership remains a discovery gate. Uploads record detected MIME, measured size, SHA-256, original filename, `uploaded` source, `restricted` classification, scan status, and revision links. Configured ClamAV scanning is synchronous and fail-closed; without a configured scanner, status is explicitly `not_scanned`. Authorized document reads stream through the backend and never expose a Garage URL, bucket, object key, or S3 signature. The operational `make cleanup-orphan-documents` command removes unattached uploads older than the configured TTL.
 
 ## Error semantics
 

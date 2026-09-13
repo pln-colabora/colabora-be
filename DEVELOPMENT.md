@@ -168,11 +168,11 @@ before serving these routes.
 - Define one read policy for permohonan detail, activity history, logs, and documents, including ULP participants, UP3 roles, vendors, and cross-unit read-only super-user access.
 - Apply that policy consistently to list/detail/document reads so closing the document IDOR does not leave customer data exposed elsewhere.
 - Make document attachment atomic with node completion and reject missing, already-attached, unauthorized, or mismatched documents.
-- Finalize required provenance fields, MIME/size enforcement, private object access, short-lived downloads, malware-scanning integration point, revision/supersession behavior, and orphan-upload cleanup.
+- Finalize required provenance fields, MIME/size enforcement, private backend-streamed object access, malware-scanning integration point, revision/supersession behavior, and orphan-upload cleanup.
 
 **Exit gate:** authorization matrix tests cover every role and unit boundary; guessed IDs cannot expose aggregate or document data; failed attachment leaves both workflow and documents unchanged; and security-sensitive audit events contain no PII or secret URLs.
 
-Exit gate passed in unit/integration coverage. PostgreSQL migrations for vendor assignment and document hardening were verified up/down/up in isolated schemas. Audit events contain identifiers and action/node codes only; object keys, original filenames, customer fields and presigned URLs are not written to activity logs.
+Exit gate passed in unit/integration coverage. PostgreSQL migrations for vendor assignment and document hardening were verified up/down/up in isolated schemas. Audit events contain identifiers and action/node codes only; object keys, original filenames, customer fields and storage credentials are not written to activity logs.
 
 ### Phase 6 — Integration readiness and frontend handoff — Queued
 

@@ -125,12 +125,12 @@ paths:
   /api/documents/{id}/preview:
     get:
       tags: [Document]
-      summary: Create a short-lived preview URL
+      summary: Stream a document for inline preview
       description: >-
-        Returns a short-lived signed URL for inline preview of a PDF or image.
-        Attached documents require read access to their permohonan. Unattached
-        uploads can only be previewed by their uploader. Superseded and infected
-        documents are unavailable.
+        Streams a PDF or image through the backend for inline preview. Attached
+        documents require read access to their permohonan. Unattached uploads can
+        only be previewed by their uploader. Superseded and infected documents are
+        unavailable. The response never exposes a Garage URL or object key.
       security:
         - bearerAuth: []
       parameters:
@@ -140,15 +140,14 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         "200":
-          description: Preview URL created
+          description: Inline document stream
           content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/ApiResponse"
-                  - type: object
-                    properties:
-                      data: { $ref: "#/components/schemas/DocumentPreviewResponse" }
+            application/pdf:
+              schema: { type: string, format: binary }
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -161,16 +160,22 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiResponse" }
+        "503":
+          description: Document storage is temporarily unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
 
-  /api/permohonan/{id}/documents/{doc_id}:
+  /api/documents/{id}/download:
     get:
       tags: [Document]
       summary: Download a document
       description: >-
-        Redirects (302) to a short-lived (15 minute) presigned URL. 404s if
-        the document doesn't exist, isn't attached to this permohonan, or
-        isn't attached to any permohonan yet, or the caller cannot access the
-        request. Vendors require an explicit account/role assignment.
+        Streams an attached document through the backend as an attachment. The
+        backend resolves the associated permohonan and requires the caller to have
+        read access to it. Unattached documents and inaccessible requests return
+        404. Vendors require an explicit account/role assignment. The response
+        never exposes a Garage URL or object key.
       security:
         - bearerAuth: []
       parameters:
@@ -178,22 +183,30 @@ paths:
           in: path
           required: true
           schema: { type: string, format: uuid }
-        - name: doc_id
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
       responses:
-        "302":
-          description: Redirect to a presigned download URL
+        "200":
+          description: Attachment document stream
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
-          description: Document not found (or not attached to this permohonan)
+          description: Document not found, unattached, or caller cannot access its permohonan
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiResponse" }
         "409":
           description: Document is unavailable because its scan status is infected
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "503":
+          description: Document storage is temporarily unavailable
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiResponse" }
@@ -256,11 +269,3 @@ components:
           items: { type: string }
         uploaded_by: { type: string, format: uuid }
         created_at: { type: string, format: date-time }
-    DocumentPreviewResponse:
-      type: object
-      required: [url, mime_type, filename, expires_at]
-      properties:
-        url: { type: string, format: uri }
-        mime_type: { type: string, example: "application/pdf" }
-        filename: { type: string, example: "bukti.pdf" }
-        expires_at: { type: string, format: date-time }

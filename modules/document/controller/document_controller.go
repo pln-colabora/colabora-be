@@ -2,7 +2,10 @@ package controller
 
 import (
 	"errors"
+	"io"
+	"mime"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pln-colabora/colabora-be/modules/document/dto"
@@ -103,37 +106,54 @@ func (c *documentController) List(ctx *gin.Context) {
 }
 
 func (c *documentController) Download(ctx *gin.Context) {
-	permohonanId := ctx.Param("id")
-	docId := ctx.Param("doc_id")
+	userID := ctx.MustGet("user_id").(string)
+	docID := ctx.Param("id")
 
-	url, err := c.documentService.Download(ctx, permohonanId, docId)
+	document, err := c.documentService.Download(ctx, userID, docID)
 	if err != nil {
-		status := http.StatusBadRequest
-		if errors.Is(err, dto.ErrDocumentNotFound) {
-			status = http.StatusNotFound
-		} else if errors.Is(err, dto.ErrDocumentUnavailable) {
-			status = http.StatusConflict
-		}
-		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_DOCUMENT, err.Error(), nil)
-		ctx.JSON(status, res)
+		writeDocumentError(ctx, dto.MESSAGE_FAILED_GET_DOCUMENT, err)
 		return
 	}
 
-	ctx.Redirect(http.StatusFound, url)
+	streamDocument(ctx, document, "attachment")
 }
 
 func (c *documentController) Preview(ctx *gin.Context) {
 	userID := ctx.MustGet("user_id").(string)
-	result, err := c.documentService.Preview(ctx, userID, ctx.Param("id"))
+	document, err := c.documentService.Preview(ctx, userID, ctx.Param("id"))
 	if err != nil {
-		status := http.StatusNotFound
-		if errors.Is(err, dto.ErrDocumentUnavailable) {
-			status = http.StatusConflict
-		}
-		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_PREVIEW_DOCUMENT, err.Error(), nil)
-		ctx.JSON(status, res)
+		writeDocumentError(ctx, dto.MESSAGE_FAILED_PREVIEW_DOCUMENT, err)
 		return
 	}
+	streamDocument(ctx, document, "inline")
+}
+
+func writeDocumentError(ctx *gin.Context, message string, err error) {
+	status := http.StatusBadRequest
+	responseError := err.Error()
+	if errors.Is(err, dto.ErrDocumentNotFound) {
+		status = http.StatusNotFound
+	} else if errors.Is(err, dto.ErrDocumentUnavailable) {
+		status = http.StatusConflict
+	} else if errors.Is(err, dto.ErrDocumentStorageUnavailable) {
+		status = http.StatusServiceUnavailable
+		responseError = dto.ErrDocumentStorageUnavailable.Error()
+	}
+	ctx.JSON(status, utils.BuildResponseFailed(message, responseError, nil))
+}
+
+func streamDocument(ctx *gin.Context, document service.DocumentContent, disposition string) {
+	defer document.Body.Close()
+
+	ctx.Header("Content-Type", document.MimeType)
+	ctx.Header("Content-Disposition", mime.FormatMediaType(disposition, map[string]string{"filename": document.Filename}))
 	ctx.Header("Cache-Control", "no-store")
-	ctx.JSON(http.StatusOK, utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_GET_DOCUMENT, result))
+	ctx.Header("X-Content-Type-Options", "nosniff")
+	if document.SizeBytes >= 0 {
+		ctx.Header("Content-Length", strconv.FormatInt(document.SizeBytes, 10))
+	}
+	ctx.Status(http.StatusOK)
+	if _, err := io.Copy(ctx.Writer, document.Body); err != nil {
+		_ = ctx.Error(err)
+	}
 }

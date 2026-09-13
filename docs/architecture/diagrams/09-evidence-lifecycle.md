@@ -27,7 +27,7 @@ flowchart TD
   attach -->|missing / wrong uploader /<br/>superseded / other request / duplicate| rollback["Rollback activity + evidence"]
   attach -->|valid| bound["Bind document to permohonan<br/>create DocumentEvidence per node"]
   bound --> immutable["Attached evidence immutable<br/>one file may evidence multiple nodes"]
-  immutable --> download["Authorized read guard<br/>15-minute presigned download"]
+  immutable --> download["Authorized read guard<br/>backend-streamed document"]
   unattached -->|older than configured TTL| cleanup["cleanup-orphan-documents"]
   cleanup --> deleteobject["Delete private object"] --> deleterow["Delete row if still unattached"]
 
@@ -37,6 +37,6 @@ flowchart TD
   class persist,supersede,bound,immutable,download stored
 ```
 
-Object key, original filename, customer data, dan presigned URL tidak ditulis ke
+Object key, original filename, customer data, dan storage credential tidak ditulis ke
 activity log. Jika persistence upload gagal setelah object dibuat, service mencoba
 menghapus object sebagai kompensasi.

@@ -134,14 +134,16 @@ func (f *fakeUserRepository) ExistsByUnitAndRoles(ctx context.Context, tx *gorm.
 }
 
 type fakeStorageClient struct {
-	putErr       error
-	presignedURL string
-	putCalls     int
-	key          string
-	size         int64
-	contentType  string
-	deleteCalls  int
-	deleteErr    error
+	putErr      error
+	getErr      error
+	objectBody  io.ReadCloser
+	putCalls    int
+	getCalls    int
+	key         string
+	size        int64
+	contentType string
+	deleteCalls int
+	deleteErr   error
 }
 
 func (f *fakeStorageClient) DeleteObject(context.Context, string) error {
@@ -153,6 +155,15 @@ func (f *fakeStorageClient) PutObject(ctx context.Context, key string, r io.Read
 	f.putCalls++
 	f.key, f.size, f.contentType = key, size, contentType
 	return f.putErr
+}
+
+func (f *fakeStorageClient) GetObject(ctx context.Context, key string) (io.ReadCloser, error) {
+	f.getCalls++
+	f.key = key
+	if f.getErr != nil {
+		return nil, f.getErr
+	}
+	return f.objectBody, nil
 }
 
 func TestUploadRejectsSpoofedContentAndActualOversize(t *testing.T) {
@@ -260,23 +271,24 @@ func TestPreviewAllowsOnlyUploaderForUnattachedDocument(t *testing.T) {
 		ID: uploader, FilePath: "documents/preview", OriginalFilename: "evidence.pdf",
 		MimeType: "application/pdf", UploadedBy: uploader, ScanStatus: scanning.StatusNotScanned,
 	}}
-	store := &fakeStorageClient{presignedURL: "https://signed.example/preview"}
+	store := &fakeStorageClient{objectBody: io.NopCloser(strings.NewReader("private preview"))}
 	s := &documentService{documentRepository: repo, storageClient: store}
 
 	result, err := s.Preview(context.Background(), uploader.String(), uploader.String())
 	require.NoError(t, err)
-	require.Equal(t, store.presignedURL, result.URL)
+	defer result.Body.Close()
+	content, err := io.ReadAll(result.Body)
+	require.NoError(t, err)
+	require.Equal(t, "private preview", string(content))
 	require.Equal(t, "application/pdf", result.MimeType)
+	require.Equal(t, "evidence.pdf", result.Filename)
+	require.Equal(t, 1, store.getCalls)
 
 	_, err = s.Preview(context.Background(), uuid.NewString(), uploader.String())
 	require.ErrorIs(t, err, dto.ErrDocumentNotFound)
 }
 
 func ptrUUID(value uuid.UUID) *uuid.UUID { return &value }
-
-func (f *fakeStorageClient) PresignGetObject(ctx context.Context, key string, ttl time.Duration, contentDisposition string) (string, error) {
-	return f.presignedURL, nil
-}
 
 // --- helpers -------------------------------------------------------------
 
@@ -382,19 +394,38 @@ func TestDocumentService_AttachToWorkflowNode(t *testing.T) {
 }
 
 func TestDocumentService_Download(t *testing.T) {
-	permohonanId := uuid.New()
-	docId := uuid.New()
-	document := entities.Document{ID: docId, FilePath: "documents/x/key.pdf", PermohonanID: &permohonanId}
+	permohonanID := uuid.New()
+	docID := uuid.New()
+	actorID := uuid.New()
+	db := newDocumentReadScopeDB(t, actorID, permohonanID, rbac.RoleNps, "", "ULP Taman")
+	document := entities.Document{ID: docID, FilePath: "documents/x/key.pdf", OriginalFilename: "evidence.pdf", MimeType: "application/pdf", SizeBytes: 17, PermohonanID: &permohonanID}
 
-	t.Run("returns a presigned url", func(t *testing.T) {
+	t.Run("returns an authorized object stream", func(t *testing.T) {
 		s := &documentService{
 			documentRepository: &fakeDocumentRepository{byId: document},
-			storageClient:      &fakeStorageClient{presignedURL: "https://garage.local/presigned"},
+			storageClient:      &fakeStorageClient{objectBody: io.NopCloser(strings.NewReader("private attachment"))},
+			db:                 db,
 		}
 
-		url, err := s.Download(context.Background(), permohonanId.String(), docId.String())
+		result, err := s.Download(context.Background(), actorID.String(), docID.String())
 		require.NoError(t, err)
-		assert.Equal(t, "https://garage.local/presigned", url)
+		defer result.Body.Close()
+		content, err := io.ReadAll(result.Body)
+		require.NoError(t, err)
+		assert.Equal(t, "private attachment", string(content))
+		assert.Equal(t, "application/pdf", result.MimeType)
+		assert.EqualValues(t, 17, result.SizeBytes)
+	})
+
+	t.Run("storage error is not returned as a raw storage error", func(t *testing.T) {
+		s := &documentService{
+			documentRepository: &fakeDocumentRepository{byId: document},
+			storageClient:      &fakeStorageClient{getErr: errors.New("garage connection refused")},
+			db:                 db,
+		}
+
+		_, err := s.Download(context.Background(), actorID.String(), docID.String())
+		assert.ErrorIs(t, err, dto.ErrDocumentStorageUnavailable)
 	})
 
 	t.Run("unknown document", func(t *testing.T) {
@@ -403,37 +434,68 @@ func TestDocumentService_Download(t *testing.T) {
 			storageClient:      &fakeStorageClient{},
 		}
 
-		_, err := s.Download(context.Background(), permohonanId.String(), uuid.NewString())
+		_, err := s.Download(context.Background(), actorID.String(), uuid.NewString())
 		assert.ErrorIs(t, err, dto.ErrDocumentNotFound)
 	})
 
-	t.Run("document belongs to a different permohonan", func(t *testing.T) {
+	t.Run("caller without read access cannot download", func(t *testing.T) {
+		unauthorizedActorID := uuid.New()
+		unauthorizedDB := newDocumentReadScopeDB(t, unauthorizedActorID, permohonanID, rbac.RoleTeknik, "ULP Other", "ULP Taman")
 		s := &documentService{
 			documentRepository: &fakeDocumentRepository{byId: document},
 			storageClient:      &fakeStorageClient{},
+			db:                 unauthorizedDB,
 		}
 
-		_, err := s.Download(context.Background(), uuid.NewString(), docId.String())
+		_, err := s.Download(context.Background(), unauthorizedActorID.String(), docID.String())
 		assert.ErrorIs(t, err, dto.ErrDocumentNotFound)
 	})
 
 	t.Run("unattached document", func(t *testing.T) {
 		s := &documentService{
-			documentRepository: &fakeDocumentRepository{byId: entities.Document{ID: docId}},
+			documentRepository: &fakeDocumentRepository{byId: entities.Document{ID: docID}},
 			storageClient:      &fakeStorageClient{},
 		}
 
-		_, err := s.Download(context.Background(), permohonanId.String(), docId.String())
+		_, err := s.Download(context.Background(), actorID.String(), docID.String())
 		assert.ErrorIs(t, err, dto.ErrDocumentNotFound)
 	})
 
 	t.Run("infected document is unavailable", func(t *testing.T) {
 		infected := document
 		infected.ScanStatus = scanning.StatusInfected
-		s := &documentService{documentRepository: &fakeDocumentRepository{byId: infected}, storageClient: &fakeStorageClient{}}
-		_, err := s.Download(context.Background(), permohonanId.String(), docId.String())
+		s := &documentService{documentRepository: &fakeDocumentRepository{byId: infected}, storageClient: &fakeStorageClient{}, db: db}
+		_, err := s.Download(context.Background(), actorID.String(), docID.String())
 		assert.ErrorIs(t, err, dto.ErrDocumentUnavailable)
 	})
+}
+
+func TestPreviewDoesNotRevealUnavailableAttachedDocumentToUnauthorizedCaller(t *testing.T) {
+	permohonanID := uuid.New()
+	actorID := uuid.New()
+	db := newDocumentReadScopeDB(t, actorID, permohonanID, rbac.RoleTeknik, "ULP Other", "ULP Taman")
+	replacementID := uuid.New()
+	s := &documentService{
+		documentRepository: &fakeDocumentRepository{byId: entities.Document{
+			ID: uuid.New(), PermohonanID: &permohonanID, SupersededByID: &replacementID,
+		}},
+		storageClient: &fakeStorageClient{},
+		db:            db,
+	}
+
+	_, err := s.Preview(context.Background(), actorID.String(), uuid.NewString())
+	assert.ErrorIs(t, err, dto.ErrDocumentNotFound)
+}
+
+func newDocumentReadScopeDB(t *testing.T, actorID, permohonanID uuid.UUID, role, unit, permohonanUnit string) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open("file:"+uuid.NewString()+"?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.Exec("CREATE TABLE users (id TEXT PRIMARY KEY, role TEXT, unit TEXT)").Error)
+	require.NoError(t, db.Exec("CREATE TABLE permohonan (id TEXT PRIMARY KEY, ulp_unit TEXT)").Error)
+	require.NoError(t, db.Exec("INSERT INTO users (id, role, unit) VALUES (?, ?, ?)", actorID.String(), role, unit).Error)
+	require.NoError(t, db.Exec("INSERT INTO permohonan (id, ulp_unit) VALUES (?, ?)", permohonanID.String(), permohonanUnit).Error)
+	return db
 }
 
 func TestDocumentService_HasEvidence(t *testing.T) {

@@ -67,7 +67,7 @@ resources (detail, activities, logs, documents, downloads and activity writes):
 | Other roles | None |
 
 An inaccessible request returns 404, including document routes, before data or
-presigned URLs are produced. List filtering applies before pagination and counts;
+document streams are produced. List filtering applies before pagination and counts;
 `scope=all` cannot bypass it. HTTP handlers must retain the shared access guard;
 internal service methods do not independently implement the HTTP read policy.
 

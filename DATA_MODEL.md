@@ -62,7 +62,8 @@ One row per source activity number and connection type where an SLA is defined:
 
 ## `Document`
 
-Evidence remains stored privately in Garage and downloaded through a presigned URL.
+Evidence remains stored privately in Garage and is streamed only through authenticated
+backend document routes; object keys are never returned to clients.
 
 | Field | Type | Notes |
 |---|---|---|

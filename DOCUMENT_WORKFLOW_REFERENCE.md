@@ -185,8 +185,8 @@ numbers, coordinates, signatures, pricing, equipment, and network information.
 - Never copy real values into seeders, automated tests, screenshots, API examples,
   logs, issue descriptions, or generated documentation.
 - If fixtures are needed, create synthetic documents with clearly fictional data.
-- Production uploads must remain private and require authorized, short-lived
-  download access. Validate MIME and size, scan untrusted files, retain audit
+- Production uploads must remain private and require authorized backend-streamed
+  read access. Validate MIME and size, scan untrusted files, retain audit
   events, and close the known evidence-view authorization gap before rollout.
 
 ## Questions for detailed-form discovery
@@ -222,4 +222,3 @@ Before implementing or changing a workflow form:
 7. Add service-level validation and dependency tests before exposing the handler.
 8. Update `PRD.md`, `DATA_MODEL.md`, `API_SPEC.md`, `RBAC.md`, and runtime OpenAPI
    only where the implementation or agreed target contract has actually changed.
-

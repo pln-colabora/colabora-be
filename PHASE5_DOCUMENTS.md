@@ -12,7 +12,7 @@ Two things ROADMAP.md assumes aren't true, discovered during investigation:
 
 **Storage backend: Garage** — the app runs on a 2GB/2vCPU/40GB VPS, and Garage's ~512MB RAM footprint fits that better than SeaweedFS's ~1GB. Trade-off accepted knowingly: Garage's own docs advise against replication-factor-1 in production (no redundancy) — but on a single VPS, SeaweedFS would be single-node too, and this stack already has a single Postgres instance with no documented replication story, so this doesn't change the app's actual risk posture, it's consistent with it. Mitigate via regular backups of Garage's data directory, same as you'd back up Postgres. Both Garage and SeaweedFS speak the S3 API, so the Go client code isn't Garage-specific — swapping backends later is a config change (`GARAGE_S3_ENDPOINT`/`GARAGE_REGION`), not a rewrite.
 
-**Security-motivated storage rule**: `Document.FilePath` stores the storage **object key**, not a public URL — the bucket stays private, and `GET .../documents/:doc_id` generates a short-lived (15 min) presigned URL per request. Evidence documents (customer PII, addresses, phone numbers) shouldn't be reachable via a stored static link.
+**Security-motivated storage rule**: `Document.FilePath` stores the storage **object key**, not a public URL. The bucket stays private and the current read routes stream authorized content through the backend, so evidence documents (customer PII, addresses, phone numbers) never expose a storage URL to clients.
 
 ## What was built
 
@@ -35,7 +35,7 @@ We considered a genuinely generic `documents(id, type, file_path)` table + `docu
 
 Read routes, nested under the permohonan resource, all behind `middlewares.Authenticate`:
 - `GET /api/permohonan/:id/documents` — list, optional `?workflow_node=` filter. Only ever returns attached documents.
-- `GET /api/permohonan/:id/documents/:doc_id` — 302 redirect to a 15-minute presigned URL. 404s if the document doesn't exist, isn't attached to any permohonan yet, or is attached to a *different* permohonan than the one in the URL.
+- `GET /api/documents/:id/download` — streams an authorized attached document through the backend. 404s if the document doesn't exist, is not attached to a permohonan, or the caller cannot read that permohonan.
 
 Phase 5 subsequently hardened this model. `Document` now persists the original filename, detected MIME, measured byte size, SHA-256 checksum, source, classification, malware-scan status, and revision links. Storage keys remain opaque (`documents/{uuid}`) and never contain the original filename. Optional synchronous ClamAV scanning is enabled through `CLAMAV_ADDRESS`; errors fail closed when configured, while an unconfigured deployment records `not_scanned`. Only an uploader's same-type unattached upload may be superseded. Attached evidence remains immutable, and a maintenance command removes expired unattached objects.
 
@@ -75,5 +75,5 @@ The shared permohonan access guard now protects detail, activity history, logs,
 documents, downloads, and activity writes. List filtering applies the same predicate
 before pagination. Matching-ULP users, cross-ULP operational roles, explicitly assigned
 vendor accounts, and read-only super-user access follow the matrix in `RBAC.md`;
-inaccessible identifiers return 404 before document metadata or presigned URLs are
+inaccessible identifiers return 404 before document metadata or document streams are
 produced.

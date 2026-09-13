@@ -26,10 +26,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// presignTTL is how long a download link stays valid — short-lived on purpose, since
-// evidence documents carry customer PII and the bucket itself is private.
-const presignTTL = 15 * time.Minute
-
 type DocumentService interface {
 	// Upload stores a raw file standalone — no permohonan/activity context yet, so no
 	// ownership check happens here. It's attached later via AttachToWorkflowNode.
@@ -37,11 +33,20 @@ type DocumentService interface {
 	// Activity-submission endpoints call AttachToWorkflowNode in their transaction,
 	// referencing documents uploaded earlier via Upload.
 	AttachToWorkflowNode(ctx context.Context, userId, permohonanId, workflowNode string, documentIds []string) error
-	Download(ctx context.Context, permohonanId, docId string) (string, error)
-	Preview(ctx context.Context, userID, docID string) (dto.DocumentPreviewResponse, error)
+	Download(ctx context.Context, userID, docID string) (DocumentContent, error)
+	Preview(ctx context.Context, userID, docID string) (DocumentContent, error)
 	List(ctx context.Context, permohonanId string, workflowNode *string) ([]dto.DocumentResponse, error)
 	HasEvidence(ctx context.Context, permohonanId, workflowNode string) (bool, error)
 	CleanupOrphans(ctx context.Context, before time.Time, limit int) (int, error)
+}
+
+// DocumentContent is an authorized Garage object stream plus the metadata required to
+// return it safely over HTTP. The controller must close Body after streaming it.
+type DocumentContent struct {
+	Body      io.ReadCloser
+	MimeType  string
+	Filename  string
+	SizeBytes int64
 }
 
 type documentService struct {
@@ -217,43 +222,48 @@ func (s *documentService) AttachToWorkflowNode(ctx context.Context, userId, perm
 	return nil
 }
 
-func (s *documentService) Download(ctx context.Context, permohonanId, docId string) (string, error) {
-	document, err := s.documentRepository.GetById(ctx, s.db, docId)
-	if err != nil || document.PermohonanID == nil || document.PermohonanID.String() != permohonanId {
-		return "", dto.ErrDocumentNotFound
+func (s *documentService) Download(ctx context.Context, userID, docID string) (DocumentContent, error) {
+	document, err := s.documentRepository.GetById(ctx, s.db, docID)
+	if err != nil || document.PermohonanID == nil {
+		return DocumentContent{}, dto.ErrDocumentNotFound
+	}
+	if !s.canReadPermohonan(ctx, userID, document.PermohonanID.String()) {
+		return DocumentContent{}, dto.ErrDocumentNotFound
 	}
 	if document.ScanStatus == scanning.StatusInfected {
-		return "", dto.ErrDocumentUnavailable
+		return DocumentContent{}, dto.ErrDocumentUnavailable
 	}
 
-	return s.storageClient.PresignGetObject(ctx, document.FilePath, presignTTL, "attachment")
+	return s.openDocument(ctx, document)
 }
 
-func (s *documentService) Preview(ctx context.Context, userID, docID string) (dto.DocumentPreviewResponse, error) {
+func (s *documentService) Preview(ctx context.Context, userID, docID string) (DocumentContent, error) {
 	document, err := s.documentRepository.GetById(ctx, s.db, docID)
 	if err != nil {
-		return dto.DocumentPreviewResponse{}, dto.ErrDocumentNotFound
-	}
-	if document.SupersededByID != nil || document.ScanStatus == scanning.StatusInfected {
-		return dto.DocumentPreviewResponse{}, dto.ErrDocumentUnavailable
+		return DocumentContent{}, dto.ErrDocumentNotFound
 	}
 
 	if document.PermohonanID == nil {
 		if document.UploadedBy.String() != userID {
-			return dto.DocumentPreviewResponse{}, dto.ErrDocumentNotFound
+			return DocumentContent{}, dto.ErrDocumentNotFound
 		}
 	} else if !s.canReadPermohonan(ctx, userID, document.PermohonanID.String()) {
-		return dto.DocumentPreviewResponse{}, dto.ErrDocumentNotFound
+		return DocumentContent{}, dto.ErrDocumentNotFound
+	}
+	if document.SupersededByID != nil || document.ScanStatus == scanning.StatusInfected {
+		return DocumentContent{}, dto.ErrDocumentUnavailable
 	}
 
-	const previewTTL = 15 * time.Minute
-	url, err := s.storageClient.PresignGetObject(ctx, document.FilePath, previewTTL, "inline")
+	return s.openDocument(ctx, document)
+}
+
+func (s *documentService) openDocument(ctx context.Context, document entities.Document) (DocumentContent, error) {
+	body, err := s.storageClient.GetObject(ctx, document.FilePath)
 	if err != nil {
-		return dto.DocumentPreviewResponse{}, err
+		return DocumentContent{}, fmt.Errorf("%w: %v", dto.ErrDocumentStorageUnavailable, err)
 	}
-	return dto.DocumentPreviewResponse{
-		URL: url, MimeType: document.MimeType, Filename: document.OriginalFilename,
-		ExpiresAt: time.Now().Add(previewTTL).UTC().Format(time.RFC3339),
+	return DocumentContent{
+		Body: body, MimeType: document.MimeType, Filename: document.OriginalFilename, SizeBytes: document.SizeBytes,
 	}, nil
 }
 

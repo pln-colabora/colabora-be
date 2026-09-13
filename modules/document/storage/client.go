@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"io"
-	"time"
 )
 
 // Client is the narrow storage interface the document service needs — kept small and
@@ -11,5 +10,5 @@ import (
 type Client interface {
 	PutObject(ctx context.Context, key string, r io.Reader, size int64, contentType string) error
 	DeleteObject(ctx context.Context, key string) error
-	PresignGetObject(ctx context.Context, key string, ttl time.Duration, contentDisposition string) (string, error)
+	GetObject(ctx context.Context, key string) (io.ReadCloser, error)
 }

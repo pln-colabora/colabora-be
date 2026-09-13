@@ -10,10 +10,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// Two route groups: a top-level /api/documents for standalone upload (no permohonan known
-// yet), and /api/permohonan/:id/documents for reading documents once they've been attached.
-// The nested group reuses the :id param name permohonan/routes.go already registers at that
-// path — Gin's router requires the same wildcard name at a shared tree position.
+// A top-level /api/documents group owns an individual document's upload and read routes.
+// The nested permohonan route is only for listing evidence attached to one request.
 func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
 	documentController := do.MustInvoke[controller.DocumentController](injector)
 	jwtService := do.MustInvokeNamed[service.JWTService](injector, constants.JWTService)
@@ -23,6 +21,7 @@ func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
 	{
 		documentUploadRoutes.POST("", documentController.Upload)
 		documentUploadRoutes.GET("/:id/preview", documentController.Preview)
+		documentUploadRoutes.GET("/:id/download", documentController.Download)
 	}
 
 	permohonanDocumentRoutes := server.Group("/api/permohonan/:id/documents")
@@ -30,6 +29,5 @@ func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
 	permohonanDocumentRoutes.Use(middlewares.RequirePermohonanAccess(do.MustInvokeNamed[*gorm.DB](injector, constants.DB)))
 	{
 		permohonanDocumentRoutes.GET("", documentController.List)
-		permohonanDocumentRoutes.GET("/:doc_id", documentController.Download)
 	}
 }

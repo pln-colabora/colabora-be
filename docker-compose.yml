@@ -47,7 +47,7 @@ services:
     ports:
       # Published to the host (unlike prod) so `make run`'s on-host Go process — the same
       # pattern DB_PORT already follows — can reach it at GARAGE_S3_ENDPOINT=http://localhost:3900.
-      - ${GARAGE_S3_PORT:-3900}:3900
+      - 127.0.0.1:${GARAGE_S3_PORT:-3900}:3900
     environment:
       - GARAGE_RPC_SECRET=${GARAGE_RPC_SECRET}
     volumes:
