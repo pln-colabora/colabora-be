@@ -3,14 +3,14 @@ package controller
 import (
 	"net/http"
 
+	"github.com/Caknoooo/go-pagination"
+	"github.com/gin-gonic/gin"
 	"github.com/pln-colabora/colabora-be/modules/user/dto"
 	"github.com/pln-colabora/colabora-be/modules/user/query"
 	"github.com/pln-colabora/colabora-be/modules/user/service"
 	"github.com/pln-colabora/colabora-be/modules/user/validation"
 	"github.com/pln-colabora/colabora-be/pkg/constants"
 	"github.com/pln-colabora/colabora-be/pkg/utils"
-	"github.com/Caknoooo/go-pagination"
-	"github.com/gin-gonic/gin"
 	"github.com/samber/do"
 	"gorm.io/gorm"
 )
@@ -86,7 +86,7 @@ func (c *userController) Update(ctx *gin.Context) {
 		return
 	}
 
-	userId := ctx.MustGet("user_id").(string)
+	userId := ctx.Param("id")
 	result, err := c.userService.Update(ctx.Request.Context(), req, userId)
 	if err != nil {
 		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_UPDATE_USER, err.Error(), nil)
@@ -99,7 +99,7 @@ func (c *userController) Update(ctx *gin.Context) {
 }
 
 func (c *userController) Delete(ctx *gin.Context) {
-	userId := ctx.MustGet("user_id").(string)
+	userId := ctx.Param("id")
 
 	if err := c.userService.Delete(ctx.Request.Context(), userId); err != nil {
 		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_DELETE_USER, err.Error(), nil)
