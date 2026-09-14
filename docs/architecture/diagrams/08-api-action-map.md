@@ -24,7 +24,8 @@ flowchart TB
     wotiang["POST /:id/wo-vendor/tiang<br/>wo_tiang · Perencanaan<br/>Evidence: wajib"]
     wokonstruksi["POST /:id/wo-vendor/konstruksi<br/>wo_konstruksi · Konstruksi<br/>Evidence + perlu_pdkb"]
     woapp["POST /:id/wo-vendor/app<br/>wo_app · Transaksi Energi<br/>Evidence: wajib"]
-    reservasi["POST /:id/reservasi-material<br/>reservasi_material + tera_app<br/>Transaksi Energi · Evidence: wajib"]
+    reservasi["POST /:id/reservasi-material<br/>reservasi_material · Vendor Konstruksi<br/>Evidence: wajib"]
+    tera["POST /:id/tera-app<br/>tera_app · Transaksi Energi<br/>Evidence: wajib"]
     wopdkb["POST /:id/wo-pdkb<br/>wo_pdkb · Konstruksi<br/>Evidence: wajib jika applicable"]
   end
   subgraph S5["Pelaksanaan"]
@@ -43,7 +44,7 @@ flowchart TB
   expansion -. setelah delegated .-> assignment_req
   expansion --> wotiang
   expansion --> wokonstruksi
-  expansion --> woapp --> reservasi
+  expansion --> woapp --> reservasi --> tera
   wokonstruksi --> wopdkb --> construction
   wokonstruksi -->|PDKB tidak diperlukan| construction
   wotiang --> construction
@@ -51,12 +52,12 @@ flowchart TB
   construction --> energize
   pdkbdoc --> energize
   construction --> srapp
-  reservasi --> srapp
+  tera --> srapp
   energize --> closing
   srapp --> closing
 
   class create_req create
-  class survey,rab,expansion,wotiang,wokonstruksi,woapp,reservasi,wopdkb,construction,pdkbdoc,energize,srapp,closing evidence
+  class survey,rab,expansion,wotiang,wokonstruksi,woapp,reservasi,tera,wopdkb,construction,pdkbdoc,energize,srapp,closing evidence
   class assignment_req assignment
 ```
 

@@ -35,7 +35,8 @@ type PermohonanService interface {
 	SubmitWOTiang(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
 	SubmitWOConstruction(ctx context.Context, id, userID string, req dto.WOConstructionSubmitRequest) (dto.PermohonanResponse, error)
 	SubmitWOAPP(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
-	SubmitReservationTera(ctx context.Context, id, userID string, req dto.ReservationTeraSubmitRequest) (dto.PermohonanResponse, error)
+	SubmitReservation(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
+	SubmitTera(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
 	SubmitWOPDKB(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
 	SubmitConstructionExecution(ctx context.Context, id, userID string, req dto.ConstructionExecutionSubmitRequest) (dto.PermohonanResponse, error)
 	SubmitPDKBDocumentation(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
@@ -154,20 +155,12 @@ func (s *permohonanService) SubmitWOAPP(ctx context.Context, id, userID string, 
 	return s.completeEvidenceNode(ctx, id, userID, req, workflow.WOAPP)
 }
 
-func (s *permohonanService) SubmitReservationTera(ctx context.Context, id, userID string, req dto.ReservationTeraSubmitRequest) (dto.PermohonanResponse, error) {
-	if !notesWithinLimit(req.ReservationNotes, req.TeraNotes) {
-		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
-	}
-	payloads := map[workflow.Code]any{
-		workflow.Reservasi: struct {
-			Notes string `json:"notes,omitempty"`
-		}{Notes: req.ReservationNotes},
-		workflow.Tera: struct {
-			Notes string `json:"notes,omitempty"`
-		}{Notes: req.TeraNotes},
-	}
-	return s.completeWorkflowNodes(ctx, id, userID, req.DocumentIDs,
-		[]workflow.Code{workflow.Reservasi, workflow.Tera}, payloads, nil, nil)
+func (s *permohonanService) SubmitReservation(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
+	return s.completeEvidenceNode(ctx, id, userID, req, workflow.Reservasi)
+}
+
+func (s *permohonanService) SubmitTera(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
+	return s.completeEvidenceNode(ctx, id, userID, req, workflow.Tera)
 }
 
 func (s *permohonanService) SubmitWOPDKB(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
@@ -774,7 +767,7 @@ func actionPath(code workflow.Code) string {
 		workflow.Perluasan: "/api/permohonan/{id}/permohonan-perluasan", workflow.NPS: "/api/permohonan/{id}/permohonan-perluasan",
 		workflow.WOTiang: "/api/permohonan/{id}/wo-vendor/tiang", workflow.WOKonstruksi: "/api/permohonan/{id}/wo-vendor/konstruksi",
 		workflow.WOAPP: "/api/permohonan/{id}/wo-vendor/app", workflow.Reservasi: "/api/permohonan/{id}/reservasi-material",
-		workflow.Tera:   "/api/permohonan/{id}/reservasi-material",
+		workflow.Tera:   "/api/permohonan/{id}/tera-app",
 		workflow.WOPDKB: "/api/permohonan/{id}/wo-pdkb", workflow.PemasanganTiang: "/api/permohonan/{id}/pelaksanaan-konstruksi",
 		workflow.Konstruksi: "/api/permohonan/{id}/pelaksanaan-konstruksi", workflow.DokumentasiPDKB: "/api/permohonan/{id}/pdkb-dokumentasi",
 		workflow.Energize: "/api/permohonan/{id}/energize-jaringan", workflow.SRAPP: "/api/permohonan/{id}/pemasangan-sr-app",

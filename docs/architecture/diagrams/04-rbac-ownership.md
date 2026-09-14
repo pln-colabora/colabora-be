@@ -36,7 +36,8 @@ flowchart LR
 | `permohonan_perluasan`, `nps_delegation` | nps | nps | UP3 operational |
 | `wo_tiang` | perencanaan | perencanaan | branch tiang applicable |
 | `wo_konstruksi`, `wo_pdkb` | konstruksi | konstruksi | branch PDKB diperiksa per node |
-| `wo_app`, `reservasi_material`, `tera_app` | transaksi-energi | transaksi-energi | UP3 operational |
+| `wo_app`, `tera_app` | transaksi-energi | transaksi-energi | UP3 operational |
+| `reservasi_material` | vendor-konstruksi | vendor-konstruksi | Explicit vendor assignment |
 | `pemasangan_tiang` | vendor-tiang | vendor-tiang | explicit vendor assignment |
 | `pelaksanaan_konstruksi` | vendor-konstruksi | vendor-konstruksi | explicit vendor assignment |
 | `pdkb_documentation` | pdkb | pdkb | branch PDKB applicable |

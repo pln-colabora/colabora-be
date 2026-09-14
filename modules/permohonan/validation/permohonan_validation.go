@@ -55,13 +55,6 @@ func (v *PermohonanValidation) ValidateWOConstructionSubmitRequest(req dto.WOCon
 	return validateDocumentIDs(req.DocumentIDs)
 }
 
-func (v *PermohonanValidation) ValidateReservationTeraSubmitRequest(req dto.ReservationTeraSubmitRequest) error {
-	if err := v.validate.Struct(req); err != nil {
-		return err
-	}
-	return validateDocumentIDs(req.DocumentIDs)
-}
-
 func (v *PermohonanValidation) ValidateConstructionExecutionSubmitRequest(req dto.ConstructionExecutionSubmitRequest) error {
 	if err := v.validate.Struct(req); err != nil {
 		return err

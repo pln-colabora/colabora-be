@@ -32,11 +32,11 @@ The backend must:
 | `nps` | Creates PLG TM requests, chooses their target ULP, and delegates or returns all requests after planning |
 | `perencanaan` | Surveys and prepares RAB for PLG TM; issues applicable WO Vendor Tiang |
 | `konstruksi` | Issues WO Vendor Konstruksi and conditional WO PDKB |
-| `transaksi-energi` | Issues WO Vendor APP, reserves material, and completes APP assembly/tera |
+| `transaksi-energi` | Issues WO Vendor APP and completes APP assembly/tera |
 | `jaringan` | Operates PLG TM networks |
 | `pdkb` | Uploads conditional PDKB execution documentation |
 | `vendor-tiang` | Installs poles when required |
-| `vendor-konstruksi` | Executes network construction and PLG TM SR/APP work |
+| `vendor-konstruksi` | Reserves material, executes network construction, and PLG TM SR/APP work |
 | `vendor-sr-app` | Executes JTR/JTM SR/APP work |
 | `super-user` | Read-only cross-unit monitoring; never owns a write action |
 
@@ -57,7 +57,7 @@ Stages are visual groupings, not global barriers. A later-stage node may become 
 | `wo_tiang` | #6 WO Vendor Tiang | `perencanaan` | NPS delegated and `kebutuhan_tiang = true`; otherwise skipped |
 | `wo_konstruksi` | #7 WO Vendor Konstruksi | `konstruksi` | NPS delegated |
 | `wo_app` | #8 WO Vendor APP | `transaksi-energi` | NPS delegated |
-| `reservasi_material` | #9 Reservasi Material | `transaksi-energi` | WO APP completed |
+| `reservasi_material` | #9 Reservasi Material | `vendor-konstruksi` | WO APP completed |
 | `tera_app` | #10 Perakitan dan Tera APP | `transaksi-energi` | Reservasi material completed |
 | `wo_pdkb` | Conditional supporting node | `konstruksi` | WO Konstruksi completed and `perlu_pdkb = true`; otherwise skipped |
 | `pemasangan_tiang` | #11 Pemasangan Tiang | `vendor-tiang` | WO Tiang completed; skipped when poles are not required |

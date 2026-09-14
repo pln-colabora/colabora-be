@@ -58,5 +58,6 @@ sequenceDiagram
   end
 ```
 
-Bundled endpoints menjalankan transisi node dalam dependency order dan hanya menyimpan
-hasil akhir setelah seluruh validasi berhasil.
+Bundled endpoints yang memiliki owner sama menjalankan transisi node dalam dependency
+order dan hanya menyimpan hasil akhir setelah seluruh validasi berhasil. Reservasi
+material dan tera APP adalah dua submission terpisah karena owner-nya berbeda.

@@ -34,7 +34,8 @@ type (
 		SubmitWOTiang(ctx *gin.Context)
 		SubmitWOConstruction(ctx *gin.Context)
 		SubmitWOAPP(ctx *gin.Context)
-		SubmitReservationTera(ctx *gin.Context)
+		SubmitReservation(ctx *gin.Context)
+		SubmitTera(ctx *gin.Context)
 		SubmitWOPDKB(ctx *gin.Context)
 		SubmitConstructionExecution(ctx *gin.Context)
 		SubmitPDKBDocumentation(ctx *gin.Context)
@@ -84,8 +85,12 @@ func (c *permohonanController) SubmitWOAPP(ctx *gin.Context) {
 	submitActivityRequest(ctx, c.permohonanValidation.ValidateEvidenceSubmitRequest, c.permohonanService.SubmitWOAPP)
 }
 
-func (c *permohonanController) SubmitReservationTera(ctx *gin.Context) {
-	submitActivityRequest(ctx, c.permohonanValidation.ValidateReservationTeraSubmitRequest, c.permohonanService.SubmitReservationTera)
+func (c *permohonanController) SubmitReservation(ctx *gin.Context) {
+	submitActivityRequest(ctx, c.permohonanValidation.ValidateEvidenceSubmitRequest, c.permohonanService.SubmitReservation)
+}
+
+func (c *permohonanController) SubmitTera(ctx *gin.Context) {
+	submitActivityRequest(ctx, c.permohonanValidation.ValidateEvidenceSubmitRequest, c.permohonanService.SubmitTera)
 }
 
 func (c *permohonanController) SubmitWOPDKB(ctx *gin.Context) {

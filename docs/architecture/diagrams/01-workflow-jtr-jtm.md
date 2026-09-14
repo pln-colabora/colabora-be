@@ -33,7 +33,7 @@ flowchart TD
     wo_konstruksi["#7 wo_konstruksi<br/>Konstruksi"]
     wo_pdkb["wo_pdkb<br/>Konstruksi"]
     wo_app["#8 wo_app<br/>Transaksi Energi"]
-    reservasi_material["#9 reservasi_material<br/>Transaksi Energi"]
+    reservasi_material["#9 reservasi_material<br/>Vendor Konstruksi"]
     tera_app["#10 tera_app<br/>Transaksi Energi"]
   end
   subgraph S5["Stage 5 · Pelaksanaan paralel"]
@@ -73,7 +73,8 @@ flowchart TD
   entri_mutasi_pdl --> arsip_ail --> selesai
 
   class permohonan,survei,rab_kko_kkf,energize_jaringan,entri_mutasi_pdl,arsip_ail,selesai ulp
-  class wo_tiang,wo_konstruksi,wo_pdkb,wo_app,reservasi_material,tera_app up3
+  class wo_tiang,wo_konstruksi,wo_pdkb,wo_app,tera_app up3
+  class reservasi_material vendor
   class permohonan_perluasan,nps_delegation nps
   class pemasangan_tiang,pelaksanaan_konstruksi,pemasangan_sr_app vendor
   class pdkb_documentation pdkb

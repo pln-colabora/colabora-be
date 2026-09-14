@@ -186,56 +186,67 @@ func TestConstructionOpensDirectlyWhenPDKBNotRequired(t *testing.T) {
 	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.Konstruksi).Status)
 }
 
-func TestWOAPPThenReservationAndTeraBundle(t *testing.T) {
+func TestWOAPPThenVendorReservationAndEnergyTera(t *testing.T) {
 	p := delegatedRequest(t, rbac.JenisSambunganPlgTmLebih5, false)
 	repo := &phase3PermohonanRepository{byID: p}
 	docRepo := &phase4DocumentRepository{}
 	user := entities.User{ID: uuid.New(), Role: rbac.RoleTransaksiEnergi, Unit: "UP3"}
+	vendor := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
 	s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: user}, documentRepository: docRepo, db: phase3DB(t)}
-	reservation := dto.ReservationTeraSubmitRequest{
-		ReservationNotes: "synthetic material reservation", TeraNotes: "synthetic tera evidence", DocumentIDs: []string{uuid.NewString()},
-	}
+	reservation := evidenceRequest()
 
-	_, err := s.SubmitReservationTera(context.Background(), p.ID.String(), user.ID.String(), reservation)
-	require.ErrorIs(t, err, workflow.ErrNotActionable)
+	_, err := s.SubmitReservation(context.Background(), p.ID.String(), vendor.ID.String(), reservation)
+	require.ErrorIs(t, err, rbac.ErrWorkflowForbidden)
 	require.Empty(t, docRepo.attachCalls)
 
 	response, err := s.SubmitWOAPP(context.Background(), p.ID.String(), user.ID.String(), evidenceRequest())
 	require.NoError(t, err)
 	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.Reservasi).Status)
+	_, err = s.SubmitTera(context.Background(), p.ID.String(), user.ID.String(), evidenceRequest())
+	require.ErrorIs(t, err, workflow.ErrNotActionable)
 
-	response, err = s.SubmitReservationTera(context.Background(), p.ID.String(), user.ID.String(), reservation)
+	s.userRepository = &phase3UserRepository{user: vendor}
+	response, err = s.SubmitReservation(context.Background(), p.ID.String(), vendor.ID.String(), reservation)
 	require.NoError(t, err)
 	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.Reservasi).Status)
+	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.Tera).Status)
+	require.Equal(t, []workflow.Code{workflow.WOAPP, workflow.Reservasi}, docRepo.attachCalls)
+
+	s.userRepository = &phase3UserRepository{user: vendor}
+	_, err = s.SubmitTera(context.Background(), p.ID.String(), vendor.ID.String(), reservation)
+	require.ErrorIs(t, err, rbac.ErrWorkflowForbidden)
+	s.userRepository = &phase3UserRepository{user: user}
+	response, err = s.SubmitTera(context.Background(), p.ID.String(), user.ID.String(), reservation)
+	require.NoError(t, err)
 	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.Tera).Status)
 	require.Equal(t, []workflow.Code{workflow.WOAPP, workflow.Reservasi, workflow.Tera}, docRepo.attachCalls)
 
-	_, err = s.SubmitReservationTera(context.Background(), p.ID.String(), user.ID.String(), reservation)
+	_, err = s.SubmitTera(context.Background(), p.ID.String(), user.ID.String(), reservation)
 	require.Error(t, err)
 	require.Len(t, docRepo.attachCalls, 3)
 }
 
-func TestReservationTeraEvidenceFailureRollsBackBothNodes(t *testing.T) {
+func TestReservationEvidenceFailureRollsBackReservationOnly(t *testing.T) {
 	p := delegatedRequest(t, rbac.JenisSambunganJTR, false)
 	advancePhase4(t, &p, nil, workflow.WOAPP)
 	repo := &phase3PermohonanRepository{byID: p}
-	docRepo := &phase4DocumentRepository{failAt: 2}
-	user := entities.User{ID: uuid.New(), Role: rbac.RoleTransaksiEnergi, Unit: "UP3"}
+	docRepo := &phase4DocumentRepository{failAt: 1}
+	user := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
 	s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: user}, documentRepository: docRepo, db: phase3DB(t)}
 
-	_, err := s.SubmitReservationTera(context.Background(), p.ID.String(), user.ID.String(), dto.ReservationTeraSubmitRequest{
-		DocumentIDs: []string{uuid.NewString()},
-	})
+	_, err := s.SubmitReservation(context.Background(), p.ID.String(), user.ID.String(), evidenceRequest())
 	require.ErrorIs(t, err, documentDTO.ErrDocumentAlreadyAttached)
 	require.Zero(t, repo.saveCalls)
 	require.Equal(t, string(workflow.Available), persistedNode(t, repo.byID, workflow.Reservasi).Status)
 	require.Equal(t, string(workflow.Locked), persistedNode(t, repo.byID, workflow.Tera).Status)
 }
 
-func TestReservationTeraSecondAttachmentConflictRollsBackDatabase(t *testing.T) {
+func TestTeraAttachmentConflictDoesNotUndoReservation(t *testing.T) {
 	db := phase4IntegrationDB(t)
-	user := entities.User{ID: uuid.New(), Name: "Transaksi Energi", Email: uuid.NewString() + "@example.test", Role: rbac.RoleTransaksiEnergi, Unit: "UP3"}
-	require.NoError(t, db.Create(&user).Error)
+	vendor := entities.User{ID: uuid.New(), Name: "Vendor Konstruksi", Email: uuid.NewString() + "@example.test", Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
+	energy := entities.User{ID: uuid.New(), Name: "Transaksi Energi", Email: uuid.NewString() + "@example.test", Role: rbac.RoleTransaksiEnergi, Unit: "UP3"}
+	require.NoError(t, db.Create(&vendor).Error)
+	require.NoError(t, db.Create(&energy).Error)
 	p := delegatedRequest(t, rbac.JenisSambunganJTR, false)
 	advancePhase4(t, &p, nil, workflow.WOAPP)
 	require.NoError(t, db.Omit("WorkflowNodes").Create(&p).Error)
@@ -243,38 +254,46 @@ func TestReservationTeraSecondAttachmentConflictRollsBackDatabase(t *testing.T) 
 		p.WorkflowNodes[i].PermohonanID = p.ID
 	}
 	require.NoError(t, db.Create(&p.WorkflowNodes).Error)
-	document := entities.Document{
-		ID: uuid.New(), Type: "tera", FilePath: "private/tera.pdf", UploadedBy: user.ID, PermohonanID: &p.ID,
-	}
-	require.NoError(t, db.Create(&document).Error)
-	existingEvidence := entities.DocumentEvidence{
-		ID: uuid.New(), DocumentID: document.ID, PermohonanID: p.ID,
-		WorkflowNode: string(workflow.Tera), AttachedBy: user.ID,
-	}
-	require.NoError(t, db.Create(&existingEvidence).Error)
-
 	s := &permohonanService{
 		permohonanRepository: permohonanRepository.NewPermohonanRepository(db),
 		userRepository:       userRepository.NewUserRepository(db),
 		documentRepository:   documentRepository.NewDocumentRepository(db),
 		db:                   db,
 	}
-	_, err := s.SubmitReservationTera(context.Background(), p.ID.String(), user.ID.String(), dto.ReservationTeraSubmitRequest{
-		DocumentIDs: []string{document.ID.String()},
+	reservationDocument := entities.Document{
+		ID: uuid.New(), Type: "reservation", FilePath: "private/reservation.pdf", UploadedBy: vendor.ID, PermohonanID: &p.ID,
+	}
+	require.NoError(t, db.Create(&reservationDocument).Error)
+	_, err := s.SubmitReservation(context.Background(), p.ID.String(), vendor.ID.String(), dto.EvidenceSubmitRequest{
+		DocumentIDs: []string{reservationDocument.ID.String()},
+	})
+	require.NoError(t, err)
+
+	teraDocument := entities.Document{
+		ID: uuid.New(), Type: "tera", FilePath: "private/tera.pdf", UploadedBy: energy.ID, PermohonanID: &p.ID,
+	}
+	require.NoError(t, db.Create(&teraDocument).Error)
+	require.NoError(t, db.Create(&entities.DocumentEvidence{
+		ID: uuid.New(), DocumentID: teraDocument.ID, PermohonanID: p.ID,
+		WorkflowNode: string(workflow.Tera), AttachedBy: energy.ID,
+	}).Error)
+
+	_, err = s.SubmitTera(context.Background(), p.ID.String(), energy.ID.String(), dto.EvidenceSubmitRequest{
+		DocumentIDs: []string{teraDocument.ID.String()},
 	})
 	require.ErrorIs(t, err, documentDTO.ErrDocumentAlreadyAttached)
 
 	var reservationEvidence int64
 	require.NoError(t, db.Model(&entities.DocumentEvidence{}).
-		Where("document_id = ? AND workflow_node = ?", document.ID, workflow.Reservasi).
+		Where("document_id = ? AND workflow_node = ?", reservationDocument.ID, workflow.Reservasi).
 		Count(&reservationEvidence).Error)
-	require.Zero(t, reservationEvidence, "first attachment must roll back when the second bundled attachment fails")
+	require.EqualValues(t, 1, reservationEvidence)
 	var reservationNode entities.PermohonanActivity
 	require.NoError(t, db.Where("permohonan_id = ? AND workflow_node = ?", p.ID, workflow.Reservasi).First(&reservationNode).Error)
-	require.Equal(t, string(workflow.Available), reservationNode.Status)
+	require.Equal(t, string(workflow.Completed), reservationNode.Status)
 	var teraNode entities.PermohonanActivity
 	require.NoError(t, db.Where("permohonan_id = ? AND workflow_node = ?", p.ID, workflow.Tera).First(&teraNode).Error)
-	require.Equal(t, string(workflow.Locked), teraNode.Status)
+	require.Equal(t, string(workflow.Available), teraNode.Status)
 }
 
 func TestReturnedAggregateRejectsStage4Submission(t *testing.T) {
@@ -316,10 +335,17 @@ func TestSequence2ExitUnlocksApplicableStage5Branches(t *testing.T) {
 	require.NoError(t, err)
 
 	transactionEnergy := entities.User{ID: uuid.New(), Role: rbac.RoleTransaksiEnergi, Unit: "UP3"}
+	constructionVendor := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
 	s.userRepository = &phase3UserRepository{user: transactionEnergy}
 	_, err = s.SubmitWOAPP(context.Background(), p.ID.String(), transactionEnergy.ID.String(), evidenceRequest())
 	require.NoError(t, err)
-	response, err := s.SubmitReservationTera(context.Background(), p.ID.String(), transactionEnergy.ID.String(), dto.ReservationTeraSubmitRequest{
+	s.userRepository = &phase3UserRepository{user: constructionVendor}
+	response, err := s.SubmitReservation(context.Background(), p.ID.String(), constructionVendor.ID.String(), dto.EvidenceSubmitRequest{
+		DocumentIDs: []string{uuid.NewString()},
+	})
+	require.NoError(t, err)
+	s.userRepository = &phase3UserRepository{user: transactionEnergy}
+	response, err = s.SubmitTera(context.Background(), p.ID.String(), transactionEnergy.ID.String(), dto.EvidenceSubmitRequest{
 		DocumentIDs: []string{uuid.NewString()},
 	})
 	require.NoError(t, err)

@@ -13,7 +13,7 @@ func TestWorkflowOwnershipMatrix(t *testing.T) {
 		workflow.RAB: {RoleTeknik, RolePerencanaan}, workflow.KebutuhanTiang: {RoleTeknik, RolePerencanaan},
 		workflow.Perluasan: {RoleNps, RoleNps}, workflow.NPS: {RoleNps, RoleNps},
 		workflow.WOTiang: {RolePerencanaan, RolePerencanaan}, workflow.WOKonstruksi: {RoleKonstruksi, RoleKonstruksi},
-		workflow.WOAPP: {RoleTransaksiEnergi, RoleTransaksiEnergi}, workflow.Reservasi: {RoleTransaksiEnergi, RoleTransaksiEnergi}, workflow.Tera: {RoleTransaksiEnergi, RoleTransaksiEnergi},
+		workflow.WOAPP: {RoleTransaksiEnergi, RoleTransaksiEnergi}, workflow.Reservasi: {RoleVendorKonstruksi, RoleVendorKonstruksi}, workflow.Tera: {RoleTransaksiEnergi, RoleTransaksiEnergi},
 		workflow.WOPDKB:          {RoleKonstruksi, RoleKonstruksi},
 		workflow.PemasanganTiang: {RoleVendorTiang, RoleVendorTiang}, workflow.Konstruksi: {RoleVendorKonstruksi, RoleVendorKonstruksi},
 		workflow.DokumentasiPDKB: {RolePdkb, RolePdkb}, workflow.Energize: {RoleTeknik, RoleJaringan}, workflow.SRAPP: {RoleVendorSrApp, RoleVendorKonstruksi},

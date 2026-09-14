@@ -17,8 +17,9 @@ impossible histories return `ErrInvalidState`.
 evaluation, leaving its input unchanged. Set decision values in the snapshot
 before completing `kebutuhan_tiang`, `wo_konstruksi`, or `nps_delegation`.
 Decisions take effect only when their owning node completes. A service can compose
-ordered transitions for bundled endpoints (RAB plus pole decision, NPS submission,
-reservation plus tera, or closing) and persist them in one transaction.
+ordered transitions for bundled endpoints whose nodes share one owner (RAB plus
+pole decision, NPS submission, or closing) and persist them in one transaction.
+Material reservation and APP tera are separate transitions because their owners differ.
 The service must prohibit revisions of completed decisions and validate evidence
 and structured payloads. This package cannot validate those against a database.
 

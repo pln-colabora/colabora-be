@@ -65,7 +65,10 @@ func (f phase3ControllerService) SubmitWOConstruction(context.Context, string, s
 func (f phase3ControllerService) SubmitWOAPP(context.Context, string, string, dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
 	return dto.PermohonanResponse{}, f.activityErr
 }
-func (f phase3ControllerService) SubmitReservationTera(context.Context, string, string, dto.ReservationTeraSubmitRequest) (dto.PermohonanResponse, error) {
+func (f phase3ControllerService) SubmitReservation(context.Context, string, string, dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
+	return dto.PermohonanResponse{}, f.activityErr
+}
+func (f phase3ControllerService) SubmitTera(context.Context, string, string, dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {
 	return dto.PermohonanResponse{}, f.activityErr
 }
 func (f phase3ControllerService) SubmitWOPDKB(context.Context, string, string, dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error) {

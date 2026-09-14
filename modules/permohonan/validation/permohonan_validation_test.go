@@ -61,10 +61,10 @@ func TestValidateSequenceTwoRequests(t *testing.T) {
 		DocumentIDs: []string{documentID},
 	}))
 
-	require.NoError(t, v.ValidateReservationTeraSubmitRequest(dto.ReservationTeraSubmitRequest{
+	require.NoError(t, v.ValidateEvidenceSubmitRequest(dto.EvidenceSubmitRequest{
 		DocumentIDs: []string{documentID},
 	}))
-	require.Error(t, v.ValidateReservationTeraSubmitRequest(dto.ReservationTeraSubmitRequest{
+	require.Error(t, v.ValidateEvidenceSubmitRequest(dto.EvidenceSubmitRequest{
 		DocumentIDs: []string{"not-a-uuid"},
 	}))
 }

@@ -82,7 +82,7 @@ var definitions = []Definition{
 	def(WOTiang, 6, 4, "perencanaan", "", PolesRequired, NPS),
 	def(WOKonstruksi, 7, 4, "konstruksi", "", Always, NPS),
 	def(WOAPP, 8, 4, "transaksi-energi", "", Always, NPS),
-	def(Reservasi, 9, 4, "transaksi-energi", "", Always, WOAPP),
+	def(Reservasi, 9, 4, "vendor-konstruksi", "", Always, WOAPP),
 	def(Tera, 10, 4, "transaksi-energi", "", Always, Reservasi),
 	def(WOPDKB, 0, 4, "konstruksi", "", PDKBRequired, WOKonstruksi),
 	def(PemasanganTiang, 11, 5, "vendor-tiang", "", PolesRequired, WOTiang),
