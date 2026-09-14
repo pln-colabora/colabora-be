@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/pln-colabora/colabora-be/database/entities"
 	"github.com/pln-colabora/colabora-be/modules/auth/dto"
 	authRepo "github.com/pln-colabora/colabora-be/modules/auth/repository"
@@ -10,7 +11,6 @@ import (
 	"github.com/pln-colabora/colabora-be/modules/user/repository"
 	"github.com/pln-colabora/colabora-be/pkg/helpers"
 	"github.com/pln-colabora/colabora-be/pkg/utils"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -68,7 +68,8 @@ func (s *authService) Register(ctx context.Context, req userDto.UserCreateReques
 		TelpNumber: req.TelpNumber,
 		Password:   hashedPassword,
 		Role:       "user",
-		IsVerified: false,
+		// Temporarily verify accounts immediately after registration.
+		IsVerified: true,
 	}
 
 	createdUser, err := s.userRepository.Register(ctx, s.db, user)
