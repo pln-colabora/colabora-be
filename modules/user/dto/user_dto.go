@@ -43,6 +43,7 @@ var (
 	ErrTokenInvalid           = errors.New("token invalid")
 	ErrTokenExpired           = errors.New("token expired")
 	ErrAccountAlreadyVerified = errors.New("account already verified")
+	ErrAccountRoleInvalid     = errors.New("invalid account role or unit")
 )
 
 type (
@@ -68,6 +69,23 @@ type (
 		Name       string `json:"name" form:"name" binding:"omitempty,min=2,max=100"`
 		TelpNumber string `json:"telp_number" form:"telp_number" binding:"omitempty,min=8,max=20"`
 		Email      string `json:"email" form:"email" binding:"omitempty,email"`
+	}
+
+	AccountCreateRequest struct {
+		Name       string `json:"name" binding:"required,min=2,max=100"`
+		TelpNumber string `json:"telp_number" binding:"omitempty,min=8,max=20"`
+		Email      string `json:"email" binding:"required,email"`
+		Password   string `json:"password" binding:"required,min=8"`
+		Role       string `json:"role" binding:"required"`
+		Unit       string `json:"unit"`
+	}
+
+	AccountUpdateRequest struct {
+		Name       *string `json:"name" binding:"omitempty,min=2,max=100"`
+		TelpNumber *string `json:"telp_number" binding:"omitempty,min=8,max=20"`
+		Email      *string `json:"email" binding:"omitempty,email"`
+		Role       *string `json:"role"`
+		Unit       *string `json:"unit"`
 	}
 
 	UserUpdateResponse struct {

@@ -11,6 +11,7 @@ type User struct {
 	Email      string `json:"email"`
 	TelpNumber string `json:"telp_number"`
 	Role       string `json:"role"`
+	Unit       string `json:"unit"`
 	ImageUrl   string `json:"image_url"`
 	IsVerified bool   `json:"is_verified"`
 }

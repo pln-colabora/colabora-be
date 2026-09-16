@@ -15,7 +15,9 @@ paths:
   /api/user:
     get:
       tags: [User]
-      summary: List users (paginated)
+      summary: List accounts (admin or super-user only)
+      security:
+        - bearerAuth: []
       parameters:
         - name: page
           in: query
@@ -41,6 +43,37 @@ paths:
               schema: { $ref: "#/components/schemas/PaginatedUserResponse" }
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [User]
+      summary: Create an operational account (admin or super-user only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AccountCreateRequest" }
+      responses:
+        "200":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/UserResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /api/user/me:
     get:
@@ -65,6 +98,38 @@ paths:
           $ref: "#/components/responses/Unauthorized"
 
   /api/user/{id}:
+    patch:
+      tags: [User]
+      summary: Update an account role, unit, or profile (admin or super-user only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AccountUpdateRequest" }
+      responses:
+        "200":
+          description: Account updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/UserUpdateResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
     put:
       tags: [User]
       summary: Update the authenticated user's profile
@@ -138,6 +203,11 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ApiResponse" }
+    Forbidden:
+      description: Authenticated caller lacks account-management access
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiResponse" }
   schemas:
     ApiResponse:
       type: object
@@ -160,6 +230,7 @@ components:
         email: { type: string, format: email }
         telp_number: { type: string }
         role: { type: string }
+        unit: { type: string }
         image_url: { type: string }
         is_verified: { type: boolean }
     UserUpdateResponse:
@@ -169,8 +240,30 @@ components:
         name: { type: string }
         telp_number: { type: string }
         role: { type: string }
+        unit: { type: string }
         email: { type: string, format: email }
         is_verified: { type: boolean }
+    AccountCreateRequest:
+      type: object
+      required: [name, email, password, role]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        email: { type: string, format: email }
+        telp_number: { type: string, minLength: 8, maxLength: 20 }
+        password: { type: string, format: password, minLength: 8 }
+        role: { $ref: "#/components/schemas/AccountRole" }
+        unit: { type: string }
+    AccountUpdateRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        email: { type: string, format: email }
+        telp_number: { type: string, minLength: 8, maxLength: 20 }
+        role: { $ref: "#/components/schemas/AccountRole" }
+        unit: { type: string }
+    AccountRole:
+      type: string
+      enum: [admin, user, pelayanan-pelanggan, teknik, perencanaan, konstruksi, transaksi-energi, jaringan, nps, pdkb, vendor-tiang, vendor-konstruksi, vendor-sr-app, super-user]
     PaginationMeta:
       description: Shape produced by github.com/Caknoooo/go-pagination's PaginationResponse
       type: object

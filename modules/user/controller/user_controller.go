@@ -19,6 +19,8 @@ type (
 	UserController interface {
 		Me(ctx *gin.Context)
 		GetAllUser(ctx *gin.Context)
+		CreateAccount(ctx *gin.Context)
+		UpdateAccount(ctx *gin.Context)
 		Update(ctx *gin.Context)
 		Delete(ctx *gin.Context)
 	}
@@ -38,6 +40,44 @@ func NewUserController(injector *do.Injector, us service.UserService) UserContro
 		userValidation: userValidation,
 		db:             db,
 	}
+}
+
+func (c *userController) CreateAccount(ctx *gin.Context) {
+	var req dto.AccountCreateRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_DATA_FROM_BODY, err.Error(), nil))
+		return
+	}
+	if err := c.userValidation.ValidateAccountCreateRequest(req); err != nil {
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, utils.BuildResponseFailed("Validation failed", err.Error(), nil))
+		return
+	}
+
+	result, err := c.userService.CreateAccount(ctx.Request.Context(), req)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, utils.BuildResponseFailed(dto.MESSAGE_FAILED_REGISTER_USER, err.Error(), nil))
+		return
+	}
+	ctx.JSON(http.StatusOK, utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_REGISTER_USER, result))
+}
+
+func (c *userController) UpdateAccount(ctx *gin.Context) {
+	var req dto.AccountUpdateRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_DATA_FROM_BODY, err.Error(), nil))
+		return
+	}
+	if err := c.userValidation.ValidateAccountUpdateRequest(req); err != nil {
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, utils.BuildResponseFailed("Validation failed", err.Error(), nil))
+		return
+	}
+
+	result, err := c.userService.UpdateAccount(ctx.Request.Context(), req, ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, utils.BuildResponseFailed(dto.MESSAGE_FAILED_UPDATE_USER, err.Error(), nil))
+		return
+	}
+	ctx.JSON(http.StatusOK, utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_UPDATE_USER, result))
 }
 
 func (c *userController) GetAllUser(ctx *gin.Context) {

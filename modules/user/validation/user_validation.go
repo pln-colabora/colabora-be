@@ -1,12 +1,33 @@
 package validation
 
 import (
-	"github.com/pln-colabora/colabora-be/modules/user/dto"
 	"github.com/go-playground/validator/v10"
+	"github.com/pln-colabora/colabora-be/modules/user/dto"
+	"github.com/pln-colabora/colabora-be/pkg/rbac"
 )
 
 type UserValidation struct {
 	validate *validator.Validate
+}
+
+func (v *UserValidation) ValidateAccountCreateRequest(req dto.AccountCreateRequest) error {
+	if err := v.validate.Struct(req); err != nil {
+		return err
+	}
+	if !rbac.ValidateRoleUnit(req.Role, req.Unit) {
+		return dto.ErrAccountRoleInvalid
+	}
+	return nil
+}
+
+func (v *UserValidation) ValidateAccountUpdateRequest(req dto.AccountUpdateRequest) error {
+	if err := v.validate.Struct(req); err != nil {
+		return err
+	}
+	if req.Role != nil && !rbac.IsValidRole(*req.Role) {
+		return dto.ErrAccountRoleInvalid
+	}
+	return nil
 }
 
 func NewUserValidation() *UserValidation {

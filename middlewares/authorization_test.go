@@ -159,3 +159,31 @@ func TestRequireActivityOwner(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, rec.Code)
 	})
 }
+
+func TestRequireAccountManager(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	for _, test := range []struct {
+		name string
+		role string
+		want int
+	}{
+		{name: "admin is allowed", role: rbac.RoleAdmin, want: http.StatusOK},
+		{name: "super user is allowed", role: rbac.RoleSuperUser, want: http.StatusOK},
+		{name: "operational user is forbidden", role: rbac.RoleTeknik, want: http.StatusForbidden},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			user := entities.User{ID: uuid.New(), Role: test.role}
+			injector := newTestInjector(user, nil, entities.Permohonan{}, nil)
+			router := gin.New()
+			router.GET("/accounts", func(ctx *gin.Context) {
+				ctx.Set("user_id", user.ID.String())
+				ctx.Next()
+			}, RequireAccountManager(injector), func(ctx *gin.Context) { ctx.Status(http.StatusOK) })
+
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/accounts", nil))
+			assert.Equal(t, test.want, response.Code)
+		})
+	}
+}

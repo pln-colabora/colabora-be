@@ -69,3 +69,17 @@ func TestUserValidation_ValidateUserUpdateRequest_InvalidTelp(t *testing.T) {
 	// Custom validation only adds extra checks beyond DTO binding
 	assert.NoError(t, err)
 }
+
+func TestUserValidation_ValidateAccountCreateRequest(t *testing.T) {
+	userValidation := validation.NewUserValidation()
+
+	assert.NoError(t, userValidation.ValidateAccountCreateRequest(dto.AccountCreateRequest{
+		Name: "Teknik", Email: "teknik@example.com", Password: "password123", Role: "teknik", Unit: "ULP Taman",
+	}))
+	assert.Error(t, userValidation.ValidateAccountCreateRequest(dto.AccountCreateRequest{
+		Name: "Teknik", Email: "teknik@example.com", Password: "password123", Role: "teknik",
+	}))
+	assert.Error(t, userValidation.ValidateAccountCreateRequest(dto.AccountCreateRequest{
+		Name: "Unknown", Email: "unknown@example.com", Password: "password123", Role: "unknown",
+	}))
+}

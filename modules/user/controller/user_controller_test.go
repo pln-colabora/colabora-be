@@ -27,6 +27,15 @@ func (s *deleteUserService) Update(_ context.Context, _ dto.UserUpdateRequest, u
 	return dto.UserUpdateResponse{}, nil
 }
 
+func (s *deleteUserService) CreateAccount(context.Context, dto.AccountCreateRequest) (dto.UserResponse, error) {
+	return dto.UserResponse{}, nil
+}
+
+func (s *deleteUserService) UpdateAccount(_ context.Context, _ dto.AccountUpdateRequest, userID string) (dto.UserUpdateResponse, error) {
+	s.updatedUserID = userID
+	return dto.UserUpdateResponse{}, nil
+}
+
 func (s *deleteUserService) Delete(_ context.Context, userID string) error {
 	s.deletedUserID = userID
 	return nil
