@@ -58,6 +58,7 @@ type (
 		PermohonanID     *string  `json:"permohonan_id"`
 		WorkflowNodes    []string `json:"workflow_nodes"`
 		UploadedBy       string   `json:"uploaded_by"`
+		UploadedByName   *string  `json:"uploaded_by_name,omitempty"`
 		CreatedAt        string   `json:"created_at"`
 	}
 )

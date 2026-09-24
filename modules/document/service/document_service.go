@@ -359,16 +359,22 @@ func toDocumentResponse(d entities.Document) dto.DocumentResponse {
 		value := d.ScanCheckedAt.Format(time.RFC3339)
 		scanCheckedAt = &value
 	}
+	var uploadedByName *string
+	if d.Uploader.ID != uuid.Nil {
+		value := d.Uploader.Name
+		uploadedByName = &value
+	}
 	return dto.DocumentResponse{
 		ID:               d.ID.String(),
 		Type:             d.Type,
 		OriginalFilename: d.OriginalFilename, MimeType: d.MimeType, SizeBytes: d.SizeBytes,
 		ChecksumSHA256: d.ChecksumSHA256, Source: d.Source, Classification: d.Classification,
 		ScanStatus: d.ScanStatus, ScanCheckedAt: scanCheckedAt, Revision: d.Revision, SupersedesID: supersedesID, SupersededByID: supersededByID,
-		PermohonanID:  permohonanId,
-		WorkflowNodes: evidenceNodes(d.Evidence),
-		UploadedBy:    d.UploadedBy.String(),
-		CreatedAt:     d.CreatedAt.Format(time.RFC3339),
+		PermohonanID:   permohonanId,
+		WorkflowNodes:  evidenceNodes(d.Evidence),
+		UploadedBy:     d.UploadedBy.String(),
+		UploadedByName: uploadedByName,
+		CreatedAt:      d.CreatedAt.Format(time.RFC3339),
 	}
 }
 

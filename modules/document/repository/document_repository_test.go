@@ -72,11 +72,29 @@ func TestAttachRejectsSupersededUpload(t *testing.T) {
 	require.ErrorIs(t, err, ErrDocumentNotFound)
 }
 
+func TestListByPermohonanPreloadsUploader(t *testing.T) {
+	db := documentRepositoryDB(t)
+	uploader := entities.User{ID: uuid.New(), Name: "Pelayanan Taman"}
+	permohonanID := uuid.New()
+	document := entities.Document{
+		ID: uuid.New(), Type: "evidence", FilePath: "private/list.pdf", UploadedBy: uploader.ID, PermohonanID: &permohonanID,
+	}
+	require.NoError(t, db.Create(&uploader).Error)
+	require.NoError(t, db.Create(&document).Error)
+
+	documents, err := NewDocumentRepository(db).ListByPermohonan(context.Background(), db, permohonanID.String(), nil)
+
+	require.NoError(t, err)
+	require.Len(t, documents, 1)
+	require.Equal(t, uploader.Name, documents[0].Uploader.Name)
+}
+
 func documentRepositoryDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open("file:"+uuid.NewString()+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 	statements := []string{
+		`CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, email TEXT, telp_number TEXT, password TEXT, role TEXT, unit TEXT, image_url TEXT, is_verified BOOLEAN, created_at DATETIME, updated_at DATETIME)`,
 		`CREATE TABLE documents (id TEXT PRIMARY KEY, type TEXT, file_path TEXT, original_filename TEXT, mime_type TEXT, size_bytes INTEGER, checksum_sha256 TEXT, source TEXT, classification TEXT, scan_status TEXT, scan_checked_at DATETIME, revision INTEGER, supersedes_id TEXT, superseded_by_id TEXT, uploaded_by TEXT, permohonan_id TEXT, created_at DATETIME, updated_at DATETIME)`,
 		`CREATE TABLE document_evidence (id TEXT PRIMARY KEY, document_id TEXT, permohonan_id TEXT, workflow_node TEXT, attached_by TEXT, created_at DATETIME, updated_at DATETIME, UNIQUE(document_id, workflow_node))`,
 	}

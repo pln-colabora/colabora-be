@@ -76,6 +76,20 @@ func (f *fakeDocumentRepository) AttachToWorkflowNode(ctx context.Context, tx *g
 	return f.attachRowsAffected, nil
 }
 
+func TestListIncludesUploaderName(t *testing.T) {
+	uploader := uuid.New()
+	s := &documentService{documentRepository: &fakeDocumentRepository{byId: entities.Document{
+		ID: uuid.New(), UploadedBy: uploader, Uploader: entities.User{ID: uploader, Name: "Pelayanan Taman"},
+	}}}
+
+	documents, err := s.List(context.Background(), uuid.NewString(), nil)
+
+	require.NoError(t, err)
+	require.Len(t, documents, 1)
+	require.NotNil(t, documents[0].UploadedByName)
+	require.Equal(t, "Pelayanan Taman", *documents[0].UploadedByName)
+}
+
 type fakePermohonanRepository struct {
 	permohonan entities.Permohonan
 	err        error

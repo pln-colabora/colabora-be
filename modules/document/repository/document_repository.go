@@ -95,7 +95,7 @@ func (r *documentRepository) ListByPermohonan(ctx context.Context, tx *gorm.DB, 
 	}
 
 	var documents []entities.Document
-	if err := query.Distinct("documents.*").Preload("Evidence").Order("documents.created_at desc").Find(&documents).Error; err != nil {
+	if err := query.Distinct("documents.*").Preload("Evidence").Preload("Uploader").Order("documents.created_at desc").Find(&documents).Error; err != nil {
 		return nil, err
 	}
 	return documents, nil

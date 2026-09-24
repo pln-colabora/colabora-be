@@ -268,4 +268,7 @@ components:
           description: Canonical workflow nodes this file evidences; empty until attached
           items: { type: string }
         uploaded_by: { type: string, format: uuid }
+        uploaded_by_name:
+          type: string
+          description: Display name of the user who uploaded this document; included on permohonan document lists.
         created_at: { type: string, format: date-time }

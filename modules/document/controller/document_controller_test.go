@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,8 +22,9 @@ import (
 )
 
 type uploadErrorService struct {
-	err     error
-	content service.DocumentContent
+	err       error
+	content   service.DocumentContent
+	documents []dto.DocumentResponse
 }
 
 func (s uploadErrorService) Upload(context.Context, string, dto.DocumentUploadRequest) (dto.DocumentResponse, error) {
@@ -37,8 +39,8 @@ func (s uploadErrorService) Download(context.Context, string, string) (service.D
 func (s uploadErrorService) Preview(context.Context, string, string) (service.DocumentContent, error) {
 	return s.content, s.err
 }
-func (uploadErrorService) List(context.Context, string, *string) ([]dto.DocumentResponse, error) {
-	return nil, nil
+func (s uploadErrorService) List(context.Context, string, *string) ([]dto.DocumentResponse, error) {
+	return s.documents, s.err
 }
 func (uploadErrorService) HasEvidence(context.Context, string, string) (bool, error) {
 	return false, nil
@@ -146,4 +148,23 @@ func TestDocumentStorageFailureIsGeneric(t *testing.T) {
 	require.Contains(t, recorder.Body.String(), dto.ErrDocumentStorageUnavailable.Error())
 	require.NotContains(t, recorder.Body.String(), "garage.internal")
 	require.NotContains(t, recorder.Body.String(), "private-key")
+}
+
+func TestListIncludesUploaderName(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/permohonan/request-id/documents", nil)
+	ctx.Params = []gin.Param{{Key: "id", Value: "request-id"}}
+	uploaderName := "Pelayanan Taman"
+	controller := &documentController{documentService: uploadErrorService{documents: []dto.DocumentResponse{{
+		ID: "document-id", UploadedBy: "user-id", UploadedByName: &uploaderName,
+	}}}}
+
+	controller.List(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Body.String(), `"uploaded_by":"user-id"`)
+	require.Contains(t, recorder.Body.String(), `"uploaded_by_name":"Pelayanan Taman"`)
+	require.False(t, strings.Contains(recorder.Body.String(), `"uploaded_by_name":null`))
 }
