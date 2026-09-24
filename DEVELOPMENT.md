@@ -119,7 +119,7 @@ Implemented connection-aware request creation, configured target-ULP validation 
 - Make `scope=mine` query available nodes owned by the caller instead of `CurrentStage` and owner overrides.
 - Derive stage and SLA projections without turning them back into transition state.
 
-**Exit gate:** create/list/detail behavior matches `API_SPEC.md`; wrong role/type combinations return 403, invalid PLG TM target ULP returns 400, node-based task filtering works for parallel actions, and `docs/permohonan.yaml` is updated in the same change.
+**Exit gate:** create/list/detail behavior matches `API_SPEC.md`; wrong role/type combinations return 403, invalid PLG TM target ULP returns 400, node-based task filtering works for parallel actions, and the relevant `docs/stage-*.yaml` document is updated in the same change.
 
 ### Phase 4 — Activity endpoints — Complete (Sequences 1–5)
 

@@ -7,26 +7,30 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// moduleDocFiles lists the self-contained per-module OpenAPI documents that
-// get combined into the single reference served at /docs/openapi.yaml. Adding
-// a new module's docs: add its `docs/<module>.yaml` file path here (plus the
-// `server.StaticFile` line below if you still want it downloadable on its
-// own) — no other wiring needed for it to show up in the combined reference.
+// moduleDocFiles lists the self-contained OpenAPI documents that get combined
+// into the single reference served at /docs/openapi.yaml. Permohonan is split
+// into seven business-process stage documents so Scalar can show the same
+// grouping used by the workflow UI.
 var moduleDocFiles = []string{
 	"./docs/health.yaml",
 	"./docs/auth.yaml",
 	"./docs/user.yaml",
-	"./docs/permohonan.yaml",
+	"./docs/stage-01-permohonan.yaml",
+	"./docs/stage-02-survei.yaml",
+	"./docs/stage-03-perencanaan-perluasan.yaml",
+	"./docs/stage-04-pra-pelaksanaan-konstruksi.yaml",
+	"./docs/stage-05-pelaksanaan-konstruksi.yaml",
+	"./docs/stage-06-energize-jaringan.yaml",
+	"./docs/stage-07-penutupan.yaml",
 	"./docs/document.yaml",
 }
 
 // buildMergedOpenAPI combines the per-module OpenAPI documents into a single
 // document so Scalar renders every module as one flat, always-visible list of
-// sidebar sections instead of a dropdown you have to switch between. Modules
-// share identical copies of a few boilerplate components (ApiResponse,
-// BadRequest, Unauthorized, bearerAuth, UserResponse) by convention — see
-// CLAUDE.md — so last-write-wins merging of components is safe as long as
-// that convention holds.
+// sidebar sections instead of a dropdown you have to switch between. Stage
+// documents share identical copies of common response and workflow schemas by
+// convention, so last-write-wins merging of components is safe as long as
+// those shared definitions remain compatible.
 func buildMergedOpenAPI() ([]byte, error) {
 	merged := map[string]any{
 		"openapi": "3.0.3",

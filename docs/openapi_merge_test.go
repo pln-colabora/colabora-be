@@ -45,6 +45,81 @@ func TestMergedOpenAPIContainsOnlyResolvableLocalComponentReferences(t *testing.
 	assertResolvableReferences(t, document, document)
 }
 
+func TestPermohonanStageDocumentsKeepBusinessGrouping(t *testing.T) {
+	workingDirectory, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(".."))
+	t.Cleanup(func() { require.NoError(t, os.Chdir(workingDirectory)) })
+
+	expected := map[string]struct {
+		tag   string
+		paths []string
+	}{
+		"./docs/stage-01-permohonan.yaml": {
+			tag: "Tahap 1 — Permohonan PB/PD",
+			paths: []string{
+				"/api/permohonan",
+				"/api/permohonan/{id}",
+				"/api/permohonan/{id}/activities",
+				"/api/permohonan/{id}/logs",
+				"/api/permohonan/{id}/vendor-assignments",
+			},
+		},
+		"./docs/stage-02-survei.yaml": {
+			tag:   "Tahap 2 — Survei Perluasan Jaringan",
+			paths: []string{"/api/permohonan/{id}/survei"},
+		},
+		"./docs/stage-03-perencanaan-perluasan.yaml": {
+			tag:   "Tahap 3 — Perencanaan Perluasan",
+			paths: []string{"/api/permohonan/{id}/rab-kko-kkf", "/api/permohonan/{id}/permohonan-perluasan"},
+		},
+		"./docs/stage-04-pra-pelaksanaan-konstruksi.yaml": {
+			tag: "Tahap 4 — Pra Pelaksanaan Konstruksi",
+			paths: []string{
+				"/api/permohonan/{id}/wo-vendor/tiang",
+				"/api/permohonan/{id}/wo-vendor/konstruksi",
+				"/api/permohonan/{id}/wo-vendor/app",
+				"/api/permohonan/{id}/reservasi-material",
+				"/api/permohonan/{id}/tera-app",
+				"/api/permohonan/{id}/wo-pdkb",
+			},
+		},
+		"./docs/stage-05-pelaksanaan-konstruksi.yaml": {
+			tag:   "Tahap 5 — Pelaksanaan Konstruksi",
+			paths: []string{"/api/permohonan/{id}/pelaksanaan-konstruksi", "/api/permohonan/{id}/pdkb-dokumentasi"},
+		},
+		"./docs/stage-06-energize-jaringan.yaml": {
+			tag:   "Tahap 6 — Energize Jaringan",
+			paths: []string{"/api/permohonan/{id}/energize-jaringan", "/api/permohonan/{id}/pemasangan-sr-app"},
+		},
+		"./docs/stage-07-penutupan.yaml": {
+			tag:   "Tahap 7 — Penutupan / Selesai",
+			paths: []string{"/api/permohonan/{id}/closing"},
+		},
+	}
+
+	for file, want := range expected {
+		raw, err := os.ReadFile(file)
+		require.NoError(t, err, file)
+		var document map[string]any
+		require.NoError(t, yaml.Unmarshal(raw, &document), file)
+
+		tags, ok := document["tags"].([]any)
+		require.True(t, ok, file)
+		require.Len(t, tags, 1, file)
+		tag, ok := tags[0].(map[string]any)
+		require.True(t, ok, file)
+		require.Equal(t, want.tag, tag["name"], file)
+
+		paths, ok := document["paths"].(map[string]any)
+		require.True(t, ok, file)
+		require.Len(t, paths, len(want.paths), file)
+		for _, path := range want.paths {
+			require.Contains(t, paths, path, file)
+		}
+	}
+}
+
 func assertResolvableReferences(t *testing.T, root map[string]any, value any) {
 	t.Helper()
 	switch typed := value.(type) {

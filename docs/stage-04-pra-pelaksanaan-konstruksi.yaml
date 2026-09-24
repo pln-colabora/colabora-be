@@ -1,0 +1,122 @@
+openapi: 3.0.3
+info:
+  title: COLABORA API — Tahap 4 Pra Pelaksanaan Konstruksi
+  description: Tahap 4 — Pra Pelaksanaan Konstruksi.
+  version: "1.0.0"
+servers:
+  - { url: https://api-colabora.anargya.fun, description: Production }
+  - { url: http://localhost:8888, description: Local (default GOLANG_PORT) }
+tags:
+  - name: "Tahap 4 — Pra Pelaksanaan Konstruksi"
+    description: "WO Vendor Tiang, WO Vendor Konstruksi, WO PDKB, WO Vendor APP, Reservasi material, dan Perakitan & Tera APP"
+paths:
+  /api/permohonan/{id}/wo-vendor/tiang:
+    post:
+      tags: ["Tahap 4 — Pra Pelaksanaan Konstruksi"]
+      operationId: submitWOTiang
+      summary: WO Vendor Tiang (Activity #6)
+      description: Owner UP3 — Bagian Perencanaan; hanya tersedia bila kebutuhan tiang bernilai true.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" } } } }
+      responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
+  /api/permohonan/{id}/wo-vendor/konstruksi:
+    post:
+      tags: ["Tahap 4 — Pra Pelaksanaan Konstruksi"]
+      operationId: submitWOConstruction
+      summary: WO Vendor Konstruksi (Activity #7)
+      description: Owner UP3 — Bagian Konstruksi. Keputusan perlu_pdkb menentukan apakah WO PDKB berlaku.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/WOConstructionSubmitRequest" } } } }
+      responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
+  /api/permohonan/{id}/wo-vendor/app:
+    post:
+      tags: ["Tahap 4 — Pra Pelaksanaan Konstruksi"]
+      operationId: submitWOAPP
+      summary: WO Vendor APP (Activity #8)
+      description: Owner UP3 — Transaksi Energi; evidence wajib dan detail produksi dapat berkembang kemudian.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" } } } }
+      responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
+  /api/permohonan/{id}/reservasi-material:
+    post:
+      tags: ["Tahap 4 — Pra Pelaksanaan Konstruksi"]
+      operationId: submitReservation
+      summary: Reservasi material (Activity #9)
+      description: Owner Vendor — Vendor Konstruksi dengan assignment eksplisit; berjalan independen setelah WO Vendor APP.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" } } } }
+      responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
+  /api/permohonan/{id}/tera-app:
+    post:
+      tags: ["Tahap 4 — Pra Pelaksanaan Konstruksi"]
+      operationId: submitTera
+      summary: Perakitan & Tera APP (Activity #10)
+      description: Owner UP3 — Transaksi Energi; tersedia setelah Reservasi material selesai.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" } } } }
+      responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
+  /api/permohonan/{id}/wo-pdkb:
+    post:
+      tags: ["Tahap 4 — Pra Pelaksanaan Konstruksi"]
+      operationId: submitWOPDKB
+      summary: WO PDKB (percabangan)
+      description: Owner UP3 — Bagian Konstruksi; berlaku setelah WO Vendor Konstruksi bila perlu_pdkb=true.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" } } } }
+      responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
+components:
+  securitySchemes: { bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT } }
+  responses:
+    ActivitySubmitted: { description: Workflow node selesai dan agregat diperbarui, content: { application/json: { schema: { $ref: "#/components/schemas/PermohonanEnvelope" } } } }
+    BadRequest: { description: Input tidak valid, content: { application/json: { schema: { $ref: "#/components/schemas/ApiResponse" } } } }
+    Unauthorized: { description: Token tidak valid, content: { application/json: { schema: { $ref: "#/components/schemas/ApiResponse" } } } }
+    Forbidden: { description: Caller tidak memiliki node, content: { application/json: { schema: { $ref: "#/components/schemas/ApiResponse" } } } }
+    NotFound: { description: Permohonan tidak ditemukan, content: { application/json: { schema: { $ref: "#/components/schemas/ApiResponse" } } } }
+    Conflict: { description: Node belum actionable atau prerequisite belum terpenuhi, content: { application/json: { schema: { $ref: "#/components/schemas/ApiResponse" } } } }
+  parameters: { PermohonanID: { name: id, in: path, required: true, schema: { type: string, format: uuid } } }
+  schemas:
+    ApiResponse: { type: object, properties: { status: { type: boolean }, message: { type: string }, error: { nullable: true, oneOf: [{ type: string }, { type: object }] }, data: { nullable: true } } }
+    PermohonanEnvelope: { allOf: [{ $ref: "#/components/schemas/ApiResponse" }, { type: object, properties: { data: { $ref: "#/components/schemas/PermohonanResponse" } } }] }
+    PermohonanResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        no_permohonan: { type: string }
+        jenis_permohonan: { type: string }
+        jenis_sambungan: { type: string }
+        ulp_unit: { type: string }
+        pelanggan_nama: { type: string }
+        pelanggan_alamat: { type: string }
+        pelanggan_no_hp: { type: string }
+        request_date: { type: string, format: date }
+        current_stage: { type: integer, minimum: 1, maximum: 7 }
+        status: { type: string, enum: [in_progress, completed, returned] }
+        sla_deadline: { type: string, format: date, nullable: true }
+        sla_status: { type: string, enum: [none, on_time, due_soon, overdue] }
+        kebutuhan_tiang: { type: boolean, nullable: true }
+        nps_delegation_status: { type: string, nullable: true, enum: [delegated, returned] }
+        perlu_pdkb: { type: boolean, nullable: true }
+        created_by: { type: string, format: uuid }
+        workflow_nodes: { type: array, items: { $ref: "#/components/schemas/WorkflowNode" } }
+        available_actions: { type: array, items: { $ref: "#/components/schemas/AvailableAction" } }
+    WorkflowNode: { type: object, properties: { workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, status: { type: string, enum: [locked, available, in_progress, completed, skipped] }, sla_deadline: { type: string, format: date, nullable: true }, sla_status: { type: string, enum: [none, on_time, due_soon, overdue] }, payload: { type: object, additionalProperties: true }, completed_by: { type: string, format: uuid, nullable: true }, completed_at: { type: string, format: date-time, nullable: true } } }
+    AvailableAction: { type: object, properties: { workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, method: { type: string }, path: { type: string } } }
+    EvidenceSubmitRequest:
+      type: object
+      required: [document_ids]
+      properties:
+        notes: { type: string, maxLength: 2000 }
+        document_ids: { type: array, minItems: 1, uniqueItems: true, items: { type: string, format: uuid } }
+    WOConstructionSubmitRequest:
+      type: object
+      required: [perlu_pdkb, document_ids]
+      properties:
+        perlu_pdkb: { type: boolean, description: Keputusan apakah cabang PDKB berlaku; false tetap valid }
+        notes: { type: string, maxLength: 2000 }
+        document_ids: { type: array, minItems: 1, uniqueItems: true, items: { type: string, format: uuid } }

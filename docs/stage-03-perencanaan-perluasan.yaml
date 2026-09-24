@@ -1,0 +1,89 @@
+openapi: 3.0.3
+info:
+  title: COLABORA API — Tahap 3 Perencanaan Perluasan
+  description: Tahap 3 — Perencanaan Perluasan.
+  version: "1.0.0"
+servers:
+  - { url: https://api-colabora.anargya.fun, description: Production }
+  - { url: http://localhost:8888, description: Local (default GOLANG_PORT) }
+tags:
+  - name: "Tahap 3 — Perencanaan Perluasan"
+    description: "RAB, KKO & KKF, Permohonan perluasan, dan Delegasi PK NPS"
+paths:
+  /api/permohonan/{id}/rab-kko-kkf:
+    post:
+      tags: ["Tahap 3 — Perencanaan Perluasan"]
+      operationId: submitRAB
+      summary: RAB, KKO & KKF (Activity #3)
+      description: >-
+        Menyelesaikan RAB, KKO & KKF (`rab_kko_kkf`) dan percabangan
+        `kebutuhan_tiang`. Owner ULP — Bagian Teknik untuk JTR/JTM dan
+        UP3 — Bagian Perencanaan untuk PLG TM; false adalah keputusan yang valid.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/RABSubmitRequest" } } } }
+      responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
+  /api/permohonan/{id}/permohonan-perluasan:
+    post:
+      tags: ["Tahap 3 — Perencanaan Perluasan"]
+      operationId: submitExpansion
+      summary: Permohonan perluasan (Activity #4) dan Delegasi PK NPS (Activity #5)
+      description: >-
+        Menyelesaikan Permohonan perluasan (`permohonan_perluasan`) lalu
+        Delegasi PK NPS (`nps_delegation`). Owner UP3 — NPS. Status delegated
+        membuka cabang WO; returned menutup permohonan secara terminal.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ExpansionSubmitRequest" } } } }
+      responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
+components:
+  securitySchemes: { bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT } }
+  responses:
+    ActivitySubmitted: { description: Workflow node selesai dan agregat diperbarui, content: { application/json: { schema: { $ref: "#/components/schemas/PermohonanEnvelope" } } } }
+    BadRequest: { description: Input tidak valid, content: { application/json: { schema: { $ref: "#/components/schemas/ApiResponse" } } } }
+    Unauthorized: { description: Token tidak valid, content: { application/json: { schema: { $ref: "#/components/schemas/ApiResponse" } } } }
+    Forbidden: { description: Caller tidak memiliki node, content: { application/json: { schema: { $ref: "#/components/schemas/ApiResponse" } } } }
+    NotFound: { description: Permohonan tidak ditemukan, content: { application/json: { schema: { $ref: "#/components/schemas/ApiResponse" } } } }
+    Conflict: { description: Prerequisite belum terpenuhi atau node sudah selesai, content: { application/json: { schema: { $ref: "#/components/schemas/ApiResponse" } } } }
+  parameters: { PermohonanID: { name: id, in: path, required: true, schema: { type: string, format: uuid } } }
+  schemas:
+    ApiResponse: { type: object, properties: { status: { type: boolean }, message: { type: string }, error: { nullable: true, oneOf: [{ type: string }, { type: object }] }, data: { nullable: true } } }
+    PermohonanEnvelope: { allOf: [{ $ref: "#/components/schemas/ApiResponse" }, { type: object, properties: { data: { $ref: "#/components/schemas/PermohonanResponse" } } }] }
+    PermohonanResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        no_permohonan: { type: string }
+        jenis_permohonan: { type: string }
+        jenis_sambungan: { type: string }
+        ulp_unit: { type: string }
+        pelanggan_nama: { type: string }
+        pelanggan_alamat: { type: string }
+        pelanggan_no_hp: { type: string }
+        request_date: { type: string, format: date }
+        current_stage: { type: integer, minimum: 1, maximum: 7 }
+        status: { type: string, enum: [in_progress, completed, returned] }
+        sla_deadline: { type: string, format: date, nullable: true }
+        sla_status: { type: string, enum: [none, on_time, due_soon, overdue] }
+        kebutuhan_tiang: { type: boolean, nullable: true }
+        nps_delegation_status: { type: string, nullable: true, enum: [delegated, returned] }
+        perlu_pdkb: { type: boolean, nullable: true }
+        created_by: { type: string, format: uuid }
+        workflow_nodes: { type: array, items: { $ref: "#/components/schemas/WorkflowNode" } }
+        available_actions: { type: array, items: { $ref: "#/components/schemas/AvailableAction" } }
+    WorkflowNode: { type: object, properties: { workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, status: { type: string, enum: [locked, available, in_progress, completed, skipped] }, sla_deadline: { type: string, format: date, nullable: true }, sla_status: { type: string, enum: [none, on_time, due_soon, overdue] }, payload: { type: object, additionalProperties: true }, completed_by: { type: string, format: uuid, nullable: true }, completed_at: { type: string, format: date-time, nullable: true } } }
+    AvailableAction: { type: object, properties: { workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, method: { type: string }, path: { type: string } } }
+    RABSubmitRequest:
+      type: object
+      required: [kebutuhan_tiang, document_ids]
+      properties:
+        kebutuhan_tiang: { type: boolean, description: Keputusan kebutuhan tiang; false tetap valid }
+        notes: { type: string, maxLength: 2000 }
+        document_ids: { type: array, minItems: 1, uniqueItems: true, items: { type: string, format: uuid } }
+    ExpansionSubmitRequest:
+      type: object
+      required: [nps_delegation_status, document_ids]
+      properties:
+        nps_delegation_status: { type: string, enum: [delegated, returned] }
+        notes: { type: string, maxLength: 2000 }
+        document_ids: { type: array, minItems: 1, uniqueItems: true, items: { type: string, format: uuid } }

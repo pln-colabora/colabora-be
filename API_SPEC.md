@@ -115,4 +115,7 @@ Superseded documents cannot be attached. Attached evidence cannot be revised or 
 
 ## Runtime OpenAPI policy
 
-`docs/permohonan.yaml` documents the implemented Phase 3 create/read contract and all Phase 4 write endpoints through terminal completion.
+The runtime OpenAPI contract for permohonan is split into seven self-contained
+stage documents: `stage-01-permohonan.yaml` through `stage-07-penutupan.yaml`.
+Together they document the implemented create/read contract and all activity
+write endpoints through terminal completion. The API paths remain unchanged.

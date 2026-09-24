@@ -46,10 +46,8 @@ const referenceHTML = `<!doctype html>
 // resolves $ref internally to render each endpoint's request/response bodies,
 // this only hides the separate schema-browsing UI.
 //
-// Adding a new module's docs: add its own `docs/<module>.yaml` (self-contained
-// — copy the small ApiResponse/BadRequest/Unauthorized boilerplate from an
-// existing file rather than trying to share it across documents) plus one
-// `server.StaticFile` line below and one entry in `moduleDocFiles`
+// Adding a new module or workflow-stage document: add a self-contained YAML
+// file, one StaticFile route below, and one entry in moduleDocFiles
 // (openapi_merge.go).
 //
 // The CDN script is pinned to a specific @scalar/api-reference version with a
@@ -61,7 +59,13 @@ func RegisterRoutes(server *gin.Engine) {
 	server.StaticFile("/docs/health.yaml", "./docs/health.yaml")
 	server.StaticFile("/docs/auth.yaml", "./docs/auth.yaml")
 	server.StaticFile("/docs/user.yaml", "./docs/user.yaml")
-	server.StaticFile("/docs/permohonan.yaml", "./docs/permohonan.yaml")
+	server.StaticFile("/docs/stage-01-permohonan.yaml", "./docs/stage-01-permohonan.yaml")
+	server.StaticFile("/docs/stage-02-survei.yaml", "./docs/stage-02-survei.yaml")
+	server.StaticFile("/docs/stage-03-perencanaan-perluasan.yaml", "./docs/stage-03-perencanaan-perluasan.yaml")
+	server.StaticFile("/docs/stage-04-pra-pelaksanaan-konstruksi.yaml", "./docs/stage-04-pra-pelaksanaan-konstruksi.yaml")
+	server.StaticFile("/docs/stage-05-pelaksanaan-konstruksi.yaml", "./docs/stage-05-pelaksanaan-konstruksi.yaml")
+	server.StaticFile("/docs/stage-06-energize-jaringan.yaml", "./docs/stage-06-energize-jaringan.yaml")
+	server.StaticFile("/docs/stage-07-penutupan.yaml", "./docs/stage-07-penutupan.yaml")
 	server.StaticFile("/docs/document.yaml", "./docs/document.yaml")
 	server.StaticFile("/docs/architecture", "./docs/architecture/index.html")
 	server.StaticFS("/docs/architecture/diagrams", http.Dir("./docs/architecture/diagrams"))
