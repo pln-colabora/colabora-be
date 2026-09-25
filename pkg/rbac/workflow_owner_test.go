@@ -39,6 +39,24 @@ func TestWorkflowOwnershipMatrix(t *testing.T) {
 	require.False(t, OwnsWorkflowNode(RoleNps, "UP3", "JTR", "ULP Taman", "unknown"))
 }
 
+func TestVendorWOReadProjection(t *testing.T) {
+	tests := []struct {
+		role string
+		want workflow.Code
+	}{
+		{RoleVendorTiang, workflow.WOTiang},
+		{RoleVendorKonstruksi, workflow.WOKonstruksi},
+		{RoleVendorSrApp, workflow.WOAPP},
+	}
+	for _, test := range tests {
+		code, ok := VendorWO(test.role)
+		require.True(t, ok)
+		require.Equal(t, test.want, code)
+	}
+	_, ok := VendorWO(RoleTeknik)
+	require.False(t, ok)
+}
+
 func TestWorkflowAuthorizationAndActions(t *testing.T) {
 	no := false
 	s := workflow.Snapshot{Connection: "JTR", Decisions: workflow.Decisions{KebutuhanTiang: &no, PerluPDKB: &no, NPS: workflow.Delegated}}

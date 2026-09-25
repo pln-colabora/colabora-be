@@ -18,6 +18,7 @@ import (
 	"github.com/pln-colabora/colabora-be/modules/document/scanning"
 	permohonanQuery "github.com/pln-colabora/colabora-be/modules/permohonan/query"
 	"github.com/pln-colabora/colabora-be/pkg/rbac"
+	"github.com/pln-colabora/colabora-be/pkg/workflow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -29,6 +30,7 @@ import (
 type fakeDocumentRepository struct {
 	created            entities.Document
 	byId               entities.Document
+	listed             []entities.Document
 	byIdErr            error
 	existsOK           bool
 	attachRowsAffected int64
@@ -62,6 +64,9 @@ func (f *fakeDocumentRepository) DeleteUnattached(context.Context, *gorm.DB, uui
 }
 
 func (f *fakeDocumentRepository) ListByPermohonan(ctx context.Context, tx *gorm.DB, permohonanId string, workflowNode *string) ([]entities.Document, error) {
+	if f.listed != nil {
+		return f.listed, nil
+	}
 	return []entities.Document{f.byId}, nil
 }
 
@@ -82,12 +87,53 @@ func TestListIncludesUploaderName(t *testing.T) {
 		ID: uuid.New(), UploadedBy: uploader, Uploader: entities.User{ID: uploader, Name: "Pelayanan Taman"},
 	}}}
 
-	documents, err := s.List(context.Background(), uuid.NewString(), nil)
+	documents, err := s.List(context.Background(), uuid.NewString(), uuid.NewString(), nil)
 
 	require.NoError(t, err)
 	require.Len(t, documents, 1)
 	require.NotNil(t, documents[0].UploadedByName)
 	require.Equal(t, "Pelayanan Taman", *documents[0].UploadedByName)
+}
+
+func TestVendorDocumentListOnlyIncludesSurveyEvidence(t *testing.T) {
+	vendor := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
+	surveyDocument := entities.Document{
+		ID:         uuid.New(),
+		UploadedBy: uuid.New(),
+		Evidence:   []entities.DocumentEvidence{{WorkflowNode: string(workflow.Survei)}},
+	}
+	woDocument := entities.Document{
+		ID:         uuid.New(),
+		UploadedBy: vendor.ID,
+		Evidence:   []entities.DocumentEvidence{{WorkflowNode: string(workflow.Konstruksi)}},
+	}
+	s := &documentService{
+		documentRepository: &fakeDocumentRepository{listed: []entities.Document{surveyDocument, woDocument}},
+		userRepository:     &fakeUserRepository{user: vendor},
+	}
+
+	documents, err := s.List(context.Background(), vendor.ID.String(), uuid.NewString(), nil)
+
+	require.NoError(t, err)
+	require.Len(t, documents, 1)
+	require.Equal(t, surveyDocument.ID.String(), documents[0].ID)
+}
+
+func TestVendorDocumentListCannotBypassSurveyFilter(t *testing.T) {
+	vendor := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
+	workflowNode := string(workflow.Konstruksi)
+	s := &documentService{
+		documentRepository: &fakeDocumentRepository{listed: []entities.Document{{
+			ID:       uuid.New(),
+			Evidence: []entities.DocumentEvidence{{WorkflowNode: string(workflow.Konstruksi)}},
+		}}},
+		userRepository: &fakeUserRepository{user: vendor},
+	}
+
+	documents, err := s.List(context.Background(), vendor.ID.String(), uuid.NewString(), &workflowNode)
+
+	require.NoError(t, err)
+	require.Empty(t, documents)
 }
 
 type fakePermohonanRepository struct {

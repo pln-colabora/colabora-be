@@ -27,8 +27,8 @@ type PermohonanService interface {
 	Create(ctx context.Context, req dto.PermohonanCreateRequest, userId string) (dto.PermohonanResponse, error)
 	GetById(ctx context.Context, id string, userId string) (dto.PermohonanResponse, error)
 	List(ctx context.Context, filter *query.PermohonanFilter, userId string) ([]query.Permohonan, int64, error)
-	GetActivities(ctx context.Context, id string) ([]dto.WorkflowNodeResponse, error)
-	GetLogs(ctx context.Context, id string) ([]dto.ActivityLogResponse, error)
+	GetActivities(ctx context.Context, id, userID string) ([]dto.WorkflowNodeResponse, error)
+	GetLogs(ctx context.Context, id, userID string) ([]dto.ActivityLogResponse, error)
 	SubmitSurvey(ctx context.Context, id, userID string, req dto.SurveySubmitRequest) (dto.PermohonanResponse, error)
 	SubmitRAB(ctx context.Context, id, userID string, req dto.RABSubmitRequest) (dto.PermohonanResponse, error)
 	SubmitExpansion(ctx context.Context, id, userID string, req dto.ExpansionSubmitRequest) (dto.PermohonanResponse, error)
@@ -495,6 +495,9 @@ func (s *permohonanService) GetById(ctx context.Context, id string, userId strin
 	if err != nil {
 		return dto.PermohonanResponse{}, dto.ErrGetPermohonanById
 	}
+	if rbac.IsVendor(requester.Role) {
+		response.WorkflowNodes = vendorWorkflowNodes(response.WorkflowNodes, requester.Role)
+	}
 	return response, nil
 }
 
@@ -563,7 +566,7 @@ func aggregateSLA(nodes []entities.PermohonanActivity, evaluated workflow.Result
 	return &value, status
 }
 
-func (s *permohonanService) GetActivities(ctx context.Context, id string) ([]dto.WorkflowNodeResponse, error) {
+func (s *permohonanService) GetActivities(ctx context.Context, id, userID string) ([]dto.WorkflowNodeResponse, error) {
 	p, err := s.permohonanRepository.GetById(ctx, s.db, id)
 	if err != nil {
 		return nil, dto.ErrPermohonanNotFound
@@ -577,11 +580,23 @@ func (s *permohonanService) GetActivities(ctx context.Context, id string) ([]dto
 	if err != nil {
 		return nil, err
 	}
-	return workflowNodeResponses(nodes, evaluated, time.Now()), nil
+	responses := workflowNodeResponses(nodes, evaluated, time.Now())
+	requester, err := s.userRepository.GetUserById(ctx, s.db, userID)
+	if err != nil {
+		return nil, dto.ErrPermohonanNotFound
+	}
+	if rbac.IsVendor(requester.Role) {
+		responses = vendorWorkflowNodes(responses, requester.Role)
+	}
+	return responses, nil
 }
 
-func (s *permohonanService) GetLogs(ctx context.Context, id string) ([]dto.ActivityLogResponse, error) {
+func (s *permohonanService) GetLogs(ctx context.Context, id, userID string) ([]dto.ActivityLogResponse, error) {
 	if _, err := s.permohonanRepository.GetById(ctx, s.db, id); err != nil {
+		return nil, dto.ErrPermohonanNotFound
+	}
+	requester, err := s.userRepository.GetUserById(ctx, s.db, userID)
+	if err != nil {
 		return nil, dto.ErrPermohonanNotFound
 	}
 	logs, err := s.permohonanRepository.ListActivityLogs(ctx, s.db, id)
@@ -590,12 +605,29 @@ func (s *permohonanService) GetLogs(ctx context.Context, id string) ([]dto.Activ
 	}
 	responses := make([]dto.ActivityLogResponse, 0, len(logs))
 	for _, log := range logs {
+		if rbac.IsVendor(requester.Role) && log.Actor != requester.ID {
+			continue
+		}
 		responses = append(responses, dto.ActivityLogResponse{
 			ID: log.ID.String(), WorkflowNode: log.WorkflowNode, ActivityNumber: log.ActivityNumber,
 			Actor: log.ActorUser.Name, Action: log.Action, Detail: log.Detail, CreatedAt: log.CreatedAt.Format(time.RFC3339),
 		})
 	}
 	return responses, nil
+}
+
+func vendorWorkflowNodes(nodes []dto.WorkflowNodeResponse, role string) []dto.WorkflowNodeResponse {
+	code, ok := rbac.VendorWO(role)
+	if !ok {
+		return []dto.WorkflowNodeResponse{}
+	}
+	filtered := make([]dto.WorkflowNodeResponse, 0, 1)
+	for _, node := range nodes {
+		if node.WorkflowNode == string(code) {
+			filtered = append(filtered, node)
+		}
+	}
+	return filtered
 }
 
 func (s *permohonanService) creationULP(ctx context.Context, role, callerUnit string, req dto.PermohonanCreateRequest) (string, error) {

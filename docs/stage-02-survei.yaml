@@ -64,7 +64,7 @@ components:
         nps_delegation_status: { type: string, nullable: true, enum: [delegated, returned] }
         perlu_pdkb: { type: boolean, nullable: true }
         created_by: { type: string, format: uuid }
-        workflow_nodes: { type: array, items: { $ref: "#/components/schemas/WorkflowNode" } }
+        workflow_nodes: { type: array, description: "Vendor callers receive only their issued WO node; internal callers receive the full projection.", items: { $ref: "#/components/schemas/WorkflowNode" } }
         available_actions: { type: array, items: { $ref: "#/components/schemas/AvailableAction" } }
     WorkflowNode:
       type: object

@@ -92,7 +92,9 @@ paths:
         Only returns attached documents for requests the caller can access.
         Vendors require an explicit account/role assignment; ULP roles require
         matching ULP. UP3 operational roles and super-user have cross-ULP read
-        access. Inaccessible requests return 404.
+        access. Inaccessible requests return 404. Vendor callers receive only
+        documents attached to the `survei` workflow node; documents attached to
+        other nodes are not returned.
       security:
         - bearerAuth: []
       parameters:
@@ -102,7 +104,7 @@ paths:
           schema: { type: string, format: uuid }
         - name: workflow_node
           in: query
-          description: Filter to one canonical workflow node's evidence
+          description: Filter to one canonical workflow node's evidence. Vendor callers remain restricted to `survei` evidence.
           schema: { type: string, example: survei }
       responses:
         "200":
@@ -130,7 +132,8 @@ paths:
         Streams a PDF or image through the backend for inline preview. Attached
         documents require read access to their permohonan. Unattached uploads can
         only be previewed by their uploader. Superseded and infected documents are
-        unavailable. The response never exposes a Garage URL or object key.
+        unavailable. Vendor callers can only preview evidence attached to
+        `survei`. The response never exposes a Garage URL or object key.
       security:
         - bearerAuth: []
       parameters:
@@ -174,8 +177,9 @@ paths:
         Streams an attached document through the backend as an attachment. The
         backend resolves the associated permohonan and requires the caller to have
         read access to it. Unattached documents and inaccessible requests return
-        404. Vendors require an explicit account/role assignment. The response
-        never exposes a Garage URL or object key.
+        404. Vendors require an explicit account/role assignment and may only
+        download evidence attached to `survei`. The response never exposes a
+        Garage URL or object key.
       security:
         - bearerAuth: []
       parameters:

@@ -9,10 +9,10 @@ The API is not coupled to hifi form filenames. Detailed production forms may rep
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/api/permohonan` | Paginated dashboard list and `scope=mine` filtering |
-| `GET` | `/api/permohonan/:id` | Aggregate detail, workflow nodes, and caller-specific available actions |
-| `GET` | `/api/permohonan/:id/activities` | Full node timeline with display activity/stage/SLA metadata |
+| `GET` | `/api/permohonan/:id` | Aggregate detail, workflow nodes, and caller-specific available actions; vendors receive only their issued WO node |
+| `GET` | `/api/permohonan/:id/activities` | Workflow-node timeline; vendors receive only their issued WO node |
 | `GET` | `/api/permohonan/:id/documents` | Attached evidence, optionally filtered by `workflow_node` |
-| `GET` | `/api/permohonan/:id/logs` | Audit history |
+| `GET` | `/api/permohonan/:id/logs` | Audit history; vendors receive only logs authored by their account |
 
 List filters remain `ulp`, `jenis_sambungan`, `stage`, aggregate `status`, derived `sla`, `search`, and `scope=mine|all`. `scope=mine` returns requests where the caller owns at least one available node.
 
@@ -34,7 +34,7 @@ Detail/list items replace the legacy single `can_act` decision with:
 }
 ```
 
-Only actions owned by the authenticated caller appear in `available_actions`. The full activity endpoint can still show locked/available nodes without granting permission.
+Only actions owned by the authenticated caller appear in `available_actions`. The full activity endpoint can still show locked/available nodes without granting permission; vendor callers receive only their issued WO node.
 
 ## Create contract
 
@@ -98,11 +98,11 @@ Every write endpoint:
 
 - `POST /api/documents` uploads a private, unattached file and returns its ID plus provenance. Optional `supersedes_document_id` creates the next revision only when the prior file is a same-type, unattached upload owned by the caller.
 - Activity submissions attach `document_ids` to their exact `workflow_node`.
-- `GET /api/permohonan/:id/documents?workflow_node=...` filters attached evidence.
+- `GET /api/permohonan/:id/documents?workflow_node=...` filters attached evidence. Vendor callers can only see evidence attached to `survei`, regardless of the query filter.
 - `GET /api/documents/:id/preview` streams an authorized PDF/image inline.
 - `GET /api/documents/:id/download` streams an authorized attached document as an attachment.
 
-An attachment request must fail atomically if any document is missing, already attached, or the caller does not own the target node.
+An attachment request must fail atomically if any document is missing, already attached, or the caller does not own the target node. Vendor document reads are limited to `survei` evidence; this does not change upload or workflow-node attachment authorization.
 Superseded documents cannot be attached. Attached evidence cannot be revised or replaced through the current API because correction/reopen ownership remains a discovery gate. Uploads record detected MIME, measured size, SHA-256, original filename, `uploaded` source, `restricted` classification, scan status, and revision links. Configured ClamAV scanning is synchronous and fail-closed; without a configured scanner, status is explicitly `not_scanned`. Authorized document reads stream through the backend and never expose a Garage URL, bucket, object key, or S3 signature. The operational `make cleanup-orphan-documents` command removes unattached uploads older than the configured TTL.
 
 ## Error semantics

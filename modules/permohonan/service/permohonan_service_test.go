@@ -605,7 +605,9 @@ func TestGetLogsReturnsActorNames(t *testing.T) {
 	otherLog := entities.ActivityLog{ID: uuid.New(), PermohonanID: uuid.New(), Actor: users[0].ID, Action: "created"}
 	require.NoError(t, db.Create(&otherLog).Error)
 
-	results, err := s.GetLogs(context.Background(), p.ID.String())
+	userRepo := userRepository.NewUserRepository(db)
+	s.userRepository = userRepo
+	results, err := s.GetLogs(context.Background(), p.ID.String(), users[0].ID.String())
 	require.NoError(t, err)
 	require.Len(t, results, len(logs))
 	for i, result := range results {
@@ -615,6 +617,28 @@ func TestGetLogsReturnsActorNames(t *testing.T) {
 			CreatedAt: logs[i].CreatedAt.Format(time.RFC3339),
 		}, result)
 	}
+}
+
+func TestVendorLogsOnlyReturnTheCurrentVendorActor(t *testing.T) {
+	db := phase4IntegrationDB(t)
+	s := &permohonanService{db: db, permohonanRepository: repository.NewPermohonanRepository(db), userRepository: userRepository.NewUserRepository(db)}
+	p := entities.Permohonan{ID: uuid.New()}
+	require.NoError(t, db.Create(&p).Error)
+	vendor := entities.User{ID: uuid.New(), Name: "Vendor A", Email: "vendor-a@example.test", Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
+	other := entities.User{ID: uuid.New(), Name: "Vendor B", Email: "vendor-b@example.test", Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
+	require.NoError(t, db.Create(&vendor).Error)
+	require.NoError(t, db.Create(&other).Error)
+	logs := []entities.ActivityLog{
+		{ID: uuid.New(), PermohonanID: p.ID, Actor: vendor.ID, Action: "node_completed", WorkflowNode: stringPtr("wo_konstruksi")},
+		{ID: uuid.New(), PermohonanID: p.ID, Actor: other.ID, Action: "node_completed", WorkflowNode: stringPtr("wo_konstruksi")},
+	}
+	require.NoError(t, db.Create(&logs).Error)
+
+	results, err := s.GetLogs(context.Background(), p.ID.String(), vendor.ID.String())
+
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Equal(t, vendor.Name, results[0].Actor)
 }
 
 func phase4IntegrationDB(t *testing.T) *gorm.DB {

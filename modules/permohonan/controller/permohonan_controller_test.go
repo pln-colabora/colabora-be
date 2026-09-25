@@ -41,10 +41,10 @@ func (phase3ControllerService) GetById(context.Context, string, string) (dto.Per
 func (phase3ControllerService) List(context.Context, *query.PermohonanFilter, string) ([]query.Permohonan, int64, error) {
 	return nil, 0, nil
 }
-func (phase3ControllerService) GetActivities(context.Context, string) ([]dto.WorkflowNodeResponse, error) {
+func (phase3ControllerService) GetActivities(context.Context, string, string) ([]dto.WorkflowNodeResponse, error) {
 	return nil, nil
 }
-func (phase3ControllerService) GetLogs(context.Context, string) ([]dto.ActivityLogResponse, error) {
+func (phase3ControllerService) GetLogs(context.Context, string, string) ([]dto.ActivityLogResponse, error) {
 	return nil, nil
 }
 func (f phase3ControllerService) SubmitSurvey(context.Context, string, string, dto.SurveySubmitRequest) (dto.PermohonanResponse, error) {

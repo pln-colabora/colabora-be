@@ -39,7 +39,7 @@ func (s uploadErrorService) Download(context.Context, string, string) (service.D
 func (s uploadErrorService) Preview(context.Context, string, string) (service.DocumentContent, error) {
 	return s.content, s.err
 }
-func (s uploadErrorService) List(context.Context, string, *string) ([]dto.DocumentResponse, error) {
+func (s uploadErrorService) List(context.Context, string, string, *string) ([]dto.DocumentResponse, error) {
 	return s.documents, s.err
 }
 func (uploadErrorService) HasEvidence(context.Context, string, string) (bool, error) {
@@ -156,6 +156,7 @@ func TestListIncludesUploaderName(t *testing.T) {
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/permohonan/request-id/documents", nil)
 	ctx.Params = []gin.Param{{Key: "id", Value: "request-id"}}
+	ctx.Set("user_id", "user-id")
 	uploaderName := "Pelayanan Taman"
 	controller := &documentController{documentService: uploadErrorService{documents: []dto.DocumentResponse{{
 		ID: "document-id", UploadedBy: "user-id", UploadedByName: &uploaderName,

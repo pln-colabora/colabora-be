@@ -35,7 +35,7 @@ type DocumentService interface {
 	AttachToWorkflowNode(ctx context.Context, userId, permohonanId, workflowNode string, documentIds []string) error
 	Download(ctx context.Context, userID, docID string) (DocumentContent, error)
 	Preview(ctx context.Context, userID, docID string) (DocumentContent, error)
-	List(ctx context.Context, permohonanId string, workflowNode *string) ([]dto.DocumentResponse, error)
+	List(ctx context.Context, userID, permohonanId string, workflowNode *string) ([]dto.DocumentResponse, error)
 	HasEvidence(ctx context.Context, permohonanId, workflowNode string) (bool, error)
 	CleanupOrphans(ctx context.Context, before time.Time, limit int) (int, error)
 }
@@ -227,7 +227,7 @@ func (s *documentService) Download(ctx context.Context, userID, docID string) (D
 	if err != nil || document.PermohonanID == nil {
 		return DocumentContent{}, dto.ErrDocumentNotFound
 	}
-	if !s.canReadPermohonan(ctx, userID, document.PermohonanID.String()) {
+	if !s.canReadDocument(ctx, userID, document) {
 		return DocumentContent{}, dto.ErrDocumentNotFound
 	}
 	if document.ScanStatus == scanning.StatusInfected {
@@ -243,11 +243,7 @@ func (s *documentService) Preview(ctx context.Context, userID, docID string) (Do
 		return DocumentContent{}, dto.ErrDocumentNotFound
 	}
 
-	if document.PermohonanID == nil {
-		if document.UploadedBy.String() != userID {
-			return DocumentContent{}, dto.ErrDocumentNotFound
-		}
-	} else if !s.canReadPermohonan(ctx, userID, document.PermohonanID.String()) {
+	if !s.canReadDocument(ctx, userID, document) {
 		return DocumentContent{}, dto.ErrDocumentNotFound
 	}
 	if document.SupersededByID != nil || document.ScanStatus == scanning.StatusInfected {
@@ -276,6 +272,29 @@ func (s *documentService) canReadPermohonan(ctx context.Context, userID, permoho
 	err := rbac.ApplyReadScope(s.db.WithContext(ctx).Model(&entities.Permohonan{}), actor.Role, actor.Unit, actor.ID.String()).
 		Where("permohonan.id = ?", permohonanID).Count(&count).Error
 	return err == nil && count == 1
+}
+
+func (s *documentService) canReadDocument(ctx context.Context, userID string, document entities.Document) bool {
+	// Keep the upload-first unit test and lightweight callers safe when no DB is
+	// configured. Production instances always have a DB and therefore enforce
+	// the vendor-only survey rule below.
+	if s.db == nil && document.PermohonanID == nil {
+		return document.UploadedBy.String() == userID
+	}
+	var actor entities.User
+	if err := s.db.WithContext(ctx).Where("id = ?", userID).Take(&actor).Error; err != nil {
+		return false
+	}
+	if document.PermohonanID == nil {
+		return !rbac.IsVendor(actor.Role) && document.UploadedBy.String() == userID
+	}
+	if !s.canReadPermohonan(ctx, userID, document.PermohonanID.String()) {
+		return false
+	}
+	if !rbac.IsVendor(actor.Role) {
+		return true
+	}
+	return hasSurveyEvidence(document)
 }
 
 func (s *documentService) CleanupOrphans(ctx context.Context, before time.Time, limit int) (int, error) {
@@ -318,18 +337,41 @@ func (s *documentService) CleanupOrphans(ctx context.Context, before time.Time, 
 	return deleted, nil
 }
 
-func (s *documentService) List(ctx context.Context, permohonanId string, workflowNode *string) ([]dto.DocumentResponse, error) {
+func (s *documentService) List(ctx context.Context, userID, permohonanId string, workflowNode *string) ([]dto.DocumentResponse, error) {
 	documents, err := s.documentRepository.ListByPermohonan(ctx, s.db, permohonanId, workflowNode)
 	if err != nil {
 		return nil, err
 	}
 
+	role := ""
+	if s.userRepository != nil {
+		actor, userErr := s.userRepository.GetUserById(ctx, s.db, userID)
+		if userErr != nil {
+			return nil, userErr
+		}
+		role = actor.Role
+	}
+	if rbac.IsVendor(role) && workflowNode != nil && *workflowNode != string(workflow.Survei) {
+		return []dto.DocumentResponse{}, nil
+	}
 	responses := make([]dto.DocumentResponse, 0, len(documents))
 	for _, document := range documents {
+		if rbac.IsVendor(role) && !hasSurveyEvidence(document) {
+			continue
+		}
 		responses = append(responses, toDocumentResponse(document))
 	}
 
 	return responses, nil
+}
+
+func hasSurveyEvidence(document entities.Document) bool {
+	for _, evidence := range document.Evidence {
+		if evidence.WorkflowNode == string(workflow.Survei) {
+			return true
+		}
+	}
+	return false
 }
 
 // HasEvidence lets Phase 4 activity endpoints (once built) check required-evidence presence

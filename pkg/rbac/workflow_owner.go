@@ -7,6 +7,23 @@ import (
 
 var ErrWorkflowForbidden = errors.New("caller does not own workflow node")
 
+// VendorWO returns the work-order node visible to a vendor account. Vendor
+// read projections intentionally expose the issued WO only; execution nodes
+// remain actionable through their dedicated endpoints but are not part of the
+// vendor's workflow history view.
+func VendorWO(role string) (workflow.Code, bool) {
+	switch role {
+	case RoleVendorTiang:
+		return workflow.WOTiang, true
+	case RoleVendorKonstruksi:
+		return workflow.WOKonstruksi, true
+	case RoleVendorSrApp:
+		return workflow.WOAPP, true
+	default:
+		return "", false
+	}
+}
+
 // OwnsWorkflowNode resolves role and unit ownership independently of node state.
 // Use AuthorizeWorkflowNode for write authorization, including prerequisite gates.
 func OwnsWorkflowNode(role, unit, connection, ulp string, code workflow.Code) bool {

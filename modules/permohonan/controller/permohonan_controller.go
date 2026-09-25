@@ -191,7 +191,7 @@ func (c *permohonanController) Create(ctx *gin.Context) {
 }
 
 func (c *permohonanController) GetActivities(ctx *gin.Context) {
-	results, err := c.permohonanService.GetActivities(ctx, ctx.Param("id"))
+	results, err := c.permohonanService.GetActivities(ctx, ctx.Param("id"), ctx.MustGet("user_id").(string))
 	if err != nil {
 		status := http.StatusBadRequest
 		if errors.Is(err, dto.ErrPermohonanNotFound) {
@@ -206,7 +206,7 @@ func (c *permohonanController) GetActivities(ctx *gin.Context) {
 }
 
 func (c *permohonanController) GetLogs(ctx *gin.Context) {
-	results, err := c.permohonanService.GetLogs(ctx, ctx.Param("id"))
+	results, err := c.permohonanService.GetLogs(ctx, ctx.Param("id"), ctx.MustGet("user_id").(string))
 	if err != nil {
 		status := http.StatusBadRequest
 		if errors.Is(err, dto.ErrPermohonanNotFound) {
