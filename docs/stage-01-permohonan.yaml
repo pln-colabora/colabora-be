@@ -52,22 +52,51 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
               type: object
-              required: [jenis_permohonan, jenis_sambungan, pelanggan_nama, pelanggan_alamat, pelanggan_no_hp]
+              required: [jenis_permohonan, jenis_sambungan, pelanggan_nama, pelanggan_alamat, pelanggan_no_hp, evidence_files]
               properties:
                 jenis_permohonan: { type: string, enum: ["Pasang Baru (PB)", "Perubahan Daya (PD)"] }
                 jenis_sambungan: { type: string, enum: ["JTR", "JTM/Gardu", "PLG TM <5 GWNG", "PLG TM >5 GWNG"] }
+                tarif: { type: string, nullable: true, enum: [rumah_tangga, sosial, bisnis, industri, pemerintah] }
+                daya_lama: { type: integer, format: int64, nullable: true, description: Daya lama dalam VA }
+                daya_baru: { type: integer, format: int64, nullable: true, description: Daya baru dalam VA }
                 ulp_unit: { type: string, nullable: true, description: Required only for PLG TM; forbidden for JTR/JTM }
                 pelanggan_nama: { type: string, minLength: 2, maxLength: 150 }
                 pelanggan_alamat: { type: string, minLength: 2, maxLength: 255 }
                 pelanggan_no_hp: { type: string, minLength: 8, maxLength: 20 }
+                evidence_files: { type: array, minItems: 1, items: { type: string, format: binary }, description: One or more PDF/JPEG/PNG evidence files }
+          application/json:
+            schema:
+              type: object
+              properties:
+                jenis_permohonan: { type: string, enum: ["Pasang Baru (PB)", "Perubahan Daya (PD)"] }
+                jenis_sambungan: { type: string, enum: ["JTR", "JTM/Gardu", "PLG TM <5 GWNG", "PLG TM >5 GWNG"] }
+                tarif: { type: string, nullable: true, enum: [rumah_tangga, sosial, bisnis, industri, pemerintah] }
+                daya_lama: { type: integer, format: int64, nullable: true }
+                daya_baru: { type: integer, format: int64, nullable: true }
+                ulp_unit: { type: string, nullable: true }
+                pelanggan_nama: { type: string }
+                pelanggan_alamat: { type: string }
+                pelanggan_no_hp: { type: string }
       responses:
         "201": { description: Permohonan PB/PD dibuat, content: { application/json: { schema: { $ref: "#/components/schemas/PermohonanEnvelope" } } } }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+  /api/tariffs:
+    get:
+      tags: ["Tahap 1 — Permohonan PB/PD"]
+      operationId: getTariffPowerOptions
+      summary: Daftar pilihan tarif dan daya
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: jenis_sambungan, in: query, required: false, schema: { type: string, enum: ["JTR", "JTM/Gardu", "PLG TM <5 GWNG", "PLG TM >5 GWNG"] } }
+      responses:
+        "200": { description: Tarif dan power bands aktif, content: { application/json: { schema: { $ref: "#/components/schemas/TariffPowerOptionsEnvelope" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /api/permohonan/{id}:
     get:
       tags: ["Tahap 1 — Permohonan PB/PD"]
@@ -198,6 +227,9 @@ components:
         no_permohonan: { type: string }
         jenis_permohonan: { type: string }
         jenis_sambungan: { type: string }
+        tarif: { type: string, nullable: true, enum: [rumah_tangga, sosial, bisnis, industri, pemerintah] }
+        daya_lama: { type: integer, format: int64, nullable: true }
+        daya_baru: { type: integer, format: int64, nullable: true }
         ulp_unit: { type: string }
         pelanggan_nama: { type: string }
         pelanggan_alamat: { type: string }
@@ -214,6 +246,12 @@ components:
         workflow_nodes: { type: array, description: "Vendor callers receive only their issued WO node; internal callers receive the full projection.", items: { $ref: "#/components/schemas/WorkflowNode" } }
         available_actions: { type: array, items: { $ref: "#/components/schemas/AvailableAction" } }
     WorkflowNode: { type: object, properties: { workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, status: { type: string, enum: [locked, available, in_progress, completed, skipped] }, sla_deadline: { type: string, format: date, nullable: true }, sla_status: { type: string, enum: [none, on_time, due_soon, overdue] }, payload: { type: object, additionalProperties: true }, completed_by: { type: string, format: uuid, nullable: true }, completed_at: { type: string, format: date-time, nullable: true } } }
+    TariffPowerOption: { type: object, properties: { tarif: { type: string }, golongan_tarif: { type: string }, jenis_sambungan: { type: string }, daya_min: { type: integer, format: int64 }, daya_max: { type: integer, format: int64, nullable: true }, label: { type: string } } }
+    TariffPowerOptionsEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties: { data: { type: array, items: { $ref: "#/components/schemas/TariffPowerOption" } } }
     WorkflowNodeDetail:
       allOf:
         - $ref: "#/components/schemas/WorkflowNode"

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"mime/multipart"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -46,20 +47,33 @@ type PermohonanService interface {
 	SubmitClosing(ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest) (dto.PermohonanResponse, error)
 }
 
+type TariffOptionsService interface {
+	ListTariffOptions(ctx context.Context, jenisSambungan string) ([]dto.TariffPowerOptionResponse, error)
+}
+
+type WorkflowDocumentUploader interface {
+	UploadForWorkflow(ctx context.Context, tx *gorm.DB, userID, permohonanID, workflowNode string, files []*multipart.FileHeader) ([]string, error)
+	DeleteStoredObject(ctx context.Context, key string) error
+}
+
 type permohonanService struct {
 	vendorAssignmentRepository repository.VendorAssignmentRepository
 	permohonanRepository       repository.PermohonanRepository
 	slaRuleRepository          repository.SLARuleRepository
+	tariffPowerRepository      repository.TariffPowerRepository
 	userRepository             userRepository.UserRepository
 	documentRepository         documentRepository.DocumentRepository
+	workflowDocumentUploader   WorkflowDocumentUploader
 	db                         *gorm.DB
 }
 
 func NewPermohonanService(
 	permohonanRepo repository.PermohonanRepository,
 	slaRuleRepo repository.SLARuleRepository,
+	tariffPowerRepo repository.TariffPowerRepository,
 	userRepo userRepository.UserRepository,
 	documentRepo documentRepository.DocumentRepository,
+	workflowDocumentUploader WorkflowDocumentUploader,
 	assignmentRepo repository.VendorAssignmentRepository,
 	db *gorm.DB,
 ) PermohonanService {
@@ -67,8 +81,10 @@ func NewPermohonanService(
 		vendorAssignmentRepository: assignmentRepo,
 		permohonanRepository:       permohonanRepo,
 		slaRuleRepository:          slaRuleRepo,
+		tariffPowerRepository:      tariffPowerRepo,
 		userRepository:             userRepo,
 		documentRepository:         documentRepo,
+		workflowDocumentUploader:   workflowDocumentUploader,
 		db:                         db,
 	}
 }
@@ -451,6 +467,9 @@ func (s *permohonanService) Create(ctx context.Context, req dto.PermohonanCreate
 	if err != nil {
 		return dto.PermohonanResponse{}, err
 	}
+	if err := s.validateTariffPower(ctx, req); err != nil {
+		return dto.PermohonanResponse{}, err
+	}
 
 	requestDate := time.Now()
 	year := requestDate.Year()
@@ -471,6 +490,9 @@ func (s *permohonanService) Create(ctx context.Context, req dto.PermohonanCreate
 		NoPermohonan:    noPermohonan,
 		JenisPermohonan: req.JenisPermohonan,
 		JenisSambungan:  req.JenisSambungan,
+		Tarif:           req.Tarif,
+		DayaLama:        req.DayaLama,
+		DayaBaru:        req.DayaBaru,
 		UlpUnit:         ulpUnit,
 		PelangganNama:   req.PelangganNama,
 		PelangganAlamat: req.PelangganAlamat,
@@ -494,17 +516,76 @@ func (s *permohonanService) Create(ctx context.Context, req dto.PermohonanCreate
 	}
 
 	var created entities.Permohonan
+	var uploadedKeys []string
 	err = s.db.Transaction(func(tx *gorm.DB) error {
 		var txErr error
 		created, txErr = s.permohonanRepository.Create(ctx, tx, permohonan, activities, log)
-		return txErr
+		if txErr != nil {
+			return txErr
+		}
+		if len(req.EvidenceFiles) > 0 {
+			if s.workflowDocumentUploader == nil {
+				return dto.ErrCreatePermohonan
+			}
+			uploadedKeys, txErr = s.workflowDocumentUploader.UploadForWorkflow(ctx, tx, userId, created.ID.String(), string(workflow.Permohonan), req.EvidenceFiles)
+			if txErr != nil {
+				return txErr
+			}
+		}
+		return nil
 	})
+	if err != nil && s.workflowDocumentUploader != nil {
+		for _, key := range uploadedKeys {
+			_ = s.workflowDocumentUploader.DeleteStoredObject(ctx, key)
+		}
+	}
 	if err != nil {
+		if errors.Is(err, documentDTO.ErrInvalidFileType) ||
+			errors.Is(err, documentDTO.ErrFileTooLarge) ||
+			errors.Is(err, documentDTO.ErrInvalidFilename) ||
+			errors.Is(err, documentDTO.ErrScanFailed) ||
+			errors.Is(err, documentDTO.ErrMalwareDetected) {
+			return dto.PermohonanResponse{}, err
+		}
 		return dto.PermohonanResponse{}, dto.ErrCreatePermohonan
 	}
 
 	created.WorkflowNodes = activities
 	return toPermohonanResponse(created, creator.Role, creator.Unit, time.Now())
+}
+
+func (s *permohonanService) validateTariffPower(ctx context.Context, req dto.PermohonanCreateRequest) error {
+	if s.tariffPowerRepository == nil || req.Tarif == nil {
+		return nil
+	}
+	for _, daya := range []*int64{req.DayaLama, req.DayaBaru} {
+		if daya == nil {
+			continue
+		}
+		allowed, err := s.tariffPowerRepository.IsAllowed(ctx, s.db, *req.Tarif, req.JenisSambungan, *daya)
+		if err != nil {
+			return dto.ErrCreatePermohonan
+		}
+		if !allowed {
+			return dto.ErrInvalidTariffPower
+		}
+	}
+	return nil
+}
+
+func (s *permohonanService) ListTariffOptions(ctx context.Context, jenisSambungan string) ([]dto.TariffPowerOptionResponse, error) {
+	options, err := s.tariffPowerRepository.List(ctx, s.db, jenisSambungan)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]dto.TariffPowerOptionResponse, 0, len(options))
+	for _, option := range options {
+		result = append(result, dto.TariffPowerOptionResponse{
+			Tarif: option.Tarif, GolonganTarif: option.GolonganTarif, JenisSambungan: option.JenisSambungan,
+			DayaMin: option.DayaMin, DayaMax: option.DayaMax, Label: option.Label,
+		})
+	}
+	return result, nil
 }
 
 func (s *permohonanService) GetById(ctx context.Context, id string, userId string) (dto.PermohonanResponse, error) {
@@ -812,6 +893,9 @@ func toPermohonanResponse(p entities.Permohonan, role, unit string, now time.Tim
 		NoPermohonan:        p.NoPermohonan,
 		JenisPermohonan:     p.JenisPermohonan,
 		JenisSambungan:      p.JenisSambungan,
+		Tarif:               p.Tarif,
+		DayaLama:            p.DayaLama,
+		DayaBaru:            p.DayaBaru,
 		UlpUnit:             p.UlpUnit,
 		PelangganNama:       p.PelangganNama,
 		PelangganAlamat:     p.PelangganAlamat,

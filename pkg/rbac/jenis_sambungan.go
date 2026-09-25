@@ -23,3 +23,19 @@ var AllJenisPermohonan = []string{
 	JenisPermohonanPasangBaru,
 	JenisPermohonanPerubahanDaya,
 }
+
+const (
+	TarifRumahTangga = "rumah_tangga"
+	TarifSosial      = "sosial"
+	TarifBisnis      = "bisnis"
+	TarifIndustri    = "industri"
+	TarifPemerintah  = "pemerintah"
+)
+
+var AllTarif = []string{
+	TarifRumahTangga,
+	TarifSosial,
+	TarifBisnis,
+	TarifIndustri,
+	TarifPemerintah,
+}

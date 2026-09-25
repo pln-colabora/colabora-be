@@ -40,4 +40,8 @@ func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
 		permohonanRoutes.GET("/:id/logs", permohonanController.GetLogs)
 		permohonanRoutes.GET("/:id", permohonanController.GetById)
 	}
+
+	tariffRoutes := server.Group("/api/tariffs")
+	tariffRoutes.Use(middlewares.Authenticate(jwtService))
+	tariffRoutes.GET("", permohonanController.GetTariffOptions)
 }

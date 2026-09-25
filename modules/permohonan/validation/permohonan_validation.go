@@ -134,6 +134,24 @@ func (v *PermohonanValidation) ValidatePermohonanCreateRequest(req dto.Permohona
 	if !contains(rbac.AllJenisSambungan, req.JenisSambungan) {
 		return fmt.Errorf("jenis_sambungan must be one of: %s", strings.Join(rbac.AllJenisSambungan, ", "))
 	}
+	if req.Tarif != nil {
+		if !contains(rbac.AllTarif, *req.Tarif) {
+			return fmt.Errorf("tarif must be one of: %s", strings.Join(rbac.AllTarif, ", "))
+		}
+	}
+	if req.DayaLama != nil && *req.DayaLama <= 0 {
+		return fmt.Errorf("daya_lama must be greater than zero")
+	}
+	if req.DayaBaru != nil && *req.DayaBaru <= 0 {
+		return fmt.Errorf("daya_baru must be greater than zero")
+	}
+	if req.JenisPermohonan == rbac.JenisPermohonanPasangBaru && req.DayaLama != nil {
+		return fmt.Errorf("daya_lama must be empty for pasang baru")
+	}
+	if req.JenisPermohonan == rbac.JenisPermohonanPerubahanDaya &&
+		((req.DayaLama == nil) != (req.DayaBaru == nil) || (req.DayaLama != nil && *req.DayaLama == *req.DayaBaru)) {
+		return fmt.Errorf("perubahan daya requires different daya_lama and daya_baru")
+	}
 
 	return nil
 }

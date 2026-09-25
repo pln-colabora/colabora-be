@@ -5,8 +5,49 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/dto"
+	"github.com/pln-colabora/colabora-be/pkg/rbac"
 	"github.com/stretchr/testify/require"
 )
+
+func TestValidatePermohonanPowerFields(t *testing.T) {
+	v := NewPermohonanValidation()
+	newPower := int64(2200)
+	oldPower := int64(1300)
+
+	base := dto.PermohonanCreateRequest{
+		JenisPermohonan: rbac.JenisPermohonanPasangBaru,
+		JenisSambungan:  rbac.JenisSambunganJTR,
+		Tarif:           stringPointer(rbac.TarifRumahTangga),
+		DayaBaru:        &newPower,
+		PelangganNama:   "Pelanggan Uji",
+		PelangganAlamat: "Alamat Uji",
+		PelangganNoHp:   "0800000000",
+	}
+	require.NoError(t, v.ValidatePermohonanCreateRequest(base))
+	legacyShape := base
+	legacyShape.Tarif = nil
+	legacyShape.DayaBaru = nil
+	require.NoError(t, v.ValidatePermohonanCreateRequest(legacyShape))
+
+	pd := base
+	pd.JenisPermohonan = rbac.JenisPermohonanPerubahanDaya
+	pd.DayaLama = &oldPower
+	require.NoError(t, v.ValidatePermohonanCreateRequest(pd))
+
+	invalidPB := base
+	invalidPB.DayaLama = &oldPower
+	require.Error(t, v.ValidatePermohonanCreateRequest(invalidPB))
+
+	invalidPD := pd
+	invalidPD.DayaBaru = &oldPower
+	require.Error(t, v.ValidatePermohonanCreateRequest(invalidPD))
+
+	invalidTariff := base
+	invalidTariff.Tarif = stringPointer("lainnya")
+	require.Error(t, v.ValidatePermohonanCreateRequest(invalidTariff))
+}
+
+func stringPointer(value string) *string { return &value }
 
 func TestValidateSequenceOneRequests(t *testing.T) {
 	v := NewPermohonanValidation()

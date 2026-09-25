@@ -3,6 +3,7 @@ package dto
 import (
 	"encoding/json"
 	"errors"
+	"mime/multipart"
 
 	documentDTO "github.com/pln-colabora/colabora-be/modules/document/dto"
 )
@@ -34,6 +35,7 @@ var (
 	ErrWorkflowNodeNotFound = errors.New("workflow node not found")
 	ErrCreateForbidden      = errors.New("caller cannot create this connection type")
 	ErrInvalidULPUnit       = errors.New("invalid ulp_unit for this connection type")
+	ErrInvalidTariffPower   = errors.New("daya is not available for the selected tariff and connection type")
 	ErrEvidenceRequired     = errors.New("at least one evidence document is required")
 	ErrInvalidEvidence      = errors.New("document_ids must contain unique UUIDs")
 	ErrInvalidActivity      = errors.New("invalid workflow activity payload")
@@ -51,12 +53,16 @@ type (
 		VendorRole string `json:"vendor_role" binding:"required,oneof=vendor-tiang vendor-konstruksi vendor-sr-app" validate:"required,oneof=vendor-tiang vendor-konstruksi vendor-sr-app"`
 	}
 	PermohonanCreateRequest struct {
-		JenisPermohonan string  `json:"jenis_permohonan" binding:"required"`
-		JenisSambungan  string  `json:"jenis_sambungan" binding:"required"`
-		UlpUnit         *string `json:"ulp_unit"`
-		PelangganNama   string  `json:"pelanggan_nama" binding:"required,min=2,max=150"`
-		PelangganAlamat string  `json:"pelanggan_alamat" binding:"required,min=2,max=255"`
-		PelangganNoHp   string  `json:"pelanggan_no_hp" binding:"required,min=8,max=20"`
+		JenisPermohonan string                  `json:"jenis_permohonan" form:"jenis_permohonan" binding:"required"`
+		JenisSambungan  string                  `json:"jenis_sambungan" form:"jenis_sambungan" binding:"required"`
+		Tarif           *string                 `json:"tarif" form:"tarif"`
+		DayaLama        *int64                  `json:"daya_lama" form:"daya_lama"`
+		DayaBaru        *int64                  `json:"daya_baru" form:"daya_baru"`
+		UlpUnit         *string                 `json:"ulp_unit" form:"ulp_unit"`
+		PelangganNama   string                  `json:"pelanggan_nama" form:"pelanggan_nama" binding:"required,min=2,max=150"`
+		PelangganAlamat string                  `json:"pelanggan_alamat" form:"pelanggan_alamat" binding:"required,min=2,max=255"`
+		PelangganNoHp   string                  `json:"pelanggan_no_hp" form:"pelanggan_no_hp" binding:"required,min=8,max=20"`
+		EvidenceFiles   []*multipart.FileHeader `json:"-" form:"evidence_files"`
 	}
 
 	SurveySubmitRequest struct {
@@ -108,6 +114,9 @@ type (
 		NoPermohonan        string                 `json:"no_permohonan"`
 		JenisPermohonan     string                 `json:"jenis_permohonan"`
 		JenisSambungan      string                 `json:"jenis_sambungan"`
+		Tarif               *string                `json:"tarif"`
+		DayaLama            *int64                 `json:"daya_lama"`
+		DayaBaru            *int64                 `json:"daya_baru"`
 		UlpUnit             string                 `json:"ulp_unit"`
 		PelangganNama       string                 `json:"pelanggan_nama"`
 		PelangganAlamat     string                 `json:"pelanggan_alamat"`
@@ -121,6 +130,15 @@ type (
 		CreatedBy           string                 `json:"created_by"`
 		WorkflowNodes       []WorkflowNodeResponse `json:"workflow_nodes"`
 		AvailableActions    []AvailableAction      `json:"available_actions"`
+	}
+
+	TariffPowerOptionResponse struct {
+		Tarif          string `json:"tarif"`
+		GolonganTarif  string `json:"golongan_tarif"`
+		JenisSambungan string `json:"jenis_sambungan"`
+		DayaMin        int64  `json:"daya_min"`
+		DayaMax        *int64 `json:"daya_max"`
+		Label          string `json:"label"`
 	}
 
 	WorkflowNodeResponse struct {

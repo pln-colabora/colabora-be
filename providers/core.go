@@ -57,12 +57,13 @@ func RegisterDependencies(injector *do.Injector) {
 	refreshTokenRepository := authRepo.NewRefreshTokenRepository(db)
 	permohonanRepository := permohonanRepo.NewPermohonanRepository(db)
 	slaRuleRepository := permohonanRepo.NewSLARuleRepository(db)
+	tariffPowerRepository := permohonanRepo.NewTariffPowerRepository(db)
 	documentRepository := documentRepo.NewDocumentRepository(db)
 	accountDocumentRepository := documentRepo.NewAccountDocumentRepository(db)
 
 	userService := userService.NewUserService(userRepository, refreshTokenRepository, db)
-	permohonanService := permohonanService.NewPermohonanService(permohonanRepository, slaRuleRepository, userRepository, documentRepository, permohonanRepo.NewVendorAssignmentRepository(), db)
 	documentSvc := documentService.NewDocumentService(documentRepository, accountDocumentRepository, permohonanRepository, userRepository, storageClient, documentScanner, db)
+	permohonanService := permohonanService.NewPermohonanService(permohonanRepository, slaRuleRepository, tariffPowerRepository, userRepository, documentRepository, documentSvc, permohonanRepo.NewVendorAssignmentRepository(), db)
 	authService := authService.NewAuthService(userRepository, refreshTokenRepository, jwtService, documentSvc, accountDocumentRepository, db)
 
 	do.Provide(injector, func(i *do.Injector) (documentService.DocumentService, error) {

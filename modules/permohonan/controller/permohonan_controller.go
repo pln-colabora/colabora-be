@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/Caknoooo/go-pagination"
 	"github.com/gin-gonic/gin"
@@ -24,6 +25,7 @@ type (
 	PermohonanController interface {
 		AssignVendor(ctx *gin.Context)
 		Create(ctx *gin.Context)
+		GetTariffOptions(ctx *gin.Context)
 		GetAll(ctx *gin.Context)
 		GetById(ctx *gin.Context)
 		GetActivities(ctx *gin.Context)
@@ -47,6 +49,7 @@ type (
 
 	permohonanController struct {
 		permohonanService    service.PermohonanService
+		tariffOptionsService service.TariffOptionsService
 		permohonanValidation *validation.PermohonanValidation
 		db                   *gorm.DB
 	}
@@ -57,9 +60,15 @@ func NewPermohonanController(injector *do.Injector, s service.PermohonanService)
 	permohonanValidation := validation.NewPermohonanValidation()
 	return &permohonanController{
 		permohonanService:    s,
+		tariffOptionsService: tariffOptionsService(s),
 		permohonanValidation: permohonanValidation,
 		db:                   db,
 	}
+}
+
+func tariffOptionsService(s service.PermohonanService) service.TariffOptionsService {
+	options, _ := s.(service.TariffOptionsService)
+	return options
 }
 
 func (c *permohonanController) SubmitSurvey(ctx *gin.Context) {
@@ -173,6 +182,11 @@ func (c *permohonanController) Create(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, res)
 		return
 	}
+	if strings.HasPrefix(ctx.ContentType(), "multipart/") && len(req.EvidenceFiles) == 0 {
+		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_DATA_FROM_BODY, "at least one evidence file is required", nil)
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
 
 	userId := ctx.MustGet("user_id").(string)
 
@@ -181,6 +195,10 @@ func (c *permohonanController) Create(ctx *gin.Context) {
 		status := http.StatusBadRequest
 		if errors.Is(err, dto.ErrCreateForbidden) {
 			status = http.StatusForbidden
+		} else if errors.Is(err, documentDTO.ErrScanFailed) {
+			status = http.StatusServiceUnavailable
+		} else if errors.Is(err, documentDTO.ErrMalwareDetected) {
+			status = http.StatusUnprocessableEntity
 		}
 		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_CREATE_PERMOHONAN, err.Error(), nil)
 		ctx.JSON(status, res)
@@ -189,6 +207,33 @@ func (c *permohonanController) Create(ctx *gin.Context) {
 
 	res := utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_CREATE_PERMOHONAN, result)
 	ctx.JSON(http.StatusCreated, res)
+}
+
+func (c *permohonanController) GetTariffOptions(ctx *gin.Context) {
+	if c.tariffOptionsService == nil {
+		ctx.JSON(http.StatusNotImplemented, utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_DATA_FROM_BODY, "tariff options are unavailable", nil))
+		return
+	}
+	jenisSambungan := ctx.Query("jenis_sambungan")
+	if jenisSambungan != "" {
+		validConnection := false
+		for _, allowed := range rbac.AllJenisSambungan {
+			if jenisSambungan == allowed {
+				validConnection = true
+				break
+			}
+		}
+		if !validConnection {
+			ctx.JSON(http.StatusBadRequest, utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_DATA_FROM_BODY, "invalid jenis_sambungan", nil))
+			return
+		}
+	}
+	result, err := c.tariffOptionsService.ListTariffOptions(ctx, jenisSambungan)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_DATA_FROM_BODY, err.Error(), nil))
+		return
+	}
+	ctx.JSON(http.StatusOK, utils.BuildResponseSuccess("success get tariff options", result))
 }
 
 func (c *permohonanController) GetActivities(ctx *gin.Context) {

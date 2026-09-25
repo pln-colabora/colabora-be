@@ -25,6 +25,9 @@ verified.
 | `NoPermohonan` | varchar(30), unique | `PBPD-{year}-{sequence}` |
 | `JenisPermohonan` | varchar(30) | Pasang Baru or Perubahan Daya |
 | `JenisSambungan` | varchar(30) | JTR, JTM/Gardu, PLG TM <5 GWNG, or PLG TM >5 GWNG |
+| `Tarif` | nullable varchar(30) | `rumah_tangga`, `sosial`, `bisnis`, `industri`, or `pemerintah` |
+| `DayaLama` | nullable bigint | Existing power in VA; used for Perubahan Daya |
+| `DayaBaru` | nullable bigint | Requested power in VA; nullable for legacy records during rollout |
 | `UlpUnit` | varchar(50) | Caller ULP for JTR/JTM; explicitly selected target ULP for NPS-created PLG TM |
 | Customer fields | varchar | Name, address, and phone captured at Activity #1 |
 | `RequestDate` | date | H/G SLA reference date |
@@ -37,6 +40,11 @@ verified.
 | Timestamps | | Created/updated timestamps |
 
 `OwnerFnOverride` is removed from the target model. Owners are derived from available workflow nodes.
+
+`TariffPowerOption` stores configurable tariff/golongan/power bands per connection
+type. New create requests validate supplied `daya_lama` and `daya_baru` against
+active rows; the published bands are seeded as an initial catalogue and may be
+replaced without changing the `Permohonan` schema.
 
 ## `PermohonanWorkflowNode`
 

@@ -17,6 +17,7 @@ func Migrate(db *gorm.DB) error {
 		&entities.RefreshToken{},
 		&entities.SLARule{},
 		&entities.Permohonan{},
+		&entities.TariffPowerOption{},
 		&entities.PermohonanActivity{},
 		&entities.ActivityLog{},
 		&entities.Document{},

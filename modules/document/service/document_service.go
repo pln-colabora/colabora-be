@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -30,6 +31,7 @@ type DocumentService interface {
 	// Upload stores a raw file standalone — no permohonan/activity context yet, so no
 	// ownership check happens here. It's attached later via AttachToWorkflowNode.
 	Upload(ctx context.Context, userId string, req dto.DocumentUploadRequest) (dto.DocumentResponse, error)
+	UploadForWorkflow(ctx context.Context, tx *gorm.DB, userID, permohonanID, workflowNode string, files []*multipart.FileHeader) ([]string, error)
 	// UploadForAccount stores the registration document and its account relation
 	// inside the caller's transaction. StorageKey is internal compensation data;
 	// it must never be returned from an HTTP response.
@@ -177,6 +179,40 @@ func (s *documentService) UploadForAccount(ctx context.Context, tx *gorm.DB, use
 	}
 
 	return AccountUploadResult{Response: toDocumentResponse(created), StorageKey: key}, nil
+}
+
+// UploadForWorkflow stores and attaches multipart evidence while the caller's
+// aggregate transaction is open. Object storage is compensated by the caller
+// when the surrounding transaction rolls back.
+func (s *documentService) UploadForWorkflow(ctx context.Context, tx *gorm.DB, userID, permohonanID, workflowNode string, files []*multipart.FileHeader) ([]string, error) {
+	uploaderID, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, err
+	}
+	requestID, err := uuid.Parse(permohonanID)
+	if err != nil {
+		return nil, err
+	}
+	keys := make([]string, 0, len(files))
+	for _, file := range files {
+		document, key, prepareErr := s.prepareAndStore(ctx, uploaderID, dto.DocumentUploadRequest{File: file, Type: "permohonan_pbpd"})
+		if prepareErr != nil {
+			return keys, prepareErr
+		}
+		keys = append(keys, key)
+		document.PermohonanID = &requestID
+		created, createErr := s.documentRepository.Create(ctx, tx, document)
+		if createErr != nil {
+			return keys, createErr
+		}
+		evidence := entities.DocumentEvidence{
+			DocumentID: created.ID, PermohonanID: requestID, WorkflowNode: workflowNode, AttachedBy: uploaderID,
+		}
+		if createErr = tx.WithContext(ctx).Create(&evidence).Error; createErr != nil {
+			return keys, createErr
+		}
+	}
+	return keys, nil
 }
 
 func (s *documentService) DeleteStoredObject(ctx context.Context, key string) error {

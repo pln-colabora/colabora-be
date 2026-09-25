@@ -32,6 +32,9 @@ func (uploadErrorService) UploadForAccount(context.Context, *gorm.DB, string, dt
 	return service.AccountUploadResult{}, nil
 }
 func (uploadErrorService) DeleteStoredObject(context.Context, string) error { return nil }
+func (uploadErrorService) UploadForWorkflow(context.Context, *gorm.DB, string, string, string, []*multipart.FileHeader) ([]string, error) {
+	return nil, nil
+}
 
 func (s uploadErrorService) Upload(context.Context, string, dto.DocumentUploadRequest) (dto.DocumentResponse, error) {
 	return dto.DocumentResponse{}, s.err

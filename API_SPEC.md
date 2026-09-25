@@ -62,11 +62,24 @@ node. Decision/support nodes may have a null `activity_number`.
 ## Create contract
 
 `POST /api/permohonan` accepts customer/request fields plus `jenis_sambungan`.
+New clients may use `multipart/form-data` with one or more `evidence_files`; the
+files are scanned, stored, and attached to Activity #1 in the same database
+transaction. The legacy JSON shape remains accepted during the nullable-field
+rollout, but cannot attach files.
+
+Optional typed fields are `tarif`, `daya_lama`, and `daya_baru`; power values are
+expressed in VA. Supplied values are checked against the active tariff/connection
+catalogue.
 
 - For JTR/JTM, caller must be `pelayanan-pelanggan`; request must omit `ulp_unit`, which is derived from the caller.
 - For either PLG TM variant, caller must be `nps`; `ulp_unit` is required and must match a configured ULP.
 - Other role/type combinations return 403. Invalid or missing PLG TM target ULP returns 400.
 - Successful creation completes node `permohonan`, initializes all workflow nodes, and makes `survei` available to the correct role.
+
+`GET /api/tariffs` returns the active tariff, PLN group, and power bands. The
+optional `jenis_sambungan` query parameter filters the result, for example
+`GET /api/tariffs?jenis_sambungan=JTR`. This is a reusable master-data endpoint;
+the Permohonan form consumes it for the Activity #1 dropdown.
 
 ## Write endpoints
 
