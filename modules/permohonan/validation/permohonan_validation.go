@@ -55,6 +55,9 @@ func (v *PermohonanValidation) ValidateWOConstructionSubmitRequest(req dto.WOCon
 	if err := v.validate.Struct(req); err != nil {
 		return err
 	}
+	if _, err := time.Parse("2006-01-02", req.EstimasiTanggalSelesai); err != nil {
+		return fmt.Errorf("estimasi_tanggal_selesai must use YYYY-MM-DD format")
+	}
 	if err := validateLocationCoordinates(req.LocationCoordinates); err != nil {
 		return err
 	}

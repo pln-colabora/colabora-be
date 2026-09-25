@@ -90,10 +90,11 @@ type (
 	}
 
 	WOConstructionSubmitRequest struct {
-		PerluPdkb           *bool                `json:"perlu_pdkb" binding:"required" validate:"required"`
-		Notes               string               `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
-		DocumentIDs         []string             `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
-		LocationCoordinates *LocationCoordinates `json:"location_coordinates,omitempty"`
+		EstimasiTanggalSelesai string               `json:"estimasi_tanggal_selesai" binding:"required" validate:"required"`
+		PerluPdkb              *bool                `json:"perlu_pdkb" binding:"required" validate:"required"`
+		Notes                  string               `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
+		DocumentIDs            []string             `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
+		LocationCoordinates    *LocationCoordinates `json:"location_coordinates,omitempty"`
 	}
 
 	ConstructionExecutionSubmitRequest struct {

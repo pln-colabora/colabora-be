@@ -47,7 +47,7 @@ func TestStage4ParallelWorkOrdersCanCompleteInEitherOrder(t *testing.T) {
 					_, err = s.SubmitWOTiang(context.Background(), p.ID.String(), user.ID.String(), evidenceRequest())
 				case workflow.WOKonstruksi:
 					_, err = s.SubmitWOConstruction(context.Background(), p.ID.String(), user.ID.String(), dto.WOConstructionSubmitRequest{
-						PerluPdkb: &pdkbRequired, DocumentIDs: []string{uuid.NewString()},
+						EstimasiTanggalSelesai: "2026-09-30", PerluPdkb: &pdkbRequired, DocumentIDs: []string{uuid.NewString()},
 					})
 				case workflow.WOAPP:
 					_, err = s.SubmitWOAPP(context.Background(), p.ID.String(), user.ID.String(), evidenceRequest())
@@ -113,7 +113,7 @@ func TestWOConstructionControlsPDKBAndAuditsDerivedSkips(t *testing.T) {
 			s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: user}, documentRepository: docRepo, db: phase3DB(t)}
 
 			response, err := s.SubmitWOConstruction(context.Background(), p.ID.String(), user.ID.String(), dto.WOConstructionSubmitRequest{
-				PerluPdkb: &test.required, Notes: "synthetic work order", DocumentIDs: []string{uuid.NewString()}, LocationCoordinates: vendorCoordinates(),
+				EstimasiTanggalSelesai: "2026-09-30", PerluPdkb: &test.required, Notes: "synthetic work order", DocumentIDs: []string{uuid.NewString()}, LocationCoordinates: vendorCoordinates(),
 			})
 			require.NoError(t, err)
 			require.NotNil(t, response.PerluPdkb)
@@ -130,6 +130,7 @@ func TestWOConstructionControlsPDKBAndAuditsDerivedSkips(t *testing.T) {
 			require.Equal(t, test.wantAction, repo.logs[0].Action)
 			var payload map[string]any
 			require.NoError(t, json.Unmarshal([]byte(persistedNode(t, repo.byID, workflow.WOKonstruksi).Payload), &payload))
+			require.Equal(t, "2026-09-30", payload["estimasi_tanggal_selesai"])
 			require.Equal(t, -6.2, payload["location_coordinates"].(map[string]any)["latitude"])
 			if !test.required {
 				require.Equal(t, "node_skipped", repo.logs[1].Action)
@@ -137,7 +138,7 @@ func TestWOConstructionControlsPDKBAndAuditsDerivedSkips(t *testing.T) {
 			}
 
 			_, err = s.SubmitWOConstruction(context.Background(), p.ID.String(), user.ID.String(), dto.WOConstructionSubmitRequest{
-				PerluPdkb: &test.required, DocumentIDs: []string{uuid.NewString()},
+				EstimasiTanggalSelesai: "2026-09-30", PerluPdkb: &test.required, DocumentIDs: []string{uuid.NewString()},
 			})
 			require.Error(t, err)
 			require.Len(t, docRepo.attachCalls, 1)
@@ -330,7 +331,7 @@ func TestSequence2ExitUnlocksApplicableStage5Branches(t *testing.T) {
 	construction := entities.User{ID: uuid.New(), Role: rbac.RoleKonstruksi, Unit: "UP3"}
 	s.userRepository = &phase3UserRepository{user: construction}
 	_, err = s.SubmitWOConstruction(context.Background(), p.ID.String(), construction.ID.String(), dto.WOConstructionSubmitRequest{
-		PerluPdkb: &pdkbRequired, DocumentIDs: []string{uuid.NewString()},
+		EstimasiTanggalSelesai: "2026-09-30", PerluPdkb: &pdkbRequired, DocumentIDs: []string{uuid.NewString()},
 	})
 	require.NoError(t, err)
 	vendor := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}

@@ -209,7 +209,7 @@ func TestSubmitWOConstructionAcceptsExplicitFalseDecision(t *testing.T) {
 		permohonanService:    phase3ControllerService{},
 		permohonanValidation: validation.NewPermohonanValidation(),
 	}
-	body := []byte(`{"perlu_pdkb":false,"document_ids":["` + uuid.NewString() + `"]}`)
+	body := []byte(`{"estimasi_tanggal_selesai":"2026-09-30","perlu_pdkb":false,"document_ids":["` + uuid.NewString() + `"]}`)
 	request := httptest.NewRequest(http.MethodPost, "/api/permohonan/id/wo-vendor/konstruksi", bytes.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()

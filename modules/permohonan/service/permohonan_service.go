@@ -146,15 +146,16 @@ func (s *permohonanService) SubmitWOTiang(ctx context.Context, id, userID string
 }
 
 func (s *permohonanService) SubmitWOConstruction(ctx context.Context, id, userID string, req dto.WOConstructionSubmitRequest) (dto.PermohonanResponse, error) {
-	if req.PerluPdkb == nil || !notesWithinLimit(req.Notes) || !validLocationCoordinates(req.LocationCoordinates) {
+	if _, err := time.Parse("2006-01-02", req.EstimasiTanggalSelesai); err != nil || req.PerluPdkb == nil || !notesWithinLimit(req.Notes) || !validLocationCoordinates(req.LocationCoordinates) {
 		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
 	}
 	payloads := map[workflow.Code]any{
 		workflow.WOKonstruksi: struct {
-			PerluPDKB           bool                     `json:"perlu_pdkb"`
-			Notes               string                   `json:"notes,omitempty"`
-			LocationCoordinates *dto.LocationCoordinates `json:"location_coordinates,omitempty"`
-		}{PerluPDKB: *req.PerluPdkb, Notes: req.Notes, LocationCoordinates: req.LocationCoordinates},
+			EstimasiTanggalSelesai string                   `json:"estimasi_tanggal_selesai"`
+			PerluPDKB              bool                     `json:"perlu_pdkb"`
+			Notes                  string                   `json:"notes,omitempty"`
+			LocationCoordinates    *dto.LocationCoordinates `json:"location_coordinates,omitempty"`
+		}{EstimasiTanggalSelesai: req.EstimasiTanggalSelesai, PerluPDKB: *req.PerluPdkb, Notes: req.Notes, LocationCoordinates: req.LocationCoordinates},
 	}
 	applyDecision := func(snapshot *workflow.Snapshot) {
 		value := *req.PerluPdkb

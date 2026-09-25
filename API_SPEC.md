@@ -101,7 +101,7 @@ return 404. List totals and pages include only visible requests, even with
 | `POST` | `/api/permohonan/:id/rab-kko-kkf` | `rab_kko_kkf`, `kebutuhan_tiang` | `teknik` JTR/JTM; `perencanaan` PLG TM |
 | `POST` | `/api/permohonan/:id/permohonan-perluasan` | `permohonan_perluasan`, `nps_delegation` | `nps` |
 | `POST` | `/api/permohonan/:id/wo-vendor/tiang` | `wo_tiang` | `perencanaan` |
-| `POST` | `/api/permohonan/:id/wo-vendor/konstruksi` | `wo_konstruksi`; records `perlu_pdkb` | `konstruksi` |
+| `POST` | `/api/permohonan/:id/wo-vendor/konstruksi` | `wo_konstruksi`; records `estimasi_tanggal_selesai` and `perlu_pdkb` | `konstruksi` |
 | `POST` | `/api/permohonan/:id/wo-vendor/app` | `wo_app` | `transaksi-energi` |
 | `POST` | `/api/permohonan/:id/reservasi-material` | `reservasi_material` | `vendor-konstruksi` |
 | `POST` | `/api/permohonan/:id/tera-app` | `tera_app` | `transaksi-energi` |
@@ -114,7 +114,7 @@ return 404. List totals and pages include only visible requests, even with
 
 The NPS request body uses `nps_delegation_status: delegated|returned`. `returned` terminally closes the workflow with aggregate status `returned`; it is not a draft/rework loop.
 
-The WO Konstruksi request body requires the typed decision `perlu_pdkb: true|false`. Sequence 2 activities without another confirmed workflow-critical field accept optional notes and require evidence. Material reservation and APP tera are submitted independently: each accepts optional `notes` and requires evidence. Detailed material and relay/OCR fields remain discovery items rather than inferred production contracts. Reservation requires an explicitly assigned `vendor-konstruksi` account; tera remains owned by `transaksi-energi`.
+The WO Konstruksi request body requires `estimasi_tanggal_selesai` in `YYYY-MM-DD` format and the typed decision `perlu_pdkb: true|false`. The completion date is stored in the node payload as the source of truth; any remaining duration is derived as a calendar-day difference at read/calculation time rather than persisted separately. Sequence 2 activities without another confirmed workflow-critical field accept optional notes and require evidence. Material reservation and APP tera are submitted independently: each accepts optional `notes` and requires evidence. Detailed material and relay/OCR fields remain discovery items rather than inferred production contracts. Reservation requires an explicitly assigned `vendor-konstruksi` account; tera remains owned by `transaksi-energi`.
 
 The construction-execution request body selects the exact node with `workflow_node: pemasangan_tiang|pelaksanaan_konstruksi`; the service then applies that node's vendor ownership and prerequisites. `pelaksanaan_konstruksi` requires `wo_konstruksi` and, when applicable, `wo_pdkb`; there is no separate PK Vendor gate. PDKB documentation uses its dedicated endpoint. Sequence 3 keeps uncovered production fields minimal—required evidence plus optional notes—until the business confirms the detailed forms.
 

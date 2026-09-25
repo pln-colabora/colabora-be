@@ -109,11 +109,17 @@ func TestValidateSequenceTwoRequests(t *testing.T) {
 	}))
 
 	require.NoError(t, v.ValidateWOConstructionSubmitRequest(dto.WOConstructionSubmitRequest{
-		PerluPdkb: &pdkbRequired, DocumentIDs: []string{documentID},
+		EstimasiTanggalSelesai: "2026-09-30", PerluPdkb: &pdkbRequired, DocumentIDs: []string{documentID},
 		LocationCoordinates: &dto.LocationCoordinates{Latitude: &latitude, Longitude: &longitude},
 	}))
 	require.Error(t, v.ValidateWOConstructionSubmitRequest(dto.WOConstructionSubmitRequest{
 		DocumentIDs: []string{documentID},
+	}))
+	require.Error(t, v.ValidateWOConstructionSubmitRequest(dto.WOConstructionSubmitRequest{
+		EstimasiTanggalSelesai: "30-09-2026", PerluPdkb: &pdkbRequired, DocumentIDs: []string{documentID},
+	}))
+	require.Error(t, v.ValidateWOConstructionSubmitRequest(dto.WOConstructionSubmitRequest{
+		EstimasiTanggalSelesai: "2026-02-31", PerluPdkb: &pdkbRequired, DocumentIDs: []string{documentID},
 	}))
 
 	require.NoError(t, v.ValidateEvidenceSubmitRequest(dto.EvidenceSubmitRequest{
