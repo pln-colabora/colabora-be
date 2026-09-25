@@ -28,6 +28,7 @@ type PermohonanService interface {
 	GetById(ctx context.Context, id string, userId string) (dto.PermohonanResponse, error)
 	List(ctx context.Context, filter *query.PermohonanFilter, userId string) ([]query.Permohonan, int64, error)
 	GetActivities(ctx context.Context, id, userID string) ([]dto.WorkflowNodeResponse, error)
+	GetActivity(ctx context.Context, id, workflowNode, userID string) (dto.WorkflowNodeDetailResponse, error)
 	GetLogs(ctx context.Context, id, userID string) ([]dto.ActivityLogResponse, error)
 	SubmitSurvey(ctx context.Context, id, userID string, req dto.SurveySubmitRequest) (dto.PermohonanResponse, error)
 	SubmitRAB(ctx context.Context, id, userID string, req dto.RABSubmitRequest) (dto.PermohonanResponse, error)
@@ -617,6 +618,69 @@ func (s *permohonanService) GetActivities(ctx context.Context, id, userID string
 	return responses, nil
 }
 
+func (s *permohonanService) GetActivity(ctx context.Context, id, workflowNode, userID string) (dto.WorkflowNodeDetailResponse, error) {
+	p, err := s.permohonanRepository.GetById(ctx, s.db, id)
+	if err != nil {
+		return dto.WorkflowNodeDetailResponse{}, dto.ErrPermohonanNotFound
+	}
+
+	requester, err := s.userRepository.GetUserById(ctx, s.db, userID)
+	if err != nil {
+		return dto.WorkflowNodeDetailResponse{}, dto.ErrPermohonanNotFound
+	}
+
+	code := workflow.Code(workflowNode)
+	if _, known := workflow.Lookup(code); !known && !workflow.IsLegacy(code) {
+		return dto.WorkflowNodeDetailResponse{}, dto.ErrWorkflowNodeNotFound
+	}
+	if rbac.IsVendor(requester.Role) {
+		assignedNode, assigned := rbac.VendorWO(requester.Role)
+		if !assigned || assignedNode != code {
+			return dto.WorkflowNodeDetailResponse{}, dto.ErrWorkflowNodeNotFound
+		}
+	}
+
+	var node *entities.PermohonanActivity
+	for i := range p.WorkflowNodes {
+		if p.WorkflowNodes[i].WorkflowNode == workflowNode {
+			node = &p.WorkflowNodes[i]
+			break
+		}
+	}
+	if node == nil {
+		return dto.WorkflowNodeDetailResponse{}, dto.ErrWorkflowNodeNotFound
+	}
+
+	evaluated, err := workflow.Evaluate(p.WorkflowSnapshot())
+	if err != nil {
+		return dto.WorkflowNodeDetailResponse{}, err
+	}
+	nodeResponses := workflowNodeResponses([]entities.PermohonanActivity{*node}, evaluated, time.Now())
+	if len(nodeResponses) != 1 {
+		return dto.WorkflowNodeDetailResponse{}, dto.ErrWorkflowNodeNotFound
+	}
+
+	var documents []documentDTO.DocumentResponse
+	if !rbac.IsVendor(requester.Role) {
+		documentFilter := workflowNode
+		storedDocuments, listErr := s.documentRepository.ListByPermohonan(ctx, s.db, id, &documentFilter)
+		if listErr != nil {
+			return dto.WorkflowNodeDetailResponse{}, listErr
+		}
+		documents = make([]documentDTO.DocumentResponse, 0, len(storedDocuments))
+		for _, document := range storedDocuments {
+			documents = append(documents, toActivityDocumentResponse(document))
+		}
+	} else {
+		documents = []documentDTO.DocumentResponse{}
+	}
+
+	return dto.WorkflowNodeDetailResponse{
+		WorkflowNodeResponse: nodeResponses[0],
+		Documents:            documents,
+	}, nil
+}
+
 func (s *permohonanService) GetLogs(ctx context.Context, id, userID string) ([]dto.ActivityLogResponse, error) {
 	if _, err := s.permohonanRepository.GetById(ctx, s.db, id); err != nil {
 		return nil, dto.ErrPermohonanNotFound
@@ -654,6 +718,51 @@ func vendorWorkflowNodes(nodes []dto.WorkflowNodeResponse, role string) []dto.Wo
 		}
 	}
 	return filtered
+}
+
+func toActivityDocumentResponse(d entities.Document) documentDTO.DocumentResponse {
+	var permohonanID *string
+	if d.PermohonanID != nil {
+		value := d.PermohonanID.String()
+		permohonanID = &value
+	}
+
+	var supersedesID, supersededByID *string
+	if d.SupersedesID != nil {
+		value := d.SupersedesID.String()
+		supersedesID = &value
+	}
+	if d.SupersededByID != nil {
+		value := d.SupersededByID.String()
+		supersededByID = &value
+	}
+
+	var scanCheckedAt *string
+	if d.ScanCheckedAt != nil {
+		value := d.ScanCheckedAt.Format(time.RFC3339)
+		scanCheckedAt = &value
+	}
+
+	var uploadedByName *string
+	if d.Uploader.ID != uuid.Nil {
+		value := d.Uploader.Name
+		uploadedByName = &value
+	}
+
+	workflowNodes := make([]string, 0, len(d.Evidence))
+	for _, evidence := range d.Evidence {
+		workflowNodes = append(workflowNodes, evidence.WorkflowNode)
+	}
+
+	return documentDTO.DocumentResponse{
+		ID: d.ID.String(), Type: d.Type, OriginalFilename: d.OriginalFilename,
+		MimeType: d.MimeType, SizeBytes: d.SizeBytes, ChecksumSHA256: d.ChecksumSHA256,
+		Source: d.Source, Classification: d.Classification, ScanStatus: d.ScanStatus,
+		ScanCheckedAt: scanCheckedAt, Revision: d.Revision, SupersedesID: supersedesID,
+		SupersededByID: supersededByID, PermohonanID: permohonanID, WorkflowNodes: workflowNodes,
+		UploadedBy: d.UploadedBy.String(), UploadedByName: uploadedByName,
+		CreatedAt: d.CreatedAt.Format(time.RFC3339),
+	}
 }
 
 func (s *permohonanService) creationULP(ctx context.Context, role, callerUnit string, req dto.PermohonanCreateRequest) (string, error) {

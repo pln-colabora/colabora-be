@@ -27,6 +27,7 @@ type (
 		GetAll(ctx *gin.Context)
 		GetById(ctx *gin.Context)
 		GetActivities(ctx *gin.Context)
+		GetActivity(ctx *gin.Context)
 		GetLogs(ctx *gin.Context)
 		SubmitSurvey(ctx *gin.Context)
 		SubmitRAB(ctx *gin.Context)
@@ -202,6 +203,21 @@ func (c *permohonanController) GetActivities(ctx *gin.Context) {
 		return
 	}
 	res := utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_GET_ACTIVITIES, results)
+	ctx.JSON(http.StatusOK, res)
+}
+
+func (c *permohonanController) GetActivity(ctx *gin.Context) {
+	result, err := c.permohonanService.GetActivity(ctx, ctx.Param("id"), ctx.Param("workflow_node"), ctx.MustGet("user_id").(string))
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, dto.ErrPermohonanNotFound) || errors.Is(err, dto.ErrWorkflowNodeNotFound) {
+			status = http.StatusNotFound
+		}
+		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_ACTIVITY, err.Error(), nil)
+		ctx.JSON(status, res)
+		return
+	}
+	res := utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_GET_ACTIVITY, result)
 	ctx.JSON(http.StatusOK, res)
 }
 

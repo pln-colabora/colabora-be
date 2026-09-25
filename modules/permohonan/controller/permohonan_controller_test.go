@@ -3,6 +3,7 @@ package controller
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -43,6 +44,9 @@ func (phase3ControllerService) List(context.Context, *query.PermohonanFilter, st
 }
 func (phase3ControllerService) GetActivities(context.Context, string, string) ([]dto.WorkflowNodeResponse, error) {
 	return nil, nil
+}
+func (f phase3ControllerService) GetActivity(context.Context, string, string, string) (dto.WorkflowNodeDetailResponse, error) {
+	return dto.WorkflowNodeDetailResponse{}, f.activityErr
 }
 func (phase3ControllerService) GetLogs(context.Context, string, string) ([]dto.ActivityLogResponse, error) {
 	return nil, nil
@@ -168,6 +172,35 @@ func TestSubmitSurveyRejectsInvalidDateBeforeService(t *testing.T) {
 
 	controller.SubmitSurvey(ctx)
 	require.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
+func TestGetActivityHTTPContract(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, tc := range []struct {
+		name   string
+		err    error
+		status int
+	}{
+		{name: "success", status: http.StatusOK},
+		{name: "missing node", err: dto.ErrWorkflowNodeNotFound, status: http.StatusNotFound},
+		{name: "missing request", err: dto.ErrPermohonanNotFound, status: http.StatusNotFound},
+		{name: "database failure", err: errors.New("database failure"), status: http.StatusBadRequest},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			controller := &permohonanController{permohonanService: phase3ControllerService{activityErr: tc.err}}
+			recorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(recorder)
+			ctx.Request = httptest.NewRequest(http.MethodGet, "/api/permohonan/request/activities/survei", nil)
+			ctx.Params = gin.Params{
+				{Key: "id", Value: "request"},
+				{Key: "workflow_node", Value: "survei"},
+			}
+			ctx.Set("user_id", "actor-id")
+
+			controller.GetActivity(ctx)
+			require.Equal(t, tc.status, recorder.Code)
+		})
+	}
 }
 
 func TestSubmitWOConstructionAcceptsExplicitFalseDecision(t *testing.T) {

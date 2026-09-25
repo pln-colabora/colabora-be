@@ -35,6 +35,7 @@ func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
 		permohonanRoutes.POST("/:id/closing", permohonanController.SubmitClosing)
 		permohonanRoutes.POST("/:id/vendor-assignments", permohonanController.AssignVendor)
 		permohonanRoutes.GET("", permohonanController.GetAll)
+		permohonanRoutes.GET("/:id/activities/:workflow_node", permohonanController.GetActivity)
 		permohonanRoutes.GET("/:id/activities", permohonanController.GetActivities)
 		permohonanRoutes.GET("/:id/logs", permohonanController.GetLogs)
 		permohonanRoutes.GET("/:id", permohonanController.GetById)

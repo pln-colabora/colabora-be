@@ -28,6 +28,7 @@ route or OpenAPI contract.
 | `GET` | `/api/permohonan` | Paginated dashboard list and `scope=mine` filtering |
 | `GET` | `/api/permohonan/:id` | Aggregate detail, workflow nodes, and caller-specific available actions; vendors receive only their issued WO node |
 | `GET` | `/api/permohonan/:id/activities` | Workflow-node timeline; vendors receive only their issued WO node |
+| `GET` | `/api/permohonan/:id/activities/:workflow_node` | Detail payload input dan evidence dokumen untuk satu workflow node |
 | `GET` | `/api/permohonan/:id/documents` | Attached evidence, optionally filtered by `workflow_node` |
 | `GET` | `/api/permohonan/:id/logs` | Audit history; vendors receive only logs authored by their account |
 
@@ -52,6 +53,11 @@ Detail/list items replace the legacy single `can_act` decision with:
 ```
 
 Only actions owned by the authenticated caller appear in `available_actions`. The full activity endpoint can still show locked/available nodes without granting permission; vendor callers receive only their issued WO node.
+
+The single-node activity read uses the canonical `workflow_node` code (for example,
+`survei`, `rab_kko_kkf`, or `wo_konstruksi`), not the display activity number. It
+returns the node's persisted dynamic `payload` and documents attached to that exact
+node. Decision/support nodes may have a null `activity_number`.
 
 ## Create contract
 

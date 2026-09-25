@@ -3,6 +3,8 @@ package dto
 import (
 	"encoding/json"
 	"errors"
+
+	documentDTO "github.com/pln-colabora/colabora-be/modules/document/dto"
 )
 
 const (
@@ -11,6 +13,7 @@ const (
 	MESSAGE_FAILED_GET_PERMOHONAN      = "failed get permohonan"
 	MESSAGE_FAILED_GET_LIST_PERMOHONAN = "failed get list permohonan"
 	MESSAGE_FAILED_GET_ACTIVITIES      = "failed get workflow activities"
+	MESSAGE_FAILED_GET_ACTIVITY        = "failed get workflow activity"
 	MESSAGE_FAILED_GET_LOGS            = "failed get activity logs"
 	MESSAGE_FAILED_SUBMIT_ACTIVITY     = "failed submit workflow activity"
 	MESSAGE_FAILED_DENIED_ACCESS       = "denied access"
@@ -19,20 +22,22 @@ const (
 	MESSAGE_SUCCESS_GET_PERMOHONAN      = "success get permohonan"
 	MESSAGE_SUCCESS_GET_LIST_PERMOHONAN = "success get list permohonan"
 	MESSAGE_SUCCESS_GET_ACTIVITIES      = "success get workflow activities"
+	MESSAGE_SUCCESS_GET_ACTIVITY        = "success get workflow activity"
 	MESSAGE_SUCCESS_GET_LOGS            = "success get activity logs"
 	MESSAGE_SUCCESS_SUBMIT_ACTIVITY     = "success submit workflow activity"
 )
 
 var (
-	ErrCreatePermohonan   = errors.New("failed to create permohonan")
-	ErrGetPermohonanById  = errors.New("failed to get permohonan by id")
-	ErrPermohonanNotFound = errors.New("permohonan not found")
-	ErrCreateForbidden    = errors.New("caller cannot create this connection type")
-	ErrInvalidULPUnit     = errors.New("invalid ulp_unit for this connection type")
-	ErrEvidenceRequired   = errors.New("at least one evidence document is required")
-	ErrInvalidEvidence    = errors.New("document_ids must contain unique UUIDs")
-	ErrInvalidActivity    = errors.New("invalid workflow activity payload")
-	ErrSubmitActivity     = errors.New("failed to submit workflow activity")
+	ErrCreatePermohonan     = errors.New("failed to create permohonan")
+	ErrGetPermohonanById    = errors.New("failed to get permohonan by id")
+	ErrPermohonanNotFound   = errors.New("permohonan not found")
+	ErrWorkflowNodeNotFound = errors.New("workflow node not found")
+	ErrCreateForbidden      = errors.New("caller cannot create this connection type")
+	ErrInvalidULPUnit       = errors.New("invalid ulp_unit for this connection type")
+	ErrEvidenceRequired     = errors.New("at least one evidence document is required")
+	ErrInvalidEvidence      = errors.New("document_ids must contain unique UUIDs")
+	ErrInvalidActivity      = errors.New("invalid workflow activity payload")
+	ErrSubmitActivity       = errors.New("failed to submit workflow activity")
 )
 
 type (
@@ -128,6 +133,11 @@ type (
 		Payload        json.RawMessage `json:"payload"`
 		CompletedBy    *string         `json:"completed_by"`
 		CompletedAt    *string         `json:"completed_at"`
+	}
+
+	WorkflowNodeDetailResponse struct {
+		WorkflowNodeResponse
+		Documents []documentDTO.DocumentResponse `json:"documents"`
 	}
 
 	AvailableAction struct {

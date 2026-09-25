@@ -92,6 +92,27 @@ paths:
         "200": { description: Timeline workflow, content: { application/json: { schema: { $ref: "#/components/schemas/WorkflowNodesEnvelope" } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /api/permohonan/{id}/activities/{workflow_node}:
+    get:
+      tags: ["Tahap 1 — Permohonan PB/PD"]
+      operationId: getPermohonanActivity
+      summary: Detail input dan dokumen satu workflow node
+      description: >-
+        Mengembalikan payload input yang tersimpan dan dokumen evidence untuk
+        satu workflow node. Gunakan kode node kanonik, bukan nomor activity;
+        `activity_number` tetap nullable untuk node keputusan atau pendukung.
+        Vendor hanya dapat membaca node yang ditugaskan kepadanya.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/PermohonanID" }
+        - name: workflow_node
+          in: path
+          required: true
+          schema: { type: string, example: rab_kko_kkf }
+      responses:
+        "200": { description: Detail workflow node, content: { application/json: { schema: { $ref: "#/components/schemas/WorkflowNodeDetailEnvelope" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /api/permohonan/{id}/logs:
     get:
       tags: ["Tahap 1 — Permohonan PB/PD"]
@@ -160,6 +181,11 @@ components:
         - $ref: "#/components/schemas/ApiResponse"
         - type: object
           properties: { data: { type: array, items: { $ref: "#/components/schemas/WorkflowNode" } } }
+    WorkflowNodeDetailEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties: { data: { $ref: "#/components/schemas/WorkflowNodeDetail" } }
     ActivityLogsEnvelope:
       allOf:
         - $ref: "#/components/schemas/ApiResponse"
@@ -188,6 +214,34 @@ components:
         workflow_nodes: { type: array, description: "Vendor callers receive only their issued WO node; internal callers receive the full projection.", items: { $ref: "#/components/schemas/WorkflowNode" } }
         available_actions: { type: array, items: { $ref: "#/components/schemas/AvailableAction" } }
     WorkflowNode: { type: object, properties: { workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, status: { type: string, enum: [locked, available, in_progress, completed, skipped] }, sla_deadline: { type: string, format: date, nullable: true }, sla_status: { type: string, enum: [none, on_time, due_soon, overdue] }, payload: { type: object, additionalProperties: true }, completed_by: { type: string, format: uuid, nullable: true }, completed_at: { type: string, format: date-time, nullable: true } } }
+    WorkflowNodeDetail:
+      allOf:
+        - $ref: "#/components/schemas/WorkflowNode"
+        - type: object
+          required: [documents]
+          properties:
+            documents: { type: array, items: { $ref: "#/components/schemas/ActivityDocument" } }
+    ActivityDocument:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string }
+        original_filename: { type: string }
+        mime_type: { type: string }
+        size_bytes: { type: integer, format: int64 }
+        checksum_sha256: { type: string }
+        source: { type: string }
+        classification: { type: string }
+        scan_status: { type: string }
+        scan_checked_at: { type: string, format: date-time, nullable: true }
+        revision: { type: integer }
+        supersedes_id: { type: string, format: uuid, nullable: true }
+        superseded_by_id: { type: string, format: uuid, nullable: true }
+        permohonan_id: { type: string, format: uuid, nullable: true }
+        workflow_nodes: { type: array, items: { type: string } }
+        uploaded_by: { type: string, format: uuid }
+        uploaded_by_name: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
     AvailableAction: { type: object, properties: { workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, method: { type: string }, path: { type: string } } }
     ActivityLog:
       type: object

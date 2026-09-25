@@ -61,6 +61,7 @@ func TestPermohonanStageDocumentsKeepBusinessGrouping(t *testing.T) {
 				"/api/permohonan",
 				"/api/permohonan/{id}",
 				"/api/permohonan/{id}/activities",
+				"/api/permohonan/{id}/activities/{workflow_node}",
 				"/api/permohonan/{id}/logs",
 				"/api/permohonan/{id}/vendor-assignments",
 			},

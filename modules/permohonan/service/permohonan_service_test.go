@@ -62,6 +62,7 @@ type phase4DocumentRepository struct {
 	attachCalls []workflow.Code
 	failAt      int
 	attachErr   error
+	documents   []entities.Document
 }
 
 type failingSavePermohonanRepository struct {
@@ -79,7 +80,7 @@ func (f *phase4DocumentRepository) GetById(context.Context, *gorm.DB, string) (e
 	return entities.Document{}, nil
 }
 func (f *phase4DocumentRepository) ListByPermohonan(context.Context, *gorm.DB, string, *string) ([]entities.Document, error) {
-	return nil, nil
+	return f.documents, nil
 }
 func (f *phase4DocumentRepository) ExistsForWorkflowNode(context.Context, *gorm.DB, string, string) (bool, error) {
 	return false, nil
@@ -580,6 +581,74 @@ func responseNode(t *testing.T, p dto.PermohonanResponse, code workflow.Code) dt
 	}
 	t.Fatalf("node %s not found", code)
 	return dto.WorkflowNodeResponse{}
+}
+
+func TestGetActivityReturnsDynamicPayloadAndNodeDocuments(t *testing.T) {
+	actor := entities.User{ID: uuid.New(), Name: "Teknik ULP", Role: rbac.RoleTeknik, Unit: "ULP A"}
+	p := entities.Permohonan{
+		ID:             uuid.New(),
+		JenisSambungan: rbac.JenisSambunganJTR,
+		UlpUnit:        actor.Unit,
+		RequestDate:    time.Now(),
+		CreatedBy:      actor.ID,
+	}
+	nodes, _, err := entities.InitializeWorkflow(p, mustSLARules(t, rbac.JenisSambunganJTR), time.Now())
+	require.NoError(t, err)
+	for i := range nodes {
+		if nodes[i].WorkflowNode == string(workflow.Survei) {
+			nodes[i].Status = string(workflow.Completed)
+			nodes[i].Payload = `{"surveyed_at":"2026-09-25","future_field":"preserved"}`
+		}
+	}
+	p.WorkflowNodes = nodes
+
+	document := entities.Document{
+		ID:               uuid.New(),
+		Type:             "survey",
+		FilePath:         "private/should-not-be-returned.pdf",
+		OriginalFilename: "hasil-survei.pdf",
+		MimeType:         "application/pdf",
+		SizeBytes:        1024,
+		ChecksumSHA256:   "checksum",
+		Source:           "uploaded",
+		Classification:   "restricted",
+		ScanStatus:       "clean",
+		UploadedBy:       actor.ID,
+		PermohonanID:     &p.ID,
+		Uploader:         actor,
+		Evidence: []entities.DocumentEvidence{{
+			WorkflowNode: string(workflow.Survei),
+		}},
+	}
+	repo := &phase3PermohonanRepository{byID: p}
+	documentRepo := &phase4DocumentRepository{documents: []entities.Document{document}}
+	s := &permohonanService{
+		permohonanRepository: repo,
+		userRepository:       &phase3UserRepository{user: actor},
+		documentRepository:   documentRepo,
+	}
+
+	result, err := s.GetActivity(context.Background(), p.ID.String(), string(workflow.Survei), actor.ID.String())
+	require.NoError(t, err)
+	require.Equal(t, string(workflow.Survei), result.WorkflowNode)
+	require.Equal(t, string(workflow.Completed), result.Status)
+	require.JSONEq(t, `{"surveyed_at":"2026-09-25","future_field":"preserved"}`, string(result.Payload))
+	require.Len(t, result.Documents, 1)
+	require.Equal(t, document.ID.String(), result.Documents[0].ID)
+	require.Equal(t, "hasil-survei.pdf", result.Documents[0].OriginalFilename)
+}
+
+func TestGetActivityRejectsUnknownWorkflowNode(t *testing.T) {
+	actor := entities.User{ID: uuid.New(), Role: rbac.RoleTeknik, Unit: "ULP A"}
+	p := entities.Permohonan{ID: uuid.New(), JenisSambungan: rbac.JenisSambunganJTR, UlpUnit: actor.Unit, WorkflowNodes: []entities.PermohonanActivity{}}
+	s := &permohonanService{
+		permohonanRepository: &phase3PermohonanRepository{byID: p},
+		userRepository:       &phase3UserRepository{user: actor},
+		documentRepository:   &phase4DocumentRepository{},
+	}
+
+	_, err := s.GetActivity(context.Background(), p.ID.String(), "not-a-node", actor.ID.String())
+	require.ErrorIs(t, err, dto.ErrWorkflowNodeNotFound)
 }
 
 func TestGetLogsReturnsActorNames(t *testing.T) {
