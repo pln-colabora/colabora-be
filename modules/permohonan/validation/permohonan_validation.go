@@ -45,6 +45,9 @@ func (v *PermohonanValidation) ValidateEvidenceSubmitRequest(req dto.EvidenceSub
 	if err := v.validate.Struct(req); err != nil {
 		return err
 	}
+	if err := validateLocationCoordinates(req.LocationCoordinates); err != nil {
+		return err
+	}
 	return validateDocumentIDs(req.DocumentIDs)
 }
 
@@ -52,11 +55,17 @@ func (v *PermohonanValidation) ValidateWOConstructionSubmitRequest(req dto.WOCon
 	if err := v.validate.Struct(req); err != nil {
 		return err
 	}
+	if err := validateLocationCoordinates(req.LocationCoordinates); err != nil {
+		return err
+	}
 	return validateDocumentIDs(req.DocumentIDs)
 }
 
 func (v *PermohonanValidation) ValidateConstructionExecutionSubmitRequest(req dto.ConstructionExecutionSubmitRequest) error {
 	if err := v.validate.Struct(req); err != nil {
+		return err
+	}
+	if err := validateLocationCoordinates(req.LocationCoordinates); err != nil {
 		return err
 	}
 	if req.WorkflowNode != "pemasangan_tiang" && req.WorkflowNode != "pelaksanaan_konstruksi" {
@@ -82,6 +91,22 @@ func validateDocumentIDs(ids []string) error {
 			return fmt.Errorf("document_ids must not contain duplicates")
 		}
 		seen[id] = struct{}{}
+	}
+	return nil
+}
+
+func validateLocationCoordinates(coordinates *dto.LocationCoordinates) error {
+	if coordinates == nil {
+		return nil
+	}
+	if coordinates.Latitude == nil || coordinates.Longitude == nil {
+		return fmt.Errorf("location_coordinates requires latitude and longitude")
+	}
+	if *coordinates.Latitude < -90 || *coordinates.Latitude > 90 {
+		return fmt.Errorf("location_coordinates.latitude must be between -90 and 90")
+	}
+	if *coordinates.Longitude < -180 || *coordinates.Longitude > 180 {
+		return fmt.Errorf("location_coordinates.longitude must be between -180 and 180")
 	}
 	return nil
 }

@@ -51,6 +51,8 @@ One row per canonical workflow node for a request. All codes are listed in `PRD.
 
 Create all canonical nodes when the request is created so locked, skipped, and available states are queryable consistently. Branch decisions change status; they do not delete conditional rows.
 
+Temporary vendor payloads may include `location_coordinates: { latitude, longitude }` in decimal WGS84 format. The field is optional, both coordinates are required when present, and it remains JSONB until the production vendor forms and location persistence requirements are finalized.
+
 ## `SLARule`
 
 One row per source activity number and connection type where an SLA is defined:

@@ -45,9 +45,22 @@ func TestValidateSequenceTwoRequests(t *testing.T) {
 	v := NewPermohonanValidation()
 	documentID := uuid.NewString()
 	pdkbRequired := false
+	latitude, longitude := -6.2, 106.816666
 
 	require.NoError(t, v.ValidateEvidenceSubmitRequest(dto.EvidenceSubmitRequest{
 		Notes: "synthetic evidence", DocumentIDs: []string{documentID},
+		LocationCoordinates: &dto.LocationCoordinates{Latitude: &latitude, Longitude: &longitude},
+	}))
+	require.Error(t, v.ValidateEvidenceSubmitRequest(dto.EvidenceSubmitRequest{
+		DocumentIDs: []string{documentID}, LocationCoordinates: &dto.LocationCoordinates{Latitude: &latitude},
+	}))
+	invalidLatitude := 91.0
+	require.Error(t, v.ValidateEvidenceSubmitRequest(dto.EvidenceSubmitRequest{
+		DocumentIDs: []string{documentID}, LocationCoordinates: &dto.LocationCoordinates{Latitude: &invalidLatitude, Longitude: &longitude},
+	}))
+	invalidLongitude := 181.0
+	require.Error(t, v.ValidateEvidenceSubmitRequest(dto.EvidenceSubmitRequest{
+		DocumentIDs: []string{documentID}, LocationCoordinates: &dto.LocationCoordinates{Latitude: &latitude, Longitude: &invalidLongitude},
 	}))
 	require.Error(t, v.ValidateEvidenceSubmitRequest(dto.EvidenceSubmitRequest{}))
 	require.Error(t, v.ValidateEvidenceSubmitRequest(dto.EvidenceSubmitRequest{
@@ -56,6 +69,7 @@ func TestValidateSequenceTwoRequests(t *testing.T) {
 
 	require.NoError(t, v.ValidateWOConstructionSubmitRequest(dto.WOConstructionSubmitRequest{
 		PerluPdkb: &pdkbRequired, DocumentIDs: []string{documentID},
+		LocationCoordinates: &dto.LocationCoordinates{Latitude: &latitude, Longitude: &longitude},
 	}))
 	require.Error(t, v.ValidateWOConstructionSubmitRequest(dto.WOConstructionSubmitRequest{
 		DocumentIDs: []string{documentID},

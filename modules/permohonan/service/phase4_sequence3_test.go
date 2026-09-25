@@ -218,6 +218,6 @@ func stage5Request(t *testing.T, connection string, poleRequired, pdkbRequired b
 
 func executionRequest(code workflow.Code) dto.ConstructionExecutionSubmitRequest {
 	return dto.ConstructionExecutionSubmitRequest{
-		WorkflowNode: string(code), Notes: "synthetic execution evidence", DocumentIDs: []string{uuid.NewString()},
+		WorkflowNode: string(code), Notes: "synthetic execution evidence", DocumentIDs: []string{uuid.NewString()}, LocationCoordinates: vendorCoordinates(),
 	}
 }

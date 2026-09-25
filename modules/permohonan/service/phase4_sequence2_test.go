@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
@@ -112,7 +113,7 @@ func TestWOConstructionControlsPDKBAndAuditsDerivedSkips(t *testing.T) {
 			s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: user}, documentRepository: docRepo, db: phase3DB(t)}
 
 			response, err := s.SubmitWOConstruction(context.Background(), p.ID.String(), user.ID.String(), dto.WOConstructionSubmitRequest{
-				PerluPdkb: &test.required, Notes: "synthetic work order", DocumentIDs: []string{uuid.NewString()},
+				PerluPdkb: &test.required, Notes: "synthetic work order", DocumentIDs: []string{uuid.NewString()}, LocationCoordinates: vendorCoordinates(),
 			})
 			require.NoError(t, err)
 			require.NotNil(t, response.PerluPdkb)
@@ -127,6 +128,9 @@ func TestWOConstructionControlsPDKBAndAuditsDerivedSkips(t *testing.T) {
 			}
 			require.Len(t, repo.logs, test.wantLogSize)
 			require.Equal(t, test.wantAction, repo.logs[0].Action)
+			var payload map[string]any
+			require.NoError(t, json.Unmarshal([]byte(persistedNode(t, repo.byID, workflow.WOKonstruksi).Payload), &payload))
+			require.Equal(t, -6.2, payload["location_coordinates"].(map[string]any)["latitude"])
 			if !test.required {
 				require.Equal(t, "node_skipped", repo.logs[1].Action)
 				require.Equal(t, "node_skipped", repo.logs[2].Action)
@@ -365,5 +369,10 @@ func delegatedRequest(t *testing.T, connection string, poleRequired bool) entiti
 }
 
 func evidenceRequest() dto.EvidenceSubmitRequest {
-	return dto.EvidenceSubmitRequest{Notes: "synthetic evidence", DocumentIDs: []string{uuid.NewString()}}
+	return dto.EvidenceSubmitRequest{Notes: "synthetic evidence", DocumentIDs: []string{uuid.NewString()}, LocationCoordinates: vendorCoordinates()}
+}
+
+func vendorCoordinates() *dto.LocationCoordinates {
+	latitude, longitude := -6.2, 106.816666
+	return &dto.LocationCoordinates{Latitude: &latitude, Longitude: &longitude}
 }

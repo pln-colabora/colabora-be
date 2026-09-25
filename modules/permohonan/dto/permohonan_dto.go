@@ -36,6 +36,11 @@ var (
 )
 
 type (
+	LocationCoordinates struct {
+		Latitude  *float64 `json:"latitude"`
+		Longitude *float64 `json:"longitude"`
+	}
+
 	VendorAssignmentRequest struct {
 		VendorID   string `json:"vendor_id" binding:"required,uuid" validate:"required,uuid"`
 		VendorRole string `json:"vendor_role" binding:"required,oneof=vendor-tiang vendor-konstruksi vendor-sr-app" validate:"required,oneof=vendor-tiang vendor-konstruksi vendor-sr-app"`
@@ -68,20 +73,23 @@ type (
 	}
 
 	EvidenceSubmitRequest struct {
-		Notes       string   `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
-		DocumentIDs []string `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
+		Notes               string               `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
+		DocumentIDs         []string             `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
+		LocationCoordinates *LocationCoordinates `json:"location_coordinates,omitempty"`
 	}
 
 	WOConstructionSubmitRequest struct {
-		PerluPdkb   *bool    `json:"perlu_pdkb" binding:"required" validate:"required"`
-		Notes       string   `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
-		DocumentIDs []string `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
+		PerluPdkb           *bool                `json:"perlu_pdkb" binding:"required" validate:"required"`
+		Notes               string               `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
+		DocumentIDs         []string             `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
+		LocationCoordinates *LocationCoordinates `json:"location_coordinates,omitempty"`
 	}
 
 	ConstructionExecutionSubmitRequest struct {
-		WorkflowNode string   `json:"workflow_node" binding:"required" validate:"required"`
-		Notes        string   `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
-		DocumentIDs  []string `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
+		WorkflowNode        string               `json:"workflow_node" binding:"required" validate:"required"`
+		Notes               string               `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
+		DocumentIDs         []string             `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
+		LocationCoordinates *LocationCoordinates `json:"location_coordinates,omitempty"`
 	}
 
 	EnergizeSubmitRequest struct {
