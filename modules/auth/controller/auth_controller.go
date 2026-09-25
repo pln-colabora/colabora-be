@@ -1,15 +1,16 @@
 package controller
 
 import (
+	"errors"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/pln-colabora/colabora-be/modules/auth/dto"
 	"github.com/pln-colabora/colabora-be/modules/auth/service"
 	"github.com/pln-colabora/colabora-be/modules/auth/validation"
 	userDto "github.com/pln-colabora/colabora-be/modules/user/dto"
 	"github.com/pln-colabora/colabora-be/pkg/constants"
 	"github.com/pln-colabora/colabora-be/pkg/utils"
-	"github.com/gin-gonic/gin"
 	"github.com/samber/do"
 	"gorm.io/gorm"
 )
@@ -22,6 +23,7 @@ type (
 		Logout(ctx *gin.Context)
 		SendVerificationEmail(ctx *gin.Context)
 		VerifyEmail(ctx *gin.Context)
+		VerifyUser(ctx *gin.Context)
 		SendPasswordReset(ctx *gin.Context)
 		ResetPassword(ctx *gin.Context)
 	}
@@ -163,6 +165,22 @@ func (c *authController) VerifyEmail(ctx *gin.Context) {
 	}
 
 	res := utils.BuildResponseSuccess(userDto.MESSAGE_SUCCESS_VERIFY_EMAIL, result)
+	ctx.JSON(http.StatusOK, res)
+}
+
+func (c *authController) VerifyUser(ctx *gin.Context) {
+	result, err := c.authService.VerifyUser(ctx.Request.Context(), ctx.Param("user_id"))
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, userDto.ErrUserNotFound) {
+			status = http.StatusNotFound
+		}
+		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_VERIFY_USER, err.Error(), nil)
+		ctx.JSON(status, res)
+		return
+	}
+
+	res := utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_VERIFY_USER, result)
 	ctx.JSON(http.StatusOK, res)
 }
 

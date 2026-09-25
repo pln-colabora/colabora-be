@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/pln-colabora/colabora-be/database/entities"
@@ -23,6 +24,7 @@ type AuthService interface {
 	VerifyEmail(ctx context.Context, req userDto.VerifyEmailRequest) (userDto.VerifyEmailResponse, error)
 	SendPasswordReset(ctx context.Context, req dto.SendPasswordResetRequest) error
 	ResetPassword(ctx context.Context, req dto.ResetPasswordRequest) error
+	VerifyUser(ctx context.Context, userID string) (dto.VerifyUserResponse, error)
 }
 
 type authService struct {
@@ -198,6 +200,33 @@ func (s *authService) VerifyEmail(ctx context.Context, req userDto.VerifyEmailRe
 	}
 
 	return userDto.VerifyEmailResponse{
+		Email:      updatedUser.Email,
+		IsVerified: updatedUser.IsVerified,
+	}, nil
+}
+
+func (s *authService) VerifyUser(ctx context.Context, userID string) (dto.VerifyUserResponse, error) {
+	parsedID, err := uuid.Parse(userID)
+	if err != nil {
+		return dto.VerifyUserResponse{}, dto.ErrInvalidUserID
+	}
+
+	user, err := s.userRepository.GetUserById(ctx, s.db, parsedID.String())
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return dto.VerifyUserResponse{}, userDto.ErrUserNotFound
+		}
+		return dto.VerifyUserResponse{}, err
+	}
+
+	user.IsVerified = true
+	updatedUser, err := s.userRepository.Update(ctx, s.db, user)
+	if err != nil {
+		return dto.VerifyUserResponse{}, err
+	}
+
+	return dto.VerifyUserResponse{
+		ID:         updatedUser.ID.String(),
 		Email:      updatedUser.Email,
 		IsVerified: updatedUser.IsVerified,
 	}, nil

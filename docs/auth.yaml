@@ -12,6 +12,36 @@ tags:
   - name: Auth
     description: Registration, login, tokens, email verification, password reset
 paths:
+  /api/auth/verify/{user_id}:
+    post:
+      tags: [Auth]
+      summary: Approve and verify a user account (admin or super-user only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: User account verified
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/VerifyUserResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/auth/register:
     post:
       tags: [Auth]
@@ -226,6 +256,16 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ApiResponse" }
+    Forbidden:
+      description: Authenticated caller lacks account-management access
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiResponse" }
+    NotFound:
+      description: Target user was not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiResponse" }
   schemas:
     ApiResponse:
       type: object
@@ -259,5 +299,11 @@ components:
     VerifyEmailResponse:
       type: object
       properties:
+        email: { type: string, format: email }
+        is_verified: { type: boolean }
+    VerifyUserResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
         email: { type: string, format: email }
         is_verified: { type: boolean }
