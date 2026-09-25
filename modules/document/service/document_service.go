@@ -30,6 +30,11 @@ type DocumentService interface {
 	// Upload stores a raw file standalone — no permohonan/activity context yet, so no
 	// ownership check happens here. It's attached later via AttachToWorkflowNode.
 	Upload(ctx context.Context, userId string, req dto.DocumentUploadRequest) (dto.DocumentResponse, error)
+	// UploadForAccount stores the registration document and its account relation
+	// inside the caller's transaction. StorageKey is internal compensation data;
+	// it must never be returned from an HTTP response.
+	UploadForAccount(ctx context.Context, tx *gorm.DB, userID string, req dto.DocumentUploadRequest) (AccountUploadResult, error)
+	DeleteStoredObject(ctx context.Context, key string) error
 	// Activity-submission endpoints call AttachToWorkflowNode in their transaction,
 	// referencing documents uploaded earlier via Upload.
 	AttachToWorkflowNode(ctx context.Context, userId, permohonanId, workflowNode string, documentIds []string) error
@@ -38,6 +43,11 @@ type DocumentService interface {
 	List(ctx context.Context, userID, permohonanId string, workflowNode *string) ([]dto.DocumentResponse, error)
 	HasEvidence(ctx context.Context, permohonanId, workflowNode string) (bool, error)
 	CleanupOrphans(ctx context.Context, before time.Time, limit int) (int, error)
+}
+
+type AccountUploadResult struct {
+	Response   dto.DocumentResponse
+	StorageKey string
 }
 
 // DocumentContent is an authorized Garage object stream plus the metadata required to
@@ -51,6 +61,7 @@ type DocumentContent struct {
 
 type documentService struct {
 	documentRepository   repository.DocumentLifecycleRepository
+	accountDocumentRepo  repository.AccountDocumentRepository
 	permohonanRepository permohonanRepository.PermohonanRepository
 	userRepository       userRepository.UserRepository
 	storageClient        storage.Client
@@ -60,6 +71,7 @@ type documentService struct {
 
 func NewDocumentService(
 	documentRepo repository.DocumentLifecycleRepository,
+	accountDocumentRepo repository.AccountDocumentRepository,
 	permohonanRepo permohonanRepository.PermohonanRepository,
 	userRepo userRepository.UserRepository,
 	storageClient storage.Client,
@@ -68,6 +80,7 @@ func NewDocumentService(
 ) DocumentService {
 	return &documentService{
 		documentRepository:   documentRepo,
+		accountDocumentRepo:  accountDocumentRepo,
 		permohonanRepository: permohonanRepo,
 		userRepository:       userRepo,
 		storageClient:        storageClient,
@@ -85,54 +98,9 @@ func (s *documentService) Upload(ctx context.Context, userId string, req dto.Doc
 		return dto.DocumentResponse{}, err
 	}
 
-	file, err := req.File.Open()
+	document, key, err := s.prepareAndStore(ctx, uploader.ID, req)
 	if err != nil {
 		return dto.DocumentResponse{}, err
-	}
-	defer file.Close()
-
-	// Bound the actual bytes even when a caller supplies an incorrect FileHeader.Size.
-	content, err := io.ReadAll(io.LimitReader(file, validation.MaxUploadSizeBytes+1))
-	if err != nil {
-		return dto.DocumentResponse{}, dto.ErrInvalidFileType
-	}
-	if len(content) > validation.MaxUploadSizeBytes {
-		return dto.DocumentResponse{}, dto.ErrFileTooLarge
-	}
-	contentType := http.DetectContentType(content)
-	if len(content) == 0 || contentType != req.File.Header.Get("Content-Type") {
-		return dto.DocumentResponse{}, dto.ErrInvalidFileType
-	}
-	scanner := s.scanner
-	if scanner == nil {
-		scanner = scanning.DisabledScanner{}
-	}
-	scanStatus, err := scanner.Scan(ctx, content)
-	if err != nil {
-		return dto.DocumentResponse{}, dto.ErrScanFailed
-	}
-	if scanStatus == scanning.StatusInfected {
-		return dto.DocumentResponse{}, dto.ErrMalwareDetected
-	}
-	if scanStatus != scanning.StatusClean && scanStatus != scanning.StatusNotScanned {
-		return dto.DocumentResponse{}, dto.ErrScanFailed
-	}
-	key := fmt.Sprintf("documents/%s", uuid.New().String())
-
-	if err := s.storageClient.PutObject(ctx, key, bytes.NewReader(content), int64(len(content)), contentType); err != nil {
-		return dto.DocumentResponse{}, err
-	}
-
-	checksum := sha256.Sum256(content)
-	document := entities.Document{
-		Type: strings.TrimSpace(req.Type), FilePath: key, OriginalFilename: strings.TrimSpace(filepath.Base(req.File.Filename)),
-		MimeType: contentType, SizeBytes: int64(len(content)), ChecksumSHA256: fmt.Sprintf("%x", checksum),
-		Source: "uploaded", Classification: "restricted", ScanStatus: scanStatus, Revision: 1,
-		UploadedBy: uploader.ID,
-	}
-	if scanStatus == scanning.StatusClean {
-		now := time.Now()
-		document.ScanCheckedAt = &now
 	}
 
 	var created entities.Document
@@ -177,6 +145,97 @@ func (s *documentService) Upload(ctx context.Context, userId string, req dto.Doc
 	}
 
 	return toDocumentResponse(created), nil
+}
+
+func (s *documentService) UploadForAccount(ctx context.Context, tx *gorm.DB, userID string, req dto.DocumentUploadRequest) (AccountUploadResult, error) {
+	if err := validation.NewDocumentValidation().ValidateDocumentUploadRequest(req); err != nil {
+		return AccountUploadResult{}, err
+	}
+	if req.SupersedesDocumentID != "" {
+		return AccountUploadResult{}, dto.ErrInvalidRevision
+	}
+	uploaderID, err := uuid.Parse(userID)
+	if err != nil {
+		return AccountUploadResult{}, err
+	}
+	document, key, err := s.prepareAndStore(ctx, uploaderID, req)
+	if err != nil {
+		return AccountUploadResult{}, err
+	}
+
+	created, err := s.documentRepository.Create(ctx, tx, document)
+	if err != nil {
+		_ = s.storageClient.DeleteObject(ctx, key)
+		return AccountUploadResult{}, err
+	}
+	_, err = s.accountDocumentRepo.Create(ctx, tx, entities.AccountDocument{
+		UserID: uploaderID, DocumentID: created.ID, DocumentType: strings.TrimSpace(req.Type),
+	})
+	if err != nil {
+		_ = s.storageClient.DeleteObject(ctx, key)
+		return AccountUploadResult{}, err
+	}
+
+	return AccountUploadResult{Response: toDocumentResponse(created), StorageKey: key}, nil
+}
+
+func (s *documentService) DeleteStoredObject(ctx context.Context, key string) error {
+	if key == "" {
+		return nil
+	}
+	return s.storageClient.DeleteObject(ctx, key)
+}
+
+func (s *documentService) prepareAndStore(ctx context.Context, uploaderID uuid.UUID, req dto.DocumentUploadRequest) (entities.Document, string, error) {
+	file, err := req.File.Open()
+	if err != nil {
+		return entities.Document{}, "", err
+	}
+	defer file.Close()
+
+	// Bound the actual bytes even when a caller supplies an incorrect FileHeader.Size.
+	content, err := io.ReadAll(io.LimitReader(file, validation.MaxUploadSizeBytes+1))
+	if err != nil {
+		return entities.Document{}, "", dto.ErrInvalidFileType
+	}
+	if len(content) > validation.MaxUploadSizeBytes {
+		return entities.Document{}, "", dto.ErrFileTooLarge
+	}
+	contentType := http.DetectContentType(content)
+	if len(content) == 0 || contentType != req.File.Header.Get("Content-Type") {
+		return entities.Document{}, "", dto.ErrInvalidFileType
+	}
+	scanner := s.scanner
+	if scanner == nil {
+		scanner = scanning.DisabledScanner{}
+	}
+	scanStatus, err := scanner.Scan(ctx, content)
+	if err != nil {
+		return entities.Document{}, "", dto.ErrScanFailed
+	}
+	if scanStatus == scanning.StatusInfected {
+		return entities.Document{}, "", dto.ErrMalwareDetected
+	}
+	if scanStatus != scanning.StatusClean && scanStatus != scanning.StatusNotScanned {
+		return entities.Document{}, "", dto.ErrScanFailed
+	}
+	key := fmt.Sprintf("documents/%s", uuid.New().String())
+	if err := s.storageClient.PutObject(ctx, key, bytes.NewReader(content), int64(len(content)), contentType); err != nil {
+		return entities.Document{}, "", err
+	}
+
+	checksum := sha256.Sum256(content)
+	document := entities.Document{
+		Type: strings.TrimSpace(req.Type), FilePath: key, OriginalFilename: strings.TrimSpace(filepath.Base(req.File.Filename)),
+		MimeType: contentType, SizeBytes: int64(len(content)), ChecksumSHA256: fmt.Sprintf("%x", checksum),
+		Source: "uploaded", Classification: "restricted", ScanStatus: scanStatus, Revision: 1,
+		UploadedBy: uploaderID,
+	}
+	if scanStatus == scanning.StatusClean {
+		now := time.Now()
+		document.ScanCheckedAt = &now
+	}
+	return document, key, nil
 }
 
 // AttachToWorkflowNode's ownership check is inline: the node is selected at runtime by

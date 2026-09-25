@@ -72,6 +72,17 @@ func TestAttachRejectsSupersededUpload(t *testing.T) {
 	require.ErrorIs(t, err, ErrDocumentNotFound)
 }
 
+func TestAttachRejectsAccountVerificationDocument(t *testing.T) {
+	db := documentRepositoryDB(t)
+	owner := uuid.New()
+	doc := entities.Document{ID: uuid.New(), Type: "account_verification", FilePath: "private/account.pdf", UploadedBy: owner}
+	require.NoError(t, db.Create(&doc).Error)
+	require.NoError(t, db.Create(&entities.AccountDocument{ID: uuid.New(), UserID: owner, DocumentID: doc.ID, DocumentType: "account_verification"}).Error)
+
+	_, err := NewDocumentRepository(db).AttachToWorkflowNode(context.Background(), db, []string{doc.ID.String()}, uuid.NewString(), "survei", owner.String())
+	require.ErrorIs(t, err, ErrDocumentNotFound)
+}
+
 func TestListByPermohonanPreloadsUploader(t *testing.T) {
 	db := documentRepositoryDB(t)
 	uploader := entities.User{ID: uuid.New(), Name: "Pelayanan Taman"}
@@ -97,6 +108,7 @@ func documentRepositoryDB(t *testing.T) *gorm.DB {
 		`CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, email TEXT, telp_number TEXT, password TEXT, role TEXT, unit TEXT, image_url TEXT, is_verified BOOLEAN, created_at DATETIME, updated_at DATETIME)`,
 		`CREATE TABLE documents (id TEXT PRIMARY KEY, type TEXT, file_path TEXT, original_filename TEXT, mime_type TEXT, size_bytes INTEGER, checksum_sha256 TEXT, source TEXT, classification TEXT, scan_status TEXT, scan_checked_at DATETIME, revision INTEGER, supersedes_id TEXT, superseded_by_id TEXT, uploaded_by TEXT, permohonan_id TEXT, created_at DATETIME, updated_at DATETIME)`,
 		`CREATE TABLE document_evidence (id TEXT PRIMARY KEY, document_id TEXT, permohonan_id TEXT, workflow_node TEXT, attached_by TEXT, created_at DATETIME, updated_at DATETIME, UNIQUE(document_id, workflow_node))`,
+		`CREATE TABLE account_documents (id TEXT PRIMARY KEY, user_id TEXT, document_id TEXT, document_type TEXT, created_at DATETIME, updated_at DATETIME)`,
 	}
 	for _, statement := range statements {
 		require.NoError(t, db.Exec(statement).Error)

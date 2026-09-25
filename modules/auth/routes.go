@@ -20,8 +20,10 @@ func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
 		authRoutes.POST("/login", authController.Login)
 		authRoutes.POST("/refresh", authController.RefreshToken)
 		authRoutes.POST("/logout", authController.Logout)
-		authRoutes.POST("/send-verification-email", authController.SendVerificationEmail)
-		authRoutes.POST("/verify-email", authController.VerifyEmail)
+		// Email verification is intentionally disabled until the registration flow
+		// is productized. Account verification uses /verify/:user_id instead.
+		// authRoutes.POST("/send-verification-email", authController.SendVerificationEmail)
+		// authRoutes.POST("/verify-email", authController.VerifyEmail)
 		authRoutes.POST("/verify/:user_id", middlewares.Authenticate(jwtService), accountManager, authController.VerifyUser)
 		authRoutes.POST("/send-password-reset", authController.SendPasswordReset)
 		authRoutes.POST("/reset-password", authController.ResetPassword)

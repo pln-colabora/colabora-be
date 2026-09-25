@@ -1,6 +1,6 @@
 # Data Model
 
-**Status:** Implemented state, 9 September 2026  
+**Status:** Implemented state, 25 September 2026
 **Perspektif:** Entity workflow, evidence, assignment, SLA, dan audit
 
 ```mermaid
@@ -10,6 +10,7 @@ erDiagram
     string role
     string unit
     string email UK
+    boolean is_verified
   }
   PERMOHONAN {
     uuid id PK
@@ -54,6 +55,12 @@ erDiagram
     string workflow_node FK
     uuid attached_by FK
   }
+  ACCOUNT_DOCUMENT {
+    uuid id PK
+    uuid user_id UK,FK
+    uuid document_id UK,FK
+    string document_type
+  }
   VENDOR_ASSIGNMENT {
     uuid permohonan_id PK,FK
     string vendor_role PK
@@ -80,6 +87,8 @@ erDiagram
   PERMOHONAN ||--|{ PERMOHONAN_ACTIVITY : contains
   USER o|--o{ PERMOHONAN_ACTIVITY : completes
   USER ||--o{ DOCUMENT : uploads
+  USER ||--o| ACCOUNT_DOCUMENT : verifies
+  DOCUMENT ||--o| ACCOUNT_DOCUMENT : submitted_for
   PERMOHONAN o|--o{ DOCUMENT : binds
   DOCUMENT ||--o{ DOCUMENT_EVIDENCE : classified_as
   PERMOHONAN ||--o{ DOCUMENT_EVIDENCE : owns

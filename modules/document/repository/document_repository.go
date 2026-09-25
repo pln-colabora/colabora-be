@@ -76,13 +76,17 @@ func (r *documentRepository) MarkSuperseded(ctx context.Context, tx *gorm.DB, ol
 
 func (r *documentRepository) ListOrphans(ctx context.Context, tx *gorm.DB, before time.Time, limit int) ([]entities.Document, error) {
 	var documents []entities.Document
-	err := r.database(tx).WithContext(ctx).Where("permohonan_id IS NULL AND created_at < ?", before).
+	err := r.database(tx).WithContext(ctx).
+		Where("permohonan_id IS NULL AND created_at < ?", before).
+		Where("NOT EXISTS (SELECT 1 FROM account_documents ad WHERE ad.document_id = documents.id)").
 		Order("created_at ASC").Limit(limit).Find(&documents).Error
 	return documents, err
 }
 
 func (r *documentRepository) DeleteUnattached(ctx context.Context, tx *gorm.DB, id uuid.UUID) (bool, error) {
-	result := r.database(tx).WithContext(ctx).Where("id = ? AND permohonan_id IS NULL", id).
+	result := r.database(tx).WithContext(ctx).
+		Where("id = ? AND permohonan_id IS NULL", id).
+		Where("NOT EXISTS (SELECT 1 FROM account_documents ad WHERE ad.document_id = documents.id)").
 		Delete(&entities.Document{})
 	return result.RowsAffected == 1, result.Error
 }
@@ -137,7 +141,10 @@ func (r *documentRepository) AttachToWorkflowNode(ctx context.Context, tx *gorm.
 
 	var documents []entities.Document
 	if err := db.Clauses(clause.Locking{Strength: "UPDATE"}).
-		Select("id", "permohonan_id", "uploaded_by", "scan_status", "superseded_by_id").Where("id IN ?", ids).Find(&documents).Error; err != nil {
+		Select("id", "permohonan_id", "uploaded_by", "scan_status", "superseded_by_id").
+		Where("id IN ?", ids).
+		Where("NOT EXISTS (SELECT 1 FROM account_documents ad WHERE ad.document_id = documents.id)").
+		Find(&documents).Error; err != nil {
 		return 0, err
 	}
 	if len(documents) != len(ids) {

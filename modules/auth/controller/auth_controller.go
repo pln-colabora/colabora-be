@@ -88,8 +88,12 @@ func (c *authController) Login(ctx *gin.Context) {
 
 	result, err := c.authService.Login(ctx.Request.Context(), req)
 	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, dto.ErrAccountNotVerified) {
+			status = http.StatusForbidden
+		}
 		res := utils.BuildResponseFailed(userDto.MESSAGE_FAILED_LOGIN, err.Error(), nil)
-		ctx.JSON(http.StatusBadRequest, res)
+		ctx.JSON(status, res)
 		return
 	}
 
@@ -174,6 +178,8 @@ func (c *authController) VerifyUser(ctx *gin.Context) {
 		status := http.StatusBadRequest
 		if errors.Is(err, userDto.ErrUserNotFound) {
 			status = http.StatusNotFound
+		} else if errors.Is(err, dto.ErrVerificationDocument) || errors.Is(err, dto.ErrVerificationDocumentUnavailable) {
+			status = http.StatusConflict
 		}
 		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_VERIFY_USER, err.Error(), nil)
 		ctx.JSON(status, res)

@@ -19,6 +19,7 @@ import (
 	"github.com/pln-colabora/colabora-be/modules/document/service"
 	"github.com/pln-colabora/colabora-be/modules/document/validation"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 type uploadErrorService struct {
@@ -26,6 +27,11 @@ type uploadErrorService struct {
 	content   service.DocumentContent
 	documents []dto.DocumentResponse
 }
+
+func (uploadErrorService) UploadForAccount(context.Context, *gorm.DB, string, dto.DocumentUploadRequest) (service.AccountUploadResult, error) {
+	return service.AccountUploadResult{}, nil
+}
+func (uploadErrorService) DeleteStoredObject(context.Context, string) error { return nil }
 
 func (s uploadErrorService) Upload(context.Context, string, dto.DocumentUploadRequest) (dto.DocumentResponse, error) {
 	return dto.DocumentResponse{}, s.err

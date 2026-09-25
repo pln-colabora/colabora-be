@@ -8,6 +8,9 @@ import (
 	"github.com/pln-colabora/colabora-be/database/entities"
 	"github.com/pln-colabora/colabora-be/modules/auth/dto"
 	authRepo "github.com/pln-colabora/colabora-be/modules/auth/repository"
+	documentDTO "github.com/pln-colabora/colabora-be/modules/document/dto"
+	documentRepo "github.com/pln-colabora/colabora-be/modules/document/repository"
+	documentService "github.com/pln-colabora/colabora-be/modules/document/service"
 	userDto "github.com/pln-colabora/colabora-be/modules/user/dto"
 	"github.com/pln-colabora/colabora-be/modules/user/repository"
 	"github.com/pln-colabora/colabora-be/pkg/helpers"
@@ -31,6 +34,8 @@ type authService struct {
 	userRepository         repository.UserRepository
 	refreshTokenRepository authRepo.RefreshTokenRepository
 	jwtService             JWTService
+	documentService        documentService.DocumentService
+	accountDocumentRepo    documentRepo.AccountDocumentRepository
 	db                     *gorm.DB
 }
 
@@ -38,12 +43,16 @@ func NewAuthService(
 	userRepo repository.UserRepository,
 	refreshTokenRepo authRepo.RefreshTokenRepository,
 	jwtService JWTService,
+	documentSvc documentService.DocumentService,
+	accountDocumentRepo documentRepo.AccountDocumentRepository,
 	db *gorm.DB,
 ) AuthService {
 	return &authService{
 		userRepository:         userRepo,
 		refreshTokenRepository: refreshTokenRepo,
 		jwtService:             jwtService,
+		documentService:        documentSvc,
+		accountDocumentRepo:    accountDocumentRepo,
 		db:                     db,
 	}
 }
@@ -70,12 +79,33 @@ func (s *authService) Register(ctx context.Context, req userDto.UserCreateReques
 		TelpNumber: req.TelpNumber,
 		Password:   hashedPassword,
 		Role:       "user",
-		// Temporarily verify accounts immediately after registration.
-		IsVerified: true,
+		IsVerified: false,
 	}
 
-	createdUser, err := s.userRepository.Register(ctx, s.db, user)
+	var createdUser entities.User
+	var storageKey string
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		createdUser, err = s.userRepository.Register(ctx, tx, user)
+		if err != nil {
+			return err
+		}
+		if s.documentService == nil {
+			return errors.New("document service is not configured")
+		}
+		uploaded, uploadErr := s.documentService.UploadForAccount(ctx, tx, user.ID.String(), documentDTO.DocumentUploadRequest{
+			File: req.Document,
+			Type: "account_verification",
+		})
+		if uploadErr != nil {
+			return uploadErr
+		}
+		storageKey = uploaded.StorageKey
+		return nil
+	})
 	if err != nil {
+		if storageKey != "" && s.documentService != nil {
+			_ = s.documentService.DeleteStoredObject(ctx, storageKey)
+		}
 		return userDto.UserResponse{}, err
 	}
 
@@ -98,6 +128,9 @@ func (s *authService) Login(ctx context.Context, req userDto.UserLoginRequest) (
 	isValid, err := helpers.CheckPassword(user.Password, []byte(req.Password))
 	if err != nil || !isValid {
 		return dto.TokenResponse{}, dto.ErrInvalidCredentials
+	}
+	if !user.IsVerified {
+		return dto.TokenResponse{}, dto.ErrAccountNotVerified
 	}
 
 	accessToken := s.jwtService.GenerateAccessToken(user.ID.String(), user.Role)
@@ -217,6 +250,19 @@ func (s *authService) VerifyUser(ctx context.Context, userID string) (dto.Verify
 			return dto.VerifyUserResponse{}, userDto.ErrUserNotFound
 		}
 		return dto.VerifyUserResponse{}, err
+	}
+	if s.accountDocumentRepo == nil {
+		return dto.VerifyUserResponse{}, dto.ErrVerificationDocument
+	}
+	accountDocument, err := s.accountDocumentRepo.GetByUserID(ctx, s.db, parsedID.String())
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return dto.VerifyUserResponse{}, dto.ErrVerificationDocument
+		}
+		return dto.VerifyUserResponse{}, err
+	}
+	if accountDocument.Document.ScanStatus == "infected" || accountDocument.Document.SupersededByID != nil {
+		return dto.VerifyUserResponse{}, dto.ErrVerificationDocumentUnavailable
 	}
 
 	user.IsVerified = true

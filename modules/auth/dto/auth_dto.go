@@ -18,11 +18,14 @@ const (
 )
 
 var (
-	ErrRefreshTokenNotFound = errors.New("refresh token not found")
-	ErrRefreshTokenExpired  = errors.New("refresh token expired")
-	ErrInvalidCredentials   = errors.New("invalid credentials")
-	ErrPasswordResetToken   = errors.New("password reset token invalid")
-	ErrInvalidUserID        = errors.New("invalid user id")
+	ErrRefreshTokenNotFound            = errors.New("refresh token not found")
+	ErrRefreshTokenExpired             = errors.New("refresh token expired")
+	ErrInvalidCredentials              = errors.New("invalid credentials")
+	ErrAccountNotVerified              = errors.New("account is not verified")
+	ErrVerificationDocument            = errors.New("verification document is required")
+	ErrVerificationDocumentUnavailable = errors.New("verification document is unavailable")
+	ErrPasswordResetToken              = errors.New("password reset token invalid")
+	ErrInvalidUserID                   = errors.New("invalid user id")
 )
 
 type (

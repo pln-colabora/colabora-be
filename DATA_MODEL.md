@@ -10,6 +10,13 @@ This is the data model for the dependency-based workflow in `PRD.md`. Phase 2 im
 - Workflow status and SLA state are separate concerns.
 - Branch fields used outside one form remain typed columns on `Permohonan`; other form data stays JSONB on the node record.
 
+## `User` account verification
+
+`User.IsVerified` is the account-login gate. Public registration creates the account
+with `false`; the account-manager verification endpoint can set it to `true` only
+when the account has a valid registration document. Existing seeded accounts remain
+verified.
+
 ## `Permohonan`
 
 | Field | Type | Notes |
@@ -83,7 +90,20 @@ backend document routes; object keys are never returned to clients.
 | Timestamps | | Created/updated timestamps |
 
 One file belongs to at most one `Permohonan`, but may evidence multiple nodes of that request through `DocumentEvidence`.
-Only a same-type, same-uploader, unattached current upload may be superseded. Once evidence is attached it is immutable; correction/reopen behavior remains a business discovery gate. Superseded uploads cannot be attached. Attached evidence has no automatic expiry. The orphan cleanup command deletes unattached objects older than the configured TTL before deleting their rows while holding a row lock.
+Registration documents have `PermohonanID = NULL` and are bound through `AccountDocument`; they are not eligible for workflow evidence or orphan cleanup. Only a same-type, same-uploader, unattached current upload may be superseded. Once evidence is attached it is immutable; correction/reopen behavior remains a business discovery gate. Superseded uploads cannot be attached. Attached evidence has no automatic expiry. The orphan cleanup command deletes only unattached documents that have no account binding and are older than the configured TTL before deleting their rows while holding a row lock.
+
+## `AccountDocument`
+
+| Field | Type | Notes |
+|---|---|---|
+| `ID` | UUID | Primary key |
+| `UserID` | UUID FK → users, unique | Account being verified |
+| `DocumentID` | UUID FK → documents, unique | Private uploaded file |
+| `DocumentType` | varchar(50) | `account_verification` for registration |
+| Timestamps | | Created/updated timestamps |
+
+The table is the account-to-document association. File bytes remain in private
+Garage/S3-compatible storage and only document provenance is stored in PostgreSQL.
 
 ## `DocumentEvidence`
 
@@ -125,6 +145,7 @@ or historical completion actors.
 ## Transition invariants
 
 - Node state, aggregate projections, document attachment, and activity log are committed in one transaction.
+- Registration commits the user, document metadata, and account-document association in one database transaction; a failed commit triggers compensating object deletion.
 - Completed/skipped nodes cannot be submitted again.
 - A `returned` or `completed` aggregate has no available actions.
 - `CurrentStage` and `available_actions` are recomputed after each transition.

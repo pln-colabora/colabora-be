@@ -1,10 +1,15 @@
 # Evidence Lifecycle
 
-**Status:** Implemented state, 9 September 2026  
+**Status:** Implemented state, 25 September 2026
 **Perspektif:** Dokumen private dan association ke workflow node
 
 ```mermaid
 flowchart TD
+  register["POST /api/auth/register<br/>multipart user + document"] --> accountvalidate{"Validate registration<br/>fields and file"}
+  accountvalidate -->|invalid| accountreject["Reject registration"]
+  accountvalidate -->|valid| accountstore["Store private object<br/>and create user/document/account_documents<br/>in one DB transaction"]
+  accountstore -->|commit failure| accountcleanup["Delete object as compensation"]
+  accountstore --> accountpending["is_verified = false<br/>login denied until account-manager verification"]
   upload["POST /api/documents<br/>authenticated uploader"] --> validate{"Validate request,<br/>type, filename, ≤10 MiB"}
   validate -->|invalid| reject400["Reject 400"]
   validate -->|valid| sniff{"Read bounded bytes<br/>detected MIME = declared MIME?"}
@@ -30,6 +35,7 @@ flowchart TD
   immutable --> download["Authorized read guard<br/>backend-streamed document"]
   unattached -->|older than configured TTL| cleanup["cleanup-orphan-documents"]
   cleanup --> deleteobject["Delete private object"] --> deleterow["Delete row if still unattached"]
+  accountpending -. excluded from orphan cleanup .-> deleterow
 
   classDef reject fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
   classDef stored fill:#dcfce7,stroke:#15803d,color:#14532d

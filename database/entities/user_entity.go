@@ -1,9 +1,9 @@
 package entities
 
 import (
+	"github.com/google/uuid"
 	"github.com/pln-colabora/colabora-be/pkg/constants"
 	"github.com/pln-colabora/colabora-be/pkg/helpers"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 

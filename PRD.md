@@ -23,6 +23,10 @@ The backend must:
 4. Compute presentation stage and SLA state from node state.
 5. Preserve terminal returned/completed requests for reporting and audit.
 
+Public account registration also requires one verification document. The file is
+stored privately, linked to the account separately from workflow evidence, and the
+account remains unable to log in until an account manager verifies it.
+
 ## 2. Roles and connection-type ownership
 
 | Role (`fn`) | Responsibility |

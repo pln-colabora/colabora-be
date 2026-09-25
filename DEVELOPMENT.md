@@ -2,7 +2,7 @@
 
 This is the canonical implementation plan for the COLABORA backend. It records what is implemented, what remains, and the exit gate for each delivery phase. Detailed product behavior, persistence, API, and authorization contracts remain in `PRD.md`, `DATA_MODEL.md`, `API_SPEC.md`, and `RBAC.md`.
 
-**Baseline verified:** 9 September 2026
+**Baseline verified:** 25 September 2026
 **Next phase:** Phase 6 — Integration readiness and frontend handoff
 
 **Compatibility policy:** breaking development schema and API changes are allowed; runtime OpenAPI must continue to describe only behavior that is actually implemented.
@@ -37,6 +37,8 @@ The remaining hifi forms, detail pages, demo navigation, and client-side RBAC ar
 
 - Gin/GORM application structure, PostgreSQL migrations and seeders, dependency injection, health endpoints, CORS, and Scalar documentation aggregation.
 - JWT access/refresh authentication and users with COLABORA role and unit data.
+- Multipart registration with one private account-verification document, an
+  `account_documents` association, and `is_verified` login gating.
 - SLA-rule persistence and seed data for numbered activities.
 - Connection-specific creation: matching-ULP `pelayanan-pelanggan` for JTR/JTM, and `nps` with a configured target ULP for PLG TM.
 - Paginated list, node-based `scope=mine`, detail with all workflow nodes and caller-owned `available_actions`, plus activity-timeline and audit-log reads.

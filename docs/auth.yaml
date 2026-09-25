@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: COLABORA API — Auth
-  description: Registration, login, tokens, email verification, password reset. See `modules/auth`.
+  description: Registration with account-verification document, login, tokens, and password reset. Email verification is disabled pending productization. See `modules/auth`.
   version: "1.0.0"
 servers:
   - url: https://api-colabora.anargya.fun
@@ -10,12 +10,12 @@ servers:
     description: Local (default GOLANG_PORT)
 tags:
   - name: Auth
-    description: Registration, login, tokens, email verification, password reset
+    description: Registration, login, tokens, account verification, and password reset
 paths:
   /api/auth/verify/{user_id}:
     post:
       tags: [Auth]
-      summary: Approve and verify a user account (admin or super-user only)
+      summary: Approve and verify a user account with a valid registration document (admin or super-user only)
       security:
         - bearerAuth: []
       parameters:
@@ -42,26 +42,31 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/auth/register:
     post:
       tags: [Auth]
-      summary: Register a new user
+      summary: Register a new user with one account-verification document
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
               type: object
-              required: [name, email, password]
+              required: [name, email, password, document]
               properties:
                 name: { type: string, minLength: 2, maxLength: 100 }
                 email: { type: string, format: email }
                 password: { type: string, format: password, minLength: 8 }
                 telp_number: { type: string, minLength: 8, maxLength: 20 }
-                image: { type: string, format: binary }
+                document:
+                  type: string
+                  format: binary
+                  description: Required PDF/JPEG/PNG account-verification document
       responses:
         "200":
-          description: User created
+          description: User created with is_verified=false; an account manager must verify the registration document before login is allowed
           content:
             application/json:
               schema:
@@ -100,6 +105,11 @@ paths:
                       data: { $ref: "#/components/schemas/TokenResponse" }
         "400":
           $ref: "#/components/responses/BadRequest"
+        "403":
+          description: Account credentials are valid but the account is not verified
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
 
   /api/auth/refresh:
     post:
@@ -144,55 +154,6 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
-
-  /api/auth/send-verification-email:
-    post:
-      tags: [Auth]
-      summary: Send an email verification token to the given email
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email]
-              properties:
-                email: { type: string, format: email }
-      responses:
-        "200":
-          description: Verification email sent
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ApiResponse" }
-        "400":
-          $ref: "#/components/responses/BadRequest"
-
-  /api/auth/verify-email:
-    post:
-      tags: [Auth]
-      summary: Verify an email using the token sent by send-verification-email
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [token]
-              properties:
-                token: { type: string }
-      responses:
-        "200":
-          description: Email verified
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/ApiResponse"
-                  - type: object
-                    properties:
-                      data: { $ref: "#/components/schemas/VerifyEmailResponse" }
-        "400":
-          $ref: "#/components/responses/BadRequest"
 
   /api/auth/send-password-reset:
     post:
@@ -261,6 +222,11 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ApiResponse" }
+    Conflict:
+      description: Account verification cannot proceed because the required document is missing or unavailable
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiResponse" }
     NotFound:
       description: Target user was not found
       content:
@@ -296,11 +262,6 @@ components:
         access_token: { type: string }
         refresh_token: { type: string }
         role: { type: string }
-    VerifyEmailResponse:
-      type: object
-      properties:
-        email: { type: string, format: email }
-        is_verified: { type: boolean }
     VerifyUserResponse:
       type: object
       properties:

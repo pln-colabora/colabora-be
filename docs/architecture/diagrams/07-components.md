@@ -1,6 +1,6 @@
 # Component Diagram
 
-**Status:** Implemented state, 9 September 2026  
+**Status:** Implemented state, 25 September 2026
 **Perspektif:** Runtime backend dan layanan eksternal
 
 ```mermaid
@@ -48,6 +48,7 @@ flowchart LR
   permohonan --> rbac
   document --> rbac
   auth --> postgres
+  auth --> document
   user --> postgres
   permohonan --> postgres
   document --> postgres

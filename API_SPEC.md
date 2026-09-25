@@ -4,6 +4,22 @@ This document describes the target API after the workflow-node refactor. Runtime
 
 The API is not coupled to hifi form filenames. Detailed production forms may replace the prototype while retaining these workflow-node identities and dependencies.
 
+## Authentication and account verification
+
+`POST /api/auth/register` uses `multipart/form-data` and requires `name`, `email`,
+`password`, and `document`; `telp_number` is optional. The document is stored as a
+private `documents` row and linked to the new user through `account_documents` with
+type `account_verification`. The user is created with `is_verified = false`, so the
+endpoint returns the user profile without access tokens.
+
+`POST /api/auth/verify/:user_id` is restricted to account managers. It requires the
+target user to have a non-infected, non-superseded account-verification document and
+then sets `is_verified = true`. Login returns 403 and no token while `is_verified` is
+false.
+
+Email verification endpoints are currently disabled and are not part of the runtime
+route or OpenAPI contract.
+
 ## Read endpoints
 
 | Method | Path | Purpose |
