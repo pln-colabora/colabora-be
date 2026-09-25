@@ -10,6 +10,7 @@ const (
 	MESSAGE_FAILED_GET_DATA_FROM_BODY = "failed get data from body"
 	MESSAGE_FAILED_REGISTER_USER      = "failed create user"
 	MESSAGE_FAILED_GET_LIST_USER      = "failed get list user"
+	MESSAGE_FAILED_GET_LIST_VENDOR    = "failed get list vendor"
 	MESSAGE_FAILED_TOKEN_NOT_VALID    = "token not valid"
 	MESSAGE_FAILED_TOKEN_NOT_FOUND    = "token not found"
 	MESSAGE_FAILED_GET_USER           = "failed get user"
@@ -23,6 +24,7 @@ const (
 	// Success
 	MESSAGE_SUCCESS_REGISTER_USER           = "success create user"
 	MESSAGE_SUCCESS_GET_LIST_USER           = "success get list user"
+	MESSAGE_SUCCESS_GET_LIST_VENDOR         = "success get list vendor"
 	MESSAGE_SUCCESS_GET_USER                = "success get user"
 	MESSAGE_SUCCESS_LOGIN                   = "success login"
 	MESSAGE_SUCCESS_UPDATE_USER             = "success update user"

@@ -73,3 +73,15 @@ func TestUpdateUsesPathUserIDRatherThanAuthenticatedUserID(t *testing.T) {
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Equal(t, "target-user-id", service.updatedUserID)
 }
+
+func TestGetAllVendorRejectsNonVendorRoleFilter(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/vendor?role=admin", nil)
+
+	controller := &userController{}
+	controller.GetAllVendor(ctx)
+
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+}

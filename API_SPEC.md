@@ -8,6 +8,7 @@ The API is not coupled to hifi form filenames. Detailed production forms may rep
 
 | Method | Path | Purpose |
 |---|---|---|
+| `GET` | `/api/vendor` | Authenticated vendor account list, optionally filtered by vendor role |
 | `GET` | `/api/permohonan` | Paginated dashboard list and `scope=mine` filtering |
 | `GET` | `/api/permohonan/:id` | Aggregate detail, workflow nodes, and caller-specific available actions; vendors receive only their issued WO node |
 | `GET` | `/api/permohonan/:id/activities` | Workflow-node timeline; vendors receive only their issued WO node |

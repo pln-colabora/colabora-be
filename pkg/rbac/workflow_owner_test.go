@@ -57,6 +57,15 @@ func TestVendorWOReadProjection(t *testing.T) {
 	require.False(t, ok)
 }
 
+func TestVendorRoles(t *testing.T) {
+	require.ElementsMatch(t, []string{RoleVendorTiang, RoleVendorKonstruksi, RoleVendorSrApp}, VendorRoles())
+	for _, role := range VendorRoles() {
+		require.True(t, IsVendorRole(role))
+	}
+	require.False(t, IsVendorRole(RoleAdmin))
+	require.False(t, IsVendorRole("vendor"))
+}
+
 func TestWorkflowAuthorizationAndActions(t *testing.T) {
 	no := false
 	s := workflow.Snapshot{Connection: "JTR", Decisions: workflow.Decisions{KebutuhanTiang: &no, PerluPDKB: &no, NPS: workflow.Delegated}}

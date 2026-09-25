@@ -24,8 +24,27 @@ var validRoles = map[string]bool{
 	RoleVendorKonstruksi: true, RoleVendorSrApp: true, RoleSuperUser: true,
 }
 
+var vendorRoles = []string{
+	RoleVendorTiang,
+	RoleVendorKonstruksi,
+	RoleVendorSrApp,
+}
+
 func IsValidRole(role string) bool {
 	return validRoles[role]
+}
+
+func IsVendorRole(role string) bool {
+	switch role {
+	case RoleVendorTiang, RoleVendorKonstruksi, RoleVendorSrApp:
+		return true
+	default:
+		return false
+	}
+}
+
+func VendorRoles() []string {
+	return append([]string(nil), vendorRoles...)
 }
 
 func CanManageAccounts(role string) bool {

@@ -12,6 +12,44 @@ tags:
   - name: User
     description: User listing and self-service profile management
 paths:
+  /api/vendor:
+    get:
+      tags: [User]
+      summary: List vendors for authenticated users
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: role
+          in: query
+          description: Optional vendor role filter
+          schema:
+            $ref: "#/components/schemas/VendorRole"
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, default: 10, maximum: 100 }
+        - name: search
+          in: query
+          description: Matches against vendor name
+          schema: { type: string }
+        - name: sort
+          in: query
+          schema: { type: string, default: id }
+        - name: order
+          in: query
+          schema: { type: string, enum: [asc, desc] }
+      responses:
+        "200":
+          description: Paginated vendor list
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaginatedVendorResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /api/user:
     get:
       tags: [User]
@@ -264,6 +302,18 @@ components:
     AccountRole:
       type: string
       enum: [admin, user, pelayanan-pelanggan, teknik, perencanaan, konstruksi, transaksi-energi, jaringan, nps, pdkb, vendor-tiang, vendor-konstruksi, vendor-sr-app, super-user]
+    VendorRole:
+      type: string
+      enum: [vendor-tiang, vendor-konstruksi, vendor-sr-app]
+    VendorResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        telp_number: { type: string }
+        role: { $ref: "#/components/schemas/VendorRole" }
+        unit: { type: string }
     PaginationMeta:
       description: Shape produced by github.com/Caknoooo/go-pagination's PaginationResponse
       type: object
@@ -282,4 +332,15 @@ components:
         data:
           type: array
           items: { $ref: "#/components/schemas/UserResponse" }
+        pagination: { $ref: "#/components/schemas/PaginationMeta" }
+    PaginatedVendorResponse:
+      description: Shape produced by github.com/Caknoooo/go-pagination's PaginatedResponse
+      type: object
+      properties:
+        code: { type: integer }
+        status: { type: string }
+        message: { type: string }
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/VendorResponse" }
         pagination: { $ref: "#/components/schemas/PaginationMeta" }

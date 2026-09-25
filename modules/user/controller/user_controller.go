@@ -10,6 +10,7 @@ import (
 	"github.com/pln-colabora/colabora-be/modules/user/service"
 	"github.com/pln-colabora/colabora-be/modules/user/validation"
 	"github.com/pln-colabora/colabora-be/pkg/constants"
+	"github.com/pln-colabora/colabora-be/pkg/rbac"
 	"github.com/pln-colabora/colabora-be/pkg/utils"
 	"github.com/samber/do"
 	"gorm.io/gorm"
@@ -19,6 +20,7 @@ type (
 	UserController interface {
 		Me(ctx *gin.Context)
 		GetAllUser(ctx *gin.Context)
+		GetAllVendor(ctx *gin.Context)
 		CreateAccount(ctx *gin.Context)
 		UpdateAccount(ctx *gin.Context)
 		Update(ctx *gin.Context)
@@ -95,6 +97,32 @@ func (c *userController) GetAllUser(ctx *gin.Context) {
 
 	paginationResponse := pagination.CalculatePagination(filter.Pagination, total)
 	response := pagination.NewPaginatedResponse(http.StatusOK, dto.MESSAGE_SUCCESS_GET_LIST_USER, users, paginationResponse)
+	ctx.JSON(http.StatusOK, response)
+}
+
+func (c *userController) GetAllVendor(ctx *gin.Context) {
+	filter := &query.VendorFilter{}
+	filter.BindPagination(ctx)
+	if err := ctx.ShouldBindQuery(filter); err != nil {
+		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_LIST_VENDOR, err.Error(), nil)
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	if filter.Role != "" && !rbac.IsVendorRole(filter.Role) {
+		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_LIST_VENDOR, "role must be a vendor role", nil)
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	vendors, total, err := pagination.PaginatedQueryWithIncludable[query.Vendor](c.db, filter)
+	if err != nil {
+		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_LIST_VENDOR, err.Error(), nil)
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	paginationResponse := pagination.CalculatePagination(filter.Pagination, total)
+	response := pagination.NewPaginatedResponse(http.StatusOK, dto.MESSAGE_SUCCESS_GET_LIST_VENDOR, vendors, paginationResponse)
 	ctx.JSON(http.StatusOK, response)
 }
 
