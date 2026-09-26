@@ -95,6 +95,13 @@ paths:
         content:
           application/json:
             schema: { $ref: "#/components/schemas/AccountCreateRequest" }
+            example:
+              name: "CV Cahaya Listrik Sejahtera"
+              email: "vendor.konstruksi@example.test"
+              telp_number: "081234567890"
+              password: "VendorDemo2026!"
+              role: "vendor-konstruksi"
+              unit: "CV Cahaya Listrik Sejahtera"
       responses:
         "200":
           description: Account created
@@ -151,6 +158,11 @@ paths:
         content:
           application/json:
             schema: { $ref: "#/components/schemas/AccountUpdateRequest" }
+            example:
+              name: "CV Cahaya Listrik Sejahtera"
+              telp_number: "081234567891"
+              role: "vendor-konstruksi"
+              unit: "CV Cahaya Listrik Sejahtera"
       responses:
         "200":
           description: Account updated
@@ -184,6 +196,10 @@ paths:
           application/json:
             schema:
               type: object
+              example:
+                name: "Budi Santoso"
+                telp_number: "081234567890"
+                email: "budi.santoso@example.test"
               properties:
                 name: { type: string, minLength: 2, maxLength: 100 }
                 telp_number: { type: string, minLength: 8, maxLength: 20 }
@@ -305,6 +321,7 @@ components:
     VendorRole:
       type: string
       enum: [vendor-tiang, vendor-konstruksi, vendor-sr-app]
+      example: vendor-konstruksi
     VendorResponse:
       type: object
       properties:

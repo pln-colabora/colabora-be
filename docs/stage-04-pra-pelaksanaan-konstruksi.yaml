@@ -18,7 +18,17 @@ paths:
       description: Owner UP3 — Bagian Perencanaan; hanya tersedia bila kebutuhan tiang bernilai true.
       security: [{ bearerAuth: [] }]
       parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" } } } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VendorEvidenceSubmitRequest" }
+            example:
+              notes: "WO tiang selesai dikerjakan di lokasi pelanggan."
+              document_ids: ["550e8400-e29b-41d4-a716-446655440004"]
+              location_coordinates:
+                latitude: -6.200000
+                longitude: 106.816666
       responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
   /api/permohonan/{id}/wo-vendor/konstruksi:
     post:
@@ -28,7 +38,19 @@ paths:
       description: Owner UP3 — Bagian Konstruksi. Keputusan perlu_pdkb menentukan apakah WO PDKB berlaku.
       security: [{ bearerAuth: [] }]
       parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/WOConstructionSubmitRequest" } } } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WOConstructionSubmitRequest" }
+            example:
+              estimasi_tanggal_selesai: "2026-09-30"
+              perlu_pdkb: false
+              notes: "WO konstruksi diterbitkan untuk pekerjaan jaringan pelanggan."
+              document_ids: ["550e8400-e29b-41d4-a716-446655440005"]
+              location_coordinates:
+                latitude: -6.200000
+                longitude: 106.816666
       responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
   /api/permohonan/{id}/wo-vendor/app:
     post:
@@ -38,7 +60,17 @@ paths:
       description: Owner UP3 — Transaksi Energi; evidence wajib dan detail produksi dapat berkembang kemudian.
       security: [{ bearerAuth: [] }]
       parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" } } } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VendorEvidenceSubmitRequest" }
+            example:
+              notes: "WO APP siap dilaksanakan."
+              document_ids: ["550e8400-e29b-41d4-a716-446655440006"]
+              location_coordinates:
+                latitude: -6.200000
+                longitude: 106.816666
       responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
   /api/permohonan/{id}/reservasi-material:
     post:
@@ -48,7 +80,17 @@ paths:
       description: Owner Vendor — Vendor Konstruksi dengan assignment eksplisit; berjalan independen setelah WO Vendor APP.
       security: [{ bearerAuth: [] }]
       parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" } } } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VendorEvidenceSubmitRequest" }
+            example:
+              notes: "Material telah dicadangkan untuk pekerjaan ini."
+              document_ids: ["550e8400-e29b-41d4-a716-446655440007"]
+              location_coordinates:
+                latitude: -6.200000
+                longitude: 106.816666
       responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
   /api/permohonan/{id}/tera-app:
     post:
@@ -58,7 +100,14 @@ paths:
       description: Owner UP3 — Transaksi Energi; tersedia setelah Reservasi material selesai.
       security: [{ bearerAuth: [] }]
       parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" } } } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" }
+            example:
+              notes: "Perakitan dan tera APP selesai."
+              document_ids: ["550e8400-e29b-41d4-a716-446655440008"]
       responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
   /api/permohonan/{id}/wo-pdkb:
     post:
@@ -68,7 +117,14 @@ paths:
       description: Owner UP3 — Bagian Konstruksi; berlaku setelah WO Vendor Konstruksi bila perlu_pdkb=true.
       security: [{ bearerAuth: [] }]
       parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" } } } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" }
+            example:
+              notes: "WO PDKB diterbitkan karena pekerjaan memerlukan metode PDKB."
+              document_ids: ["550e8400-e29b-41d4-a716-446655440009"]
       responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
 components:
   securitySchemes: { bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT } }
@@ -112,8 +168,23 @@ components:
       required: [document_ids]
       properties:
         notes: { type: string, maxLength: 2000 }
+        document_ids: { type: array, minItems: 1, uniqueItems: true, items: { type: string, format: uuid } }
+      example:
+        notes: "Perakitan dan tera APP selesai."
+        document_ids: ["550e8400-e29b-41d4-a716-446655440008"]
+    VendorEvidenceSubmitRequest:
+      type: object
+      required: [document_ids]
+      properties:
+        notes: { type: string, maxLength: 2000 }
         location_coordinates: { type: object, nullable: true, description: "Opsional untuk submit vendor; decimal WGS84. latitude -90..90 dan longitude -180..180.", required: [latitude, longitude], properties: { latitude: { type: number, minimum: -90, maximum: 90 }, longitude: { type: number, minimum: -180, maximum: 180 } } }
         document_ids: { type: array, minItems: 1, uniqueItems: true, items: { type: string, format: uuid } }
+      example:
+        notes: "Pekerjaan vendor selesai di lokasi pelanggan."
+        document_ids: ["550e8400-e29b-41d4-a716-446655440004"]
+        location_coordinates:
+          latitude: -6.2
+          longitude: 106.816666
     WOConstructionSubmitRequest:
       type: object
       required: [estimasi_tanggal_selesai, perlu_pdkb, document_ids]
@@ -123,3 +194,11 @@ components:
         notes: { type: string, maxLength: 2000 }
         location_coordinates: { type: object, nullable: true, description: "Opsional untuk payload WO vendor; decimal WGS84.", required: [latitude, longitude], properties: { latitude: { type: number, minimum: -90, maximum: 90 }, longitude: { type: number, minimum: -180, maximum: 180 } } }
         document_ids: { type: array, minItems: 1, uniqueItems: true, items: { type: string, format: uuid } }
+      example:
+        estimasi_tanggal_selesai: "2026-09-30"
+        perlu_pdkb: false
+        notes: "WO konstruksi diterbitkan untuk pekerjaan jaringan pelanggan."
+        document_ids: ["550e8400-e29b-41d4-a716-446655440005"]
+        location_coordinates:
+          latitude: -6.2
+          longitude: 106.816666

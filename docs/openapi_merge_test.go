@@ -122,6 +122,30 @@ func TestPermohonanStageDocumentsKeepBusinessGrouping(t *testing.T) {
 	}
 }
 
+func TestMergedOpenAPIIncludesCurrentRequestExamples(t *testing.T) {
+	workingDirectory, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(".."))
+	t.Cleanup(func() { require.NoError(t, os.Chdir(workingDirectory)) })
+
+	raw, err := buildMergedOpenAPI()
+	require.NoError(t, err)
+	var document map[string]any
+	require.NoError(t, yaml.Unmarshal(raw, &document))
+
+	// These values exercise the current public contract: registration requires a
+	// verification document, construction WO requires an estimated finish date,
+	// and vendor-owned location-bearing activities expose coordinates.
+	serialized := string(raw)
+	require.Contains(t, serialized, "budi.santoso@example.test")
+	require.Contains(t, serialized, "surat-verifikasi-vendor.pdf")
+	require.Contains(t, serialized, "estimasi_tanggal_selesai")
+	require.Contains(t, serialized, "location_coordinates")
+	require.Contains(t, serialized, "-6.2")
+	require.Contains(t, serialized, "106.816666")
+	require.Contains(t, serialized, "550e8400-e29b-41d4-a716-446655440005")
+}
+
 func assertResolvableReferences(t *testing.T, root map[string]any, value any) {
 	t.Helper()
 	switch typed := value.(type) {

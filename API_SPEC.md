@@ -81,6 +81,39 @@ optional `jenis_sambungan` query parameter filters the result, for example
 `GET /api/tariffs?jenis_sambungan=JTR`. This is a reusable master-data endpoint;
 the Permohonan form consumes it for the Activity #1 dropdown.
 
+Representative request bodies use valid current enum values and UUID-shaped
+synthetic identifiers. They are examples only; document IDs and user IDs must
+refer to records that exist in the caller's environment.
+
+`POST /api/permohonan/{id}/wo-vendor/konstruksi`:
+
+```json
+{
+  "estimasi_tanggal_selesai": "2026-09-30",
+  "perlu_pdkb": false,
+  "notes": "WO konstruksi diterbitkan untuk pekerjaan jaringan pelanggan.",
+  "document_ids": ["550e8400-e29b-41d4-a716-446655440005"],
+  "location_coordinates": {
+    "latitude": -6.2,
+    "longitude": 106.816666
+  }
+}
+```
+
+`POST /api/permohonan/{id}/pelaksanaan-konstruksi`:
+
+```json
+{
+  "workflow_node": "pelaksanaan_konstruksi",
+  "notes": "Pelaksanaan konstruksi jaringan telah selesai.",
+  "document_ids": ["550e8400-e29b-41d4-a716-446655440010"],
+  "location_coordinates": {
+    "latitude": -6.2,
+    "longitude": 106.816666
+  }
+}
+```
+
 ## Write endpoints
 
 `POST /api/permohonan/:id/vendor-assignments` records a vendor account assignment

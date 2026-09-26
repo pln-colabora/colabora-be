@@ -23,7 +23,13 @@ paths:
       parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
       requestBody:
         required: true
-        content: { application/json: { schema: { $ref: "#/components/schemas/SurveySubmitRequest" } } }
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SurveySubmitRequest" }
+            example:
+              surveyed_at: "2026-09-26"
+              notes: "Hasil survei lokasi pelanggan telah diverifikasi."
+              document_ids: ["550e8400-e29b-41d4-a716-446655440001"]
       responses:
         "200": { $ref: "#/components/responses/ActivitySubmitted" }
         "400": { $ref: "#/components/responses/BadRequest" }

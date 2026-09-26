@@ -21,7 +21,15 @@ paths:
         UP3 — Bagian Perencanaan untuk PLG TM; false adalah keputusan yang valid.
       security: [{ bearerAuth: [] }]
       parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/RABSubmitRequest" } } } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RABSubmitRequest" }
+            example:
+              kebutuhan_tiang: true
+              notes: "Kebutuhan tiang teridentifikasi pada sisi utara lokasi."
+              document_ids: ["550e8400-e29b-41d4-a716-446655440002"]
       responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
   /api/permohonan/{id}/permohonan-perluasan:
     post:
@@ -34,7 +42,15 @@ paths:
         membuka cabang WO; returned menutup permohonan secara terminal.
       security: [{ bearerAuth: [] }]
       parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ExpansionSubmitRequest" } } } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExpansionSubmitRequest" }
+            example:
+              nps_delegation_status: "delegated"
+              notes: "Permohonan siap didelegasikan ke pekerjaan perluasan."
+              document_ids: ["550e8400-e29b-41d4-a716-446655440003"]
       responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
 components:
   securitySchemes: { bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT } }

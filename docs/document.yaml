@@ -58,6 +58,9 @@ paths:
                   type: string
                   format: uuid
                   description: Optional current unattached upload to supersede
+              example:
+                file: "bukti-survei-gedung.pdf"
+                type: "evidence"
       responses:
         "201":
           description: Document uploaded, unattached
@@ -248,6 +251,19 @@ components:
           nullable: true
     DocumentResponse:
       type: object
+      example:
+        id: "550e8400-e29b-41d4-a716-446655440001"
+        type: "evidence"
+        original_filename: "bukti-survei-gedung.pdf"
+        mime_type: "application/pdf"
+        size_bytes: 245760
+        source: "uploaded"
+        classification: "restricted"
+        scan_status: "not_scanned"
+        revision: 1
+        permohonan_id: "550e8400-e29b-41d4-a716-446655440010"
+        workflow_nodes: ["survei"]
+        uploaded_by: "550e8400-e29b-41d4-a716-446655440020"
       properties:
         id: { type: string, format: uuid }
         type: { type: string, example: "evidence" }

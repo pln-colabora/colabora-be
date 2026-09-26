@@ -20,7 +20,15 @@ paths:
         Membutuhkan konstruksi serta seluruh cabang tiang/PDKB yang berlaku.
       security: [{ bearerAuth: [] }]
       parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EnergizeSubmitRequest" } } } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EnergizeSubmitRequest" }
+            example:
+              operation_result: "Jaringan berhasil dioperasikan dan tegangan normal."
+              notes: "Hasil pengoperasian telah dicatat."
+              document_ids: ["550e8400-e29b-41d4-a716-446655440012"]
       responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
   /api/permohonan/{id}/pemasangan-sr-app:
     post:
@@ -32,7 +40,17 @@ paths:
         Konstruksi untuk PLG TM. Berjalan paralel dengan Pengoperasian jaringan.
       security: [{ bearerAuth: [] }]
       parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" } } } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EvidenceSubmitRequest" }
+            example:
+              notes: "Pemasangan SR/APP selesai di lokasi pelanggan."
+              document_ids: ["550e8400-e29b-41d4-a716-446655440013"]
+              location_coordinates:
+                latitude: -6.200000
+                longitude: 106.816666
       responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
 components:
   securitySchemes: { bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT } }
@@ -78,6 +96,12 @@ components:
         notes: { type: string, maxLength: 2000 }
         location_coordinates: { type: object, nullable: true, description: "Opsional untuk submit vendor SR/APP; decimal WGS84.", required: [latitude, longitude], properties: { latitude: { type: number, minimum: -90, maximum: 90 }, longitude: { type: number, minimum: -180, maximum: 180 } } }
         document_ids: { type: array, minItems: 1, uniqueItems: true, items: { type: string, format: uuid } }
+      example:
+        notes: "Pemasangan SR/APP selesai di lokasi pelanggan."
+        document_ids: ["550e8400-e29b-41d4-a716-446655440013"]
+        location_coordinates:
+          latitude: -6.2
+          longitude: 106.816666
     EnergizeSubmitRequest:
       type: object
       required: [operation_result, document_ids]
@@ -85,3 +109,7 @@ components:
         operation_result: { type: string, maxLength: 500, description: Ringkasan terstruktur hasil pengoperasian jaringan }
         notes: { type: string, maxLength: 2000 }
         document_ids: { type: array, minItems: 1, uniqueItems: true, items: { type: string, format: uuid } }
+      example:
+        operation_result: "Jaringan berhasil dioperasikan dan tegangan normal."
+        notes: "Hasil pengoperasian telah dicatat."
+        document_ids: ["550e8400-e29b-41d4-a716-446655440012"]

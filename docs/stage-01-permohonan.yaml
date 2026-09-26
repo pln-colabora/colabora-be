@@ -67,6 +67,15 @@ paths:
                 pelanggan_alamat: { type: string, minLength: 2, maxLength: 255 }
                 pelanggan_no_hp: { type: string, minLength: 8, maxLength: 20 }
                 evidence_files: { type: array, minItems: 1, items: { type: string, format: binary }, description: One or more PDF/JPEG/PNG evidence files }
+              example:
+                jenis_permohonan: "Pasang Baru (PB)"
+                jenis_sambungan: "JTR"
+                tarif: "rumah_tangga"
+                daya_baru: 2200
+                pelanggan_nama: "PT Sinar Karya Nusantara"
+                pelanggan_alamat: "Jl. Raya Industri No. 18, Surabaya"
+                pelanggan_no_hp: "081234567890"
+                evidence_files: ["ktp-pelanggan.pdf", "foto-lokasi.jpg"]
           application/json:
             schema:
               type: object
@@ -80,6 +89,16 @@ paths:
                 pelanggan_nama: { type: string }
                 pelanggan_alamat: { type: string }
                 pelanggan_no_hp: { type: string }
+              example:
+                jenis_permohonan: "Perubahan Daya (PD)"
+                jenis_sambungan: "PLG TM <5 GWNG"
+                tarif: "bisnis"
+                daya_lama: 197000
+                daya_baru: 555000
+                ulp_unit: "ULP Taman"
+                pelanggan_nama: "PT Sinar Karya Nusantara"
+                pelanggan_alamat: "Jl. Raya Industri No. 18, Surabaya"
+                pelanggan_no_hp: "081234567890"
       responses:
         "201": { description: Permohonan PB/PD dibuat, content: { application/json: { schema: { $ref: "#/components/schemas/PermohonanEnvelope" } } } }
         "400": { $ref: "#/components/responses/BadRequest" }
@@ -173,6 +192,9 @@ paths:
               properties:
                 vendor_id: { type: string, format: uuid }
                 vendor_role: { type: string, enum: [vendor-tiang, vendor-konstruksi, vendor-sr-app] }
+              example:
+                vendor_id: "550e8400-e29b-41d4-a716-446655440020"
+                vendor_role: "vendor-konstruksi"
       responses:
         "200": { $ref: "#/components/responses/ActivitySubmitted" }
         "400": { $ref: "#/components/responses/BadRequest" }

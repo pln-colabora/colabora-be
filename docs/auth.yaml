@@ -22,7 +22,7 @@ paths:
         - name: user_id
           in: path
           required: true
-          schema: { type: string, format: uuid }
+          schema: { type: string, format: uuid, example: "550e8400-e29b-41d4-a716-446655440020" }
       responses:
         "200":
           description: User account verified
@@ -64,6 +64,12 @@ paths:
                   type: string
                   format: binary
                   description: Required PDF/JPEG/PNG account-verification document
+              example:
+                name: "Budi Santoso"
+                email: "budi.santoso@example.test"
+                password: "VendorDemo2026!"
+                telp_number: "081234567890"
+                document: "surat-verifikasi-vendor.pdf"
       responses:
         "200":
           description: User created with is_verified=false; an account manager must verify the registration document before login is allowed
@@ -92,6 +98,9 @@ paths:
               properties:
                 email: { type: string, format: email }
                 password: { type: string, format: password }
+            example:
+              email: "budi.santoso@example.test"
+              password: "VendorDemo2026!"
       responses:
         "200":
           description: Login successful
@@ -124,6 +133,8 @@ paths:
               required: [refresh_token]
               properties:
                 refresh_token: { type: string }
+            example:
+              refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.<refresh-token>"
       responses:
         "200":
           description: Token refreshed
@@ -168,6 +179,8 @@ paths:
               required: [email]
               properties:
                 email: { type: string, format: email }
+            example:
+              email: "budi.santoso@example.test"
       responses:
         "200":
           description: Password reset email sent
@@ -191,6 +204,9 @@ paths:
               properties:
                 token: { type: string }
                 new_password: { type: string, format: password, minLength: 8 }
+            example:
+              token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.<password-reset-token>"
+              new_password: "VendorDemo2026!Baru"
       responses:
         "200":
           description: Password reset
