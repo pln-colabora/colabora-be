@@ -57,6 +57,30 @@ func TestVendorWOReadProjection(t *testing.T) {
 	require.False(t, ok)
 }
 
+func TestVendorVisibleNodesUsesConnectionOwners(t *testing.T) {
+	require.Equal(t, []workflow.Code{
+		workflow.WOKonstruksi,
+		workflow.Reservasi,
+		workflow.Konstruksi,
+	}, VendorVisibleNodes(RoleVendorKonstruksi, JenisSambunganJTR))
+	require.Equal(t, []workflow.Code{
+		workflow.WOKonstruksi,
+		workflow.Reservasi,
+		workflow.Konstruksi,
+		workflow.SRAPP,
+	}, VendorVisibleNodes(RoleVendorKonstruksi, JenisSambunganPlgTmKurang5))
+	require.Equal(t, []workflow.Code{
+		workflow.WOTiang,
+		workflow.PemasanganTiang,
+	}, VendorVisibleNodes(RoleVendorTiang, JenisSambunganJTR))
+	require.Equal(t, []workflow.Code{
+		workflow.WOAPP,
+		workflow.SRAPP,
+	}, VendorVisibleNodes(RoleVendorSrApp, JenisSambunganJTMGardu))
+	require.Empty(t, VendorVisibleNodes(RoleVendorSrApp, JenisSambunganPlgTmKurang5))
+	require.Empty(t, VendorVisibleNodes(RoleVendorKonstruksi, "bad"))
+}
+
 func TestVendorRoles(t *testing.T) {
 	require.ElementsMatch(t, []string{RoleVendorTiang, RoleVendorKonstruksi, RoleVendorSrApp}, VendorRoles())
 	for _, role := range VendorRoles() {

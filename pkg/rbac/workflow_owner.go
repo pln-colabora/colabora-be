@@ -7,10 +7,7 @@ import (
 
 var ErrWorkflowForbidden = errors.New("caller does not own workflow node")
 
-// VendorWO returns the work-order node visible to a vendor account. Vendor
-// read projections intentionally expose the issued WO only; execution nodes
-// remain actionable through their dedicated endpoints but are not part of the
-// vendor's workflow history view.
+// VendorWO returns the issued work-order node visible to a vendor account.
 func VendorWO(role string) (workflow.Code, bool) {
 	switch role {
 	case RoleVendorTiang:
@@ -22,6 +19,37 @@ func VendorWO(role string) (workflow.Code, bool) {
 	default:
 		return "", false
 	}
+}
+
+// VendorVisibleNodes returns the read projection for a vendor request. The
+// issued WO is included even though its owner is an internal PLN role; the
+// remaining nodes are derived from the canonical connection-specific owner
+// matrix. This is a read projection only and does not grant write access.
+func VendorVisibleNodes(role, connection string) []workflow.Code {
+	if !IsVendor(role) || !workflow.ValidConnection(connection) {
+		return []workflow.Code{}
+	}
+
+	visible := make([]workflow.Code, 0, 4)
+	if issuedWO, ok := VendorWO(role); ok {
+		// vendor-sr-app is only assigned for JTR/JTM. PLG TM uses the
+		// vendor-konstruksi branch instead, so do not expose an unrelated WO.
+		if role != RoleVendorSrApp {
+			visible = append(visible, issuedWO)
+		} else if owner, ok := workflow.Owner(workflow.SRAPP, connection); ok && owner == role {
+			visible = append(visible, issuedWO)
+		}
+	}
+	for _, definition := range workflow.Definitions() {
+		if len(visible) > 0 && definition.Code == visible[0] {
+			continue
+		}
+		owner, ok := workflow.Owner(definition.Code, connection)
+		if ok && owner == role {
+			visible = append(visible, definition.Code)
+		}
+	}
+	return visible
 }
 
 // OwnsWorkflowNode resolves role and unit ownership independently of node state.

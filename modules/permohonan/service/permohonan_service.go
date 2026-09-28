@@ -605,7 +605,7 @@ func (s *permohonanService) GetById(ctx context.Context, id string, userId strin
 		return dto.PermohonanResponse{}, dto.ErrGetPermohonanById
 	}
 	if rbac.IsVendor(requester.Role) {
-		response.WorkflowNodes = vendorWorkflowNodes(response.WorkflowNodes, requester.Role)
+		response.WorkflowNodes = vendorWorkflowNodes(response.WorkflowNodes, requester.Role, permohonan.JenisSambungan)
 	}
 	return response, nil
 }
@@ -695,7 +695,7 @@ func (s *permohonanService) GetActivities(ctx context.Context, id, userID string
 		return nil, dto.ErrPermohonanNotFound
 	}
 	if rbac.IsVendor(requester.Role) {
-		responses = vendorWorkflowNodes(responses, requester.Role)
+		responses = vendorWorkflowNodes(responses, requester.Role, p.JenisSambungan)
 	}
 	return responses, nil
 }
@@ -716,8 +716,7 @@ func (s *permohonanService) GetActivity(ctx context.Context, id, workflowNode, u
 		return dto.WorkflowNodeDetailResponse{}, dto.ErrWorkflowNodeNotFound
 	}
 	if rbac.IsVendor(requester.Role) {
-		assignedNode, assigned := rbac.VendorWO(requester.Role)
-		if !assigned || assignedNode != code {
+		if !containsWorkflowCode(rbac.VendorVisibleNodes(requester.Role, p.JenisSambungan), code) {
 			return dto.WorkflowNodeDetailResponse{}, dto.ErrWorkflowNodeNotFound
 		}
 	}
@@ -783,18 +782,27 @@ func (s *permohonanService) GetLogs(ctx context.Context, id, userID string) ([]d
 	return responses, nil
 }
 
-func vendorWorkflowNodes(nodes []dto.WorkflowNodeResponse, role string) []dto.WorkflowNodeResponse {
-	code, ok := rbac.VendorWO(role)
-	if !ok {
+func vendorWorkflowNodes(nodes []dto.WorkflowNodeResponse, role, connection string) []dto.WorkflowNodeResponse {
+	visibleCodes := rbac.VendorVisibleNodes(role, connection)
+	if len(visibleCodes) == 0 {
 		return []dto.WorkflowNodeResponse{}
 	}
-	filtered := make([]dto.WorkflowNodeResponse, 0, 1)
+	filtered := make([]dto.WorkflowNodeResponse, 0, len(visibleCodes))
 	for _, node := range nodes {
-		if node.WorkflowNode == string(code) {
+		if containsWorkflowCode(visibleCodes, workflow.Code(node.WorkflowNode)) {
 			filtered = append(filtered, node)
 		}
 	}
 	return filtered
+}
+
+func containsWorkflowCode(codes []workflow.Code, wanted workflow.Code) bool {
+	for _, code := range codes {
+		if code == wanted {
+			return true
+		}
+	}
+	return false
 }
 
 func toActivityDocumentResponse(d entities.Document) documentDTO.DocumentResponse {

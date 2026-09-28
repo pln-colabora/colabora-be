@@ -74,8 +74,10 @@ internal service methods do not independently implement the HTTP read policy.
 
 Vendor response visibility is narrower than request visibility:
 
-- detail and activities expose only the issued WO for the vendor role (`wo_tiang`,
-  `wo_konstruksi`, or `wo_app`);
+- detail and activities expose the issued WO plus every workflow node owned by the
+  authenticated vendor role for that connection type. For example, vendor
+  konstruksi sees `wo_konstruksi`, `reservasi_material`, and
+  `pelaksanaan_konstruksi`; PLG TM also includes `pemasangan_sr_app`;
 - logs expose only entries whose actor is the authenticated vendor account;
 - document lists, previews, and downloads expose the issued WO for the vendor's
   role (`wo_tiang`, `wo_konstruksi`, or `wo_app`) plus documents uploaded by the

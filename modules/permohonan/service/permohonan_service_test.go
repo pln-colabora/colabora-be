@@ -220,6 +220,35 @@ func TestDetailReturnsCallerOwnedAvailableAction(t *testing.T) {
 	require.Equal(t, "/api/permohonan/{id}/survei", response.AvailableActions[0].Path)
 }
 
+func TestVendorDetailProjectsIssuedAndOwnedNodes(t *testing.T) {
+	vendor := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
+	p := entities.Permohonan{ID: uuid.New(), JenisSambungan: rbac.JenisSambunganJTR, UlpUnit: "ULP Taman", RequestDate: time.Now(), CreatedBy: uuid.New()}
+	nodes, _, err := entities.InitializeWorkflow(p, mustSLARules(t, p.JenisSambungan), time.Now())
+	require.NoError(t, err)
+	p.WorkflowNodes = nodes
+
+	s := &permohonanService{
+		permohonanRepository: &phase3PermohonanRepository{byID: p},
+		userRepository:       &phase3UserRepository{user: vendor},
+		db:                   phase3DB(t),
+	}
+	response, err := s.GetById(context.Background(), p.ID.String(), vendor.ID.String())
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{
+		string(workflow.WOKonstruksi),
+		string(workflow.Reservasi),
+		string(workflow.Konstruksi),
+	}, workflowNodeCodes(response.WorkflowNodes))
+}
+
+func workflowNodeCodes(nodes []dto.WorkflowNodeResponse) []string {
+	codes := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		codes = append(codes, node.WorkflowNode)
+	}
+	return codes
+}
+
 func TestListProjectsOnlyCallerOwnedParallelAction(t *testing.T) {
 	p := entities.Permohonan{ID: uuid.New(), JenisSambungan: rbac.JenisSambunganJTR, UlpUnit: "ULP Taman", RequestDate: time.Now(), CreatedBy: uuid.New()}
 	nodes, _, err := entities.InitializeWorkflow(p, mustSLARules(t, p.JenisSambungan), time.Now())
@@ -667,6 +696,23 @@ func TestVendorGetActivityReturnsIssuedWODocuments(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result.Documents, 1)
 	require.Equal(t, document.ID.String(), result.Documents[0].ID)
+}
+
+func TestVendorGetActivityAllowsOwnedFollowUpNode(t *testing.T) {
+	vendor := entities.User{ID: uuid.New(), Name: "Vendor Konstruksi", Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
+	p := entities.Permohonan{ID: uuid.New(), JenisSambungan: rbac.JenisSambunganJTR, UlpUnit: "ULP A", RequestDate: time.Now(), CreatedBy: uuid.New()}
+	nodes, _, err := entities.InitializeWorkflow(p, mustSLARules(t, p.JenisSambungan), time.Now())
+	require.NoError(t, err)
+	p.WorkflowNodes = nodes
+	s := &permohonanService{
+		permohonanRepository: &phase3PermohonanRepository{byID: p},
+		userRepository:       &phase3UserRepository{user: vendor},
+		documentRepository:   &phase4DocumentRepository{},
+	}
+
+	result, err := s.GetActivity(context.Background(), p.ID.String(), string(workflow.Reservasi), vendor.ID.String())
+	require.NoError(t, err)
+	require.Equal(t, string(workflow.Reservasi), result.WorkflowNode)
 }
 
 func TestGetActivityRejectsUnknownWorkflowNode(t *testing.T) {
