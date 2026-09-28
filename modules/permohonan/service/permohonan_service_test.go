@@ -638,6 +638,37 @@ func TestGetActivityReturnsDynamicPayloadAndNodeDocuments(t *testing.T) {
 	require.Equal(t, "hasil-survei.pdf", result.Documents[0].OriginalFilename)
 }
 
+func TestVendorGetActivityReturnsIssuedWODocuments(t *testing.T) {
+	vendor := entities.User{ID: uuid.New(), Name: "Vendor Konstruksi", Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
+	p := entities.Permohonan{
+		ID:             uuid.New(),
+		JenisSambungan: rbac.JenisSambunganJTR,
+		UlpUnit:        "ULP A",
+		RequestDate:    time.Now(),
+		CreatedBy:      uuid.New(),
+	}
+	nodes, _, err := entities.InitializeWorkflow(p, mustSLARules(t, rbac.JenisSambunganJTR), time.Now())
+	require.NoError(t, err)
+	p.WorkflowNodes = nodes
+	document := entities.Document{
+		ID:               uuid.New(),
+		OriginalFilename: "wo-konstruksi.pdf",
+		UploadedBy:       uuid.New(),
+		PermohonanID:     &p.ID,
+		Evidence:         []entities.DocumentEvidence{{WorkflowNode: string(workflow.WOKonstruksi)}},
+	}
+	s := &permohonanService{
+		permohonanRepository: &phase3PermohonanRepository{byID: p},
+		userRepository:       &phase3UserRepository{user: vendor},
+		documentRepository:   &phase4DocumentRepository{documents: []entities.Document{document}},
+	}
+
+	result, err := s.GetActivity(context.Background(), p.ID.String(), string(workflow.WOKonstruksi), vendor.ID.String())
+	require.NoError(t, err)
+	require.Len(t, result.Documents, 1)
+	require.Equal(t, document.ID.String(), result.Documents[0].ID)
+}
+
 func TestGetActivityRejectsUnknownWorkflowNode(t *testing.T) {
 	actor := entities.User{ID: uuid.New(), Role: rbac.RoleTeknik, Unit: "ULP A"}
 	p := entities.Permohonan{ID: uuid.New(), JenisSambungan: rbac.JenisSambunganJTR, UlpUnit: actor.Unit, WorkflowNodes: []entities.PermohonanActivity{}}

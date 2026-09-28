@@ -77,9 +77,10 @@ Vendor response visibility is narrower than request visibility:
 - detail and activities expose only the issued WO for the vendor role (`wo_tiang`,
   `wo_konstruksi`, or `wo_app`);
 - logs expose only entries whose actor is the authenticated vendor account;
-- document lists, previews, and downloads expose only evidence attached to the
-  `survei` workflow node; vendor-uploaded evidence on other nodes is not readable
-  through these APIs;
+- document lists, previews, and downloads expose the issued WO for the vendor's
+  role (`wo_tiang`, `wo_konstruksi`, or `wo_app`) plus documents uploaded by the
+  authenticated vendor on that request; documents from other workflow nodes or
+  other vendor accounts remain hidden;
 - vendor write actions and `available_actions` remain governed by exact-node
   ownership and prerequisites.
 

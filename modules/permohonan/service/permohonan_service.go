@@ -742,19 +742,14 @@ func (s *permohonanService) GetActivity(ctx context.Context, id, workflowNode, u
 		return dto.WorkflowNodeDetailResponse{}, dto.ErrWorkflowNodeNotFound
 	}
 
-	var documents []documentDTO.DocumentResponse
-	if !rbac.IsVendor(requester.Role) {
-		documentFilter := workflowNode
-		storedDocuments, listErr := s.documentRepository.ListByPermohonan(ctx, s.db, id, &documentFilter)
-		if listErr != nil {
-			return dto.WorkflowNodeDetailResponse{}, listErr
-		}
-		documents = make([]documentDTO.DocumentResponse, 0, len(storedDocuments))
-		for _, document := range storedDocuments {
-			documents = append(documents, toActivityDocumentResponse(document))
-		}
-	} else {
-		documents = []documentDTO.DocumentResponse{}
+	documentFilter := workflowNode
+	storedDocuments, listErr := s.documentRepository.ListByPermohonan(ctx, s.db, id, &documentFilter)
+	if listErr != nil {
+		return dto.WorkflowNodeDetailResponse{}, listErr
+	}
+	documents := make([]documentDTO.DocumentResponse, 0, len(storedDocuments))
+	for _, document := range storedDocuments {
+		documents = append(documents, toActivityDocumentResponse(document))
 	}
 
 	return dto.WorkflowNodeDetailResponse{

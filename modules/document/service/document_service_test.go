@@ -95,7 +95,7 @@ func TestListIncludesUploaderName(t *testing.T) {
 	require.Equal(t, "Pelayanan Taman", *documents[0].UploadedByName)
 }
 
-func TestVendorDocumentListOnlyIncludesSurveyEvidence(t *testing.T) {
+func TestVendorDocumentListIncludesIssuedWOAndOwnUploads(t *testing.T) {
 	vendor := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
 	surveyDocument := entities.Document{
 		ID:         uuid.New(),
@@ -104,28 +104,39 @@ func TestVendorDocumentListOnlyIncludesSurveyEvidence(t *testing.T) {
 	}
 	woDocument := entities.Document{
 		ID:         uuid.New(),
+		UploadedBy: uuid.New(),
+		Evidence:   []entities.DocumentEvidence{{WorkflowNode: string(workflow.WOKonstruksi)}},
+	}
+	ownDocument := entities.Document{
+		ID:         uuid.New(),
 		UploadedBy: vendor.ID,
 		Evidence:   []entities.DocumentEvidence{{WorkflowNode: string(workflow.Konstruksi)}},
 	}
+	otherVendorDocument := entities.Document{
+		ID:         uuid.New(),
+		UploadedBy: uuid.New(),
+		Evidence:   []entities.DocumentEvidence{{WorkflowNode: string(workflow.Konstruksi)}},
+	}
 	s := &documentService{
-		documentRepository: &fakeDocumentRepository{listed: []entities.Document{surveyDocument, woDocument}},
+		documentRepository: &fakeDocumentRepository{listed: []entities.Document{surveyDocument, woDocument, ownDocument, otherVendorDocument}},
 		userRepository:     &fakeUserRepository{user: vendor},
 	}
 
 	documents, err := s.List(context.Background(), vendor.ID.String(), uuid.NewString(), nil)
 
 	require.NoError(t, err)
-	require.Len(t, documents, 1)
-	require.Equal(t, surveyDocument.ID.String(), documents[0].ID)
+	require.Len(t, documents, 2)
+	require.ElementsMatch(t, []string{woDocument.ID.String(), ownDocument.ID.String()}, []string{documents[0].ID, documents[1].ID})
 }
 
-func TestVendorDocumentListCannotBypassSurveyFilter(t *testing.T) {
+func TestVendorDocumentListAllowsOwnUploadOnAnotherWorkflowNode(t *testing.T) {
 	vendor := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
-	workflowNode := string(workflow.Konstruksi)
+	workflowNode := string(workflow.SRAPP)
 	s := &documentService{
 		documentRepository: &fakeDocumentRepository{listed: []entities.Document{{
-			ID:       uuid.New(),
-			Evidence: []entities.DocumentEvidence{{WorkflowNode: string(workflow.Konstruksi)}},
+			ID:         uuid.New(),
+			UploadedBy: vendor.ID,
+			Evidence:   []entities.DocumentEvidence{{WorkflowNode: workflowNode}},
 		}}},
 		userRepository: &fakeUserRepository{user: vendor},
 	}
@@ -133,7 +144,8 @@ func TestVendorDocumentListCannotBypassSurveyFilter(t *testing.T) {
 	documents, err := s.List(context.Background(), vendor.ID.String(), uuid.NewString(), &workflowNode)
 
 	require.NoError(t, err)
-	require.Empty(t, documents)
+	require.Len(t, documents, 1)
+	require.Equal(t, vendor.ID.String(), documents[0].UploadedBy)
 }
 
 type fakePermohonanRepository struct {
@@ -545,6 +557,35 @@ func TestPreviewDoesNotRevealUnavailableAttachedDocumentToUnauthorizedCaller(t *
 
 	_, err := s.Preview(context.Background(), actorID.String(), uuid.NewString())
 	assert.ErrorIs(t, err, dto.ErrDocumentNotFound)
+}
+
+func TestVendorDocumentReadProjection(t *testing.T) {
+	actorID := uuid.New()
+	permohonanID := uuid.New()
+	db := newDocumentReadScopeDB(t, actorID, permohonanID, rbac.RoleVendorKonstruksi, "vendor", "ULP Taman")
+	require.NoError(t, db.Exec("CREATE TABLE vendor_assignments (permohonan_id TEXT, vendor_role TEXT, vendor_id TEXT)").Error)
+	require.NoError(t, db.Exec("INSERT INTO vendor_assignments (permohonan_id, vendor_role, vendor_id) VALUES (?, ?, ?)", permohonanID.String(), rbac.RoleVendorKonstruksi, actorID.String()).Error)
+	s := &documentService{db: db}
+
+	issuedWO := entities.Document{
+		PermohonanID: &permohonanID,
+		UploadedBy:   uuid.New(),
+		Evidence:     []entities.DocumentEvidence{{WorkflowNode: string(workflow.WOKonstruksi)}},
+	}
+	ownUpload := entities.Document{
+		PermohonanID: &permohonanID,
+		UploadedBy:   actorID,
+		Evidence:     []entities.DocumentEvidence{{WorkflowNode: string(workflow.Konstruksi)}},
+	}
+	survey := entities.Document{
+		PermohonanID: &permohonanID,
+		UploadedBy:   uuid.New(),
+		Evidence:     []entities.DocumentEvidence{{WorkflowNode: string(workflow.Survei)}},
+	}
+
+	assert.True(t, s.canReadDocument(context.Background(), actorID.String(), issuedWO))
+	assert.True(t, s.canReadDocument(context.Background(), actorID.String(), ownUpload))
+	assert.False(t, s.canReadDocument(context.Background(), actorID.String(), survey))
 }
 
 func newDocumentReadScopeDB(t *testing.T, actorID, permohonanID uuid.UUID, role, unit, permohonanUnit string) *gorm.DB {

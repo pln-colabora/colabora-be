@@ -371,8 +371,8 @@ func (s *documentService) canReadPermohonan(ctx context.Context, userID, permoho
 
 func (s *documentService) canReadDocument(ctx context.Context, userID string, document entities.Document) bool {
 	// Keep the upload-first unit test and lightweight callers safe when no DB is
-	// configured. Production instances always have a DB and therefore enforce
-	// the vendor-only survey rule below.
+	// configured. Production instances enforce the request access scope first,
+	// then apply the vendor-specific document projection below.
 	if s.db == nil && document.PermohonanID == nil {
 		return document.UploadedBy.String() == userID
 	}
@@ -389,7 +389,8 @@ func (s *documentService) canReadDocument(ctx context.Context, userID string, do
 	if !rbac.IsVendor(actor.Role) {
 		return true
 	}
-	return hasSurveyEvidence(document)
+	assignedNode, assigned := rbac.VendorWO(actor.Role)
+	return document.UploadedBy == actor.ID || (assigned && hasWorkflowEvidence(document, assignedNode))
 }
 
 func (s *documentService) CleanupOrphans(ctx context.Context, before time.Time, limit int) (int, error) {
@@ -438,20 +439,19 @@ func (s *documentService) List(ctx context.Context, userID, permohonanId string,
 		return nil, err
 	}
 
-	role := ""
+	var actor entities.User
+	hasActor := false
 	if s.userRepository != nil {
-		actor, userErr := s.userRepository.GetUserById(ctx, s.db, userID)
+		loaded, userErr := s.userRepository.GetUserById(ctx, s.db, userID)
 		if userErr != nil {
 			return nil, userErr
 		}
-		role = actor.Role
-	}
-	if rbac.IsVendor(role) && workflowNode != nil && *workflowNode != string(workflow.Survei) {
-		return []dto.DocumentResponse{}, nil
+		actor = loaded
+		hasActor = true
 	}
 	responses := make([]dto.DocumentResponse, 0, len(documents))
 	for _, document := range documents {
-		if rbac.IsVendor(role) && !hasSurveyEvidence(document) {
+		if hasActor && rbac.IsVendor(actor.Role) && !vendorCanReadListedDocument(document, actor, workflowNode) {
 			continue
 		}
 		responses = append(responses, toDocumentResponse(document))
@@ -460,9 +460,23 @@ func (s *documentService) List(ctx context.Context, userID, permohonanId string,
 	return responses, nil
 }
 
-func hasSurveyEvidence(document entities.Document) bool {
+func vendorCanReadListedDocument(document entities.Document, actor entities.User, workflowNode *string) bool {
+	assignedNode, assigned := rbac.VendorWO(actor.Role)
+	if document.UploadedBy == actor.ID {
+		return true
+	}
+	if !assigned {
+		return false
+	}
+	if workflowNode != nil && *workflowNode != string(assignedNode) {
+		return false
+	}
+	return hasWorkflowEvidence(document, assignedNode)
+}
+
+func hasWorkflowEvidence(document entities.Document, node workflow.Code) bool {
 	for _, evidence := range document.Evidence {
-		if evidence.WorkflowNode == string(workflow.Survei) {
+		if evidence.WorkflowNode == string(node) {
 			return true
 		}
 	}
