@@ -10,6 +10,7 @@ import (
 	"github.com/pln-colabora/colabora-be/modules/auth/validation"
 	userDto "github.com/pln-colabora/colabora-be/modules/user/dto"
 	"github.com/pln-colabora/colabora-be/pkg/constants"
+	"github.com/pln-colabora/colabora-be/pkg/rbac"
 	"github.com/pln-colabora/colabora-be/pkg/utils"
 	"github.com/samber/do"
 	"gorm.io/gorm"
@@ -24,6 +25,7 @@ type (
 		SendVerificationEmail(ctx *gin.Context)
 		VerifyEmail(ctx *gin.Context)
 		VerifyUser(ctx *gin.Context)
+		GetRoles(ctx *gin.Context)
 		SendPasswordReset(ctx *gin.Context)
 		ResetPassword(ctx *gin.Context)
 	}
@@ -173,7 +175,14 @@ func (c *authController) VerifyEmail(ctx *gin.Context) {
 }
 
 func (c *authController) VerifyUser(ctx *gin.Context) {
-	result, err := c.authService.VerifyUser(ctx.Request.Context(), ctx.Param("user_id"))
+	var req dto.VerifyUserRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := utils.BuildResponseFailed(userDto.MESSAGE_FAILED_GET_DATA_FROM_BODY, err.Error(), nil)
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, res)
+		return
+	}
+
+	result, err := c.authService.VerifyUser(ctx.Request.Context(), ctx.Param("user_id"), req)
 	if err != nil {
 		status := http.StatusBadRequest
 		if errors.Is(err, userDto.ErrUserNotFound) {
@@ -187,6 +196,11 @@ func (c *authController) VerifyUser(ctx *gin.Context) {
 	}
 
 	res := utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_VERIFY_USER, result)
+	ctx.JSON(http.StatusOK, res)
+}
+
+func (c *authController) GetRoles(ctx *gin.Context) {
+	res := utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_GET_ROLES, rbac.AllRoles())
 	ctx.JSON(http.StatusOK, res)
 }
 

@@ -30,6 +30,23 @@ var vendorRoles = []string{
 	RoleVendorSrApp,
 }
 
+var allRoles = []string{
+	RoleAdmin,
+	RoleUser,
+	RolePelayananPelanggan,
+	RoleTeknik,
+	RolePerencanaan,
+	RoleKonstruksi,
+	RoleTransaksiEnergi,
+	RoleJaringan,
+	RoleNps,
+	RolePdkb,
+	RoleVendorTiang,
+	RoleVendorKonstruksi,
+	RoleVendorSrApp,
+	RoleSuperUser,
+}
+
 func IsValidRole(role string) bool {
 	return validRoles[role]
 }
@@ -45,6 +62,10 @@ func IsVendorRole(role string) bool {
 
 func VendorRoles() []string {
 	return append([]string(nil), vendorRoles...)
+}
+
+func AllRoles() []string {
+	return append([]string(nil), allRoles...)
 }
 
 func CanManageAccounts(role string) bool {

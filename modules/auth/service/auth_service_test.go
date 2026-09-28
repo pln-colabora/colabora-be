@@ -12,6 +12,7 @@ import (
 	userDto "github.com/pln-colabora/colabora-be/modules/user/dto"
 	userRepo "github.com/pln-colabora/colabora-be/modules/user/repository"
 	"github.com/pln-colabora/colabora-be/pkg/helpers"
+	"github.com/pln-colabora/colabora-be/pkg/rbac"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -62,6 +63,14 @@ func newAuthServiceTest(t *testing.T) (*authService, *gorm.DB) {
 		created_at DATETIME,
 		updated_at DATETIME
 	)`).Error)
+	require.NoError(t, db.Exec(`CREATE TABLE refresh_tokens (
+		id TEXT PRIMARY KEY,
+		user_id TEXT NOT NULL,
+		token TEXT NOT NULL,
+		expires_at DATETIME,
+		created_at DATETIME,
+		updated_at DATETIME
+	)`).Error)
 
 	users := userRepo.NewUserRepository(db)
 	refreshTokens := repository.NewRefreshTokenRepository(db)
@@ -79,13 +88,14 @@ func addVerificationDocument(t *testing.T, db *gorm.DB, userID uuid.UUID) {
 func TestVerifyUserSetsIsVerified(t *testing.T) {
 	service, db := newAuthServiceTest(t)
 	userID := uuid.New()
-	require.NoError(t, db.Exec("INSERT INTO users (id, email, is_verified) VALUES (?, ?, ?)", userID.String(), "vendor@example.test", false).Error)
+	require.NoError(t, db.Exec("INSERT INTO users (id, email, unit, is_verified) VALUES (?, ?, ?, ?)", userID.String(), "vendor@example.test", "vendor", false).Error)
 	addVerificationDocument(t, db, userID)
 
-	result, err := service.VerifyUser(context.Background(), userID.String())
+	result, err := service.VerifyUser(context.Background(), userID.String(), authDto.VerifyUserRequest{Role: rbac.RoleVendorKonstruksi})
 	require.NoError(t, err)
 	require.Equal(t, userID.String(), result.ID)
 	require.Equal(t, "vendor@example.test", result.Email)
+	require.Equal(t, rbac.RoleVendorKonstruksi, result.Role)
 	require.True(t, result.IsVerified)
 
 	var verified bool
@@ -96,10 +106,10 @@ func TestVerifyUserSetsIsVerified(t *testing.T) {
 func TestVerifyUserIsIdempotent(t *testing.T) {
 	service, db := newAuthServiceTest(t)
 	userID := uuid.New()
-	require.NoError(t, db.Exec("INSERT INTO users (id, email, is_verified) VALUES (?, ?, ?)", userID.String(), "vendor@example.test", true).Error)
+	require.NoError(t, db.Exec("INSERT INTO users (id, email, unit, is_verified) VALUES (?, ?, ?, ?)", userID.String(), "vendor@example.test", "vendor", true).Error)
 	addVerificationDocument(t, db, userID)
 
-	result, err := service.VerifyUser(context.Background(), userID.String())
+	result, err := service.VerifyUser(context.Background(), userID.String(), authDto.VerifyUserRequest{Role: rbac.RoleVendorKonstruksi})
 	require.NoError(t, err)
 	require.True(t, result.IsVerified)
 }
@@ -107,10 +117,10 @@ func TestVerifyUserIsIdempotent(t *testing.T) {
 func TestVerifyUserRejectsInvalidOrMissingUser(t *testing.T) {
 	service, _ := newAuthServiceTest(t)
 
-	_, err := service.VerifyUser(context.Background(), "not-a-uuid")
+	_, err := service.VerifyUser(context.Background(), "not-a-uuid", authDto.VerifyUserRequest{Role: rbac.RoleVendorKonstruksi})
 	require.ErrorIs(t, err, authDto.ErrInvalidUserID)
 
-	_, err = service.VerifyUser(context.Background(), uuid.NewString())
+	_, err = service.VerifyUser(context.Background(), uuid.NewString(), authDto.VerifyUserRequest{Role: rbac.RoleVendorKonstruksi})
 	require.ErrorIs(t, err, userDto.ErrUserNotFound)
 }
 
@@ -130,6 +140,51 @@ func TestVerifyUserRequiresAccountDocument(t *testing.T) {
 	userID := uuid.New()
 	require.NoError(t, db.Exec("INSERT INTO users (id, email, is_verified) VALUES (?, ?, ?)", userID.String(), "without-document@example.test", false).Error)
 
-	_, err := service.VerifyUser(context.Background(), userID.String())
+	_, err := service.VerifyUser(context.Background(), userID.String(), authDto.VerifyUserRequest{Role: rbac.RoleVendorKonstruksi})
 	require.ErrorIs(t, err, authDto.ErrVerificationDocument)
+}
+
+func TestVerifyUserRejectsInvalidRole(t *testing.T) {
+	service, db := newAuthServiceTest(t)
+	userID := uuid.New()
+	require.NoError(t, db.Exec("INSERT INTO users (id, email, unit, is_verified) VALUES (?, ?, ?, ?)", userID.String(), "user@example.test", "vendor", false).Error)
+	addVerificationDocument(t, db, userID)
+
+	_, err := service.VerifyUser(context.Background(), userID.String(), authDto.VerifyUserRequest{Role: "invalid-role"})
+	require.ErrorIs(t, err, userDto.ErrAccountRoleInvalid)
+}
+
+func TestVerifyUserAcceptsAdminRole(t *testing.T) {
+	service, db := newAuthServiceTest(t)
+	userID := uuid.New()
+	require.NoError(t, db.Exec("INSERT INTO users (id, email, is_verified) VALUES (?, ?, ?)", userID.String(), "admin@example.test", false).Error)
+	addVerificationDocument(t, db, userID)
+
+	result, err := service.VerifyUser(context.Background(), userID.String(), authDto.VerifyUserRequest{Role: rbac.RoleAdmin})
+	require.NoError(t, err)
+	require.Equal(t, rbac.RoleAdmin, result.Role)
+}
+
+func TestVerifyUserPreservesUnit(t *testing.T) {
+	service, db := newAuthServiceTest(t)
+	userID := uuid.New()
+	require.NoError(t, db.Exec("INSERT INTO users (id, email, unit, is_verified) VALUES (?, ?, ?, ?)", userID.String(), "vendor@example.test", "Vendor A", false).Error)
+	addVerificationDocument(t, db, userID)
+
+	_, err := service.VerifyUser(context.Background(), userID.String(), authDto.VerifyUserRequest{Role: rbac.RoleVendorTiang})
+	require.NoError(t, err)
+
+	var unit string
+	require.NoError(t, db.Raw("SELECT unit FROM users WHERE id = ?", userID.String()).Scan(&unit).Error)
+	require.Equal(t, "Vendor A", unit)
+}
+
+func TestVerifyUserRejectsVendorRoleWithoutUnit(t *testing.T) {
+	service, db := newAuthServiceTest(t)
+	userID := uuid.New()
+	require.NoError(t, db.Exec("INSERT INTO users (id, email, is_verified) VALUES (?, ?, ?)", userID.String(), "vendor@example.test", false).Error)
+	addVerificationDocument(t, db, userID)
+
+	_, err := service.VerifyUser(context.Background(), userID.String(), authDto.VerifyUserRequest{Role: rbac.RoleVendorKonstruksi})
+	require.ErrorIs(t, err, userDto.ErrAccountRoleInvalid)
 }

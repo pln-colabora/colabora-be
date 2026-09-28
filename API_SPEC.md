@@ -6,16 +6,21 @@ The API is not coupled to hifi form filenames. Detailed production forms may rep
 
 ## Authentication and account verification
 
+`GET /api/auth/roles` is restricted to account managers and returns the ordered list
+of all valid account roles for role-selection forms.
+
 `POST /api/auth/register` uses `multipart/form-data` and requires `name`, `email`,
 `password`, and `document`; `telp_number` is optional. The document is stored as a
 private `documents` row and linked to the new user through `account_documents` with
 type `account_verification`. The user is created with `is_verified = false`, so the
 endpoint returns the user profile without access tokens.
 
-`POST /api/auth/verify/:user_id` is restricted to account managers. It requires the
-target user to have a non-infected, non-superseded account-verification document and
-then sets `is_verified = true`. Login returns 403 and no token while `is_verified` is
-false.
+`POST /api/auth/verify/:user_id` is restricted to account managers and accepts a
+valid account role in the `role` field. It requires the target user to have a
+non-infected, non-superseded account-verification document, validates the selected
+role against the target user's existing unit, stores the role, and sets
+`is_verified = true` atomically. The unit is not changed by this endpoint. Login
+returns 403 and no token while `is_verified` is false.
 
 Email verification endpoints are currently disabled and are not part of the runtime
 route or OpenAPI contract.

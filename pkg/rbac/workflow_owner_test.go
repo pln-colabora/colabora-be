@@ -66,6 +66,17 @@ func TestVendorRoles(t *testing.T) {
 	require.False(t, IsVendorRole("vendor"))
 }
 
+func TestAllRoles(t *testing.T) {
+	roles := AllRoles()
+	require.Len(t, roles, len(validRoles))
+	for _, role := range roles {
+		require.True(t, IsValidRole(role))
+	}
+
+	roles[0] = "changed"
+	require.NotEqual(t, "changed", AllRoles()[0])
+}
+
 func TestWorkflowAuthorizationAndActions(t *testing.T) {
 	no := false
 	s := workflow.Snapshot{Connection: "JTR", Decisions: workflow.Decisions{KebutuhanTiang: &no, PerluPDKB: &no, NPS: workflow.Delegated}}

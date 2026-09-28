@@ -14,6 +14,7 @@ import (
 	userDto "github.com/pln-colabora/colabora-be/modules/user/dto"
 	"github.com/pln-colabora/colabora-be/modules/user/repository"
 	"github.com/pln-colabora/colabora-be/pkg/helpers"
+	"github.com/pln-colabora/colabora-be/pkg/rbac"
 	"github.com/pln-colabora/colabora-be/pkg/utils"
 	"gorm.io/gorm"
 )
@@ -27,7 +28,7 @@ type AuthService interface {
 	VerifyEmail(ctx context.Context, req userDto.VerifyEmailRequest) (userDto.VerifyEmailResponse, error)
 	SendPasswordReset(ctx context.Context, req dto.SendPasswordResetRequest) error
 	ResetPassword(ctx context.Context, req dto.ResetPasswordRequest) error
-	VerifyUser(ctx context.Context, userID string) (dto.VerifyUserResponse, error)
+	VerifyUser(ctx context.Context, userID string, req dto.VerifyUserRequest) (dto.VerifyUserResponse, error)
 }
 
 type authService struct {
@@ -238,10 +239,13 @@ func (s *authService) VerifyEmail(ctx context.Context, req userDto.VerifyEmailRe
 	}, nil
 }
 
-func (s *authService) VerifyUser(ctx context.Context, userID string) (dto.VerifyUserResponse, error) {
+func (s *authService) VerifyUser(ctx context.Context, userID string, req dto.VerifyUserRequest) (dto.VerifyUserResponse, error) {
 	parsedID, err := uuid.Parse(userID)
 	if err != nil {
 		return dto.VerifyUserResponse{}, dto.ErrInvalidUserID
+	}
+	if !rbac.IsValidRole(req.Role) {
+		return dto.VerifyUserResponse{}, userDto.ErrAccountRoleInvalid
 	}
 
 	user, err := s.userRepository.GetUserById(ctx, s.db, parsedID.String())
@@ -264,9 +268,24 @@ func (s *authService) VerifyUser(ctx context.Context, userID string) (dto.Verify
 	if accountDocument.Document.ScanStatus == "infected" || accountDocument.Document.SupersededByID != nil {
 		return dto.VerifyUserResponse{}, dto.ErrVerificationDocumentUnavailable
 	}
+	if !rbac.ValidateRoleUnit(req.Role, user.Unit) {
+		return dto.VerifyUserResponse{}, userDto.ErrAccountRoleInvalid
+	}
 
-	user.IsVerified = true
-	updatedUser, err := s.userRepository.Update(ctx, s.db, user)
+	var updatedUser entities.User
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		user.Role = req.Role
+		user.IsVerified = true
+		var updateErr error
+		updatedUser, updateErr = s.userRepository.Update(ctx, tx, user)
+		if updateErr != nil {
+			return updateErr
+		}
+		if s.refreshTokenRepository != nil {
+			return s.refreshTokenRepository.DeleteByUserID(ctx, tx, parsedID.String())
+		}
+		return nil
+	})
 	if err != nil {
 		return dto.VerifyUserResponse{}, err
 	}
@@ -274,6 +293,7 @@ func (s *authService) VerifyUser(ctx context.Context, userID string) (dto.Verify
 	return dto.VerifyUserResponse{
 		ID:         updatedUser.ID.String(),
 		Email:      updatedUser.Email,
+		Role:       updatedUser.Role,
 		IsVerified: updatedUser.IsVerified,
 	}, nil
 }

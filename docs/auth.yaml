@@ -12,6 +12,30 @@ tags:
   - name: Auth
     description: Registration, login, tokens, account verification, and password reset
 paths:
+  /api/auth/roles:
+    get:
+      tags: [Auth]
+      summary: List all account roles (admin or super-user only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Available account roles
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/AccountRole"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/auth/verify/{user_id}:
     post:
       tags: [Auth]
@@ -23,6 +47,14 @@ paths:
           in: path
           required: true
           schema: { type: string, format: uuid, example: "550e8400-e29b-41d4-a716-446655440020" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyUserRequest"
+            example:
+              role: "vendor-konstruksi"
       responses:
         "200":
           description: User account verified
@@ -283,4 +315,17 @@ components:
       properties:
         id: { type: string, format: uuid }
         email: { type: string, format: email }
+        role:
+          type: string
+          enum: [admin, user, pelayanan-pelanggan, teknik, perencanaan, konstruksi, transaksi-energi, jaringan, nps, pdkb, vendor-tiang, vendor-konstruksi, vendor-sr-app, super-user]
         is_verified: { type: boolean }
+    VerifyUserRequest:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [admin, user, pelayanan-pelanggan, teknik, perencanaan, konstruksi, transaksi-energi, jaringan, nps, pdkb, vendor-tiang, vendor-konstruksi, vendor-sr-app, super-user]
+    AccountRole:
+      type: string
+      enum: [admin, user, pelayanan-pelanggan, teknik, perencanaan, konstruksi, transaksi-energi, jaringan, nps, pdkb, vendor-tiang, vendor-konstruksi, vendor-sr-app, super-user]
