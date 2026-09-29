@@ -40,13 +40,13 @@ func TestLifecycle(t *testing.T) {
 								s = complete(t, s, workflow.WOTiang, workflow.PemasanganTiang)
 							}
 						}
-						app := func() { s = complete(t, s, workflow.WOAPP, workflow.Reservasi, workflow.Tera) }
+						app := func() { s = complete(t, s, workflow.WOAPP, workflow.Tera) }
 						construction := func() {
 							s = complete(t, s, workflow.WOKonstruksi)
 							if pdkb {
 								s = complete(t, s, workflow.WOPDKB)
 							}
-							s = complete(t, s, workflow.Konstruksi)
+							s = complete(t, s, workflow.Reservasi, workflow.Konstruksi)
 							if pdkb {
 								s = complete(t, s, workflow.DokumentasiPDKB)
 							}
@@ -114,14 +114,14 @@ func TestJoinGatesAndStageProjection(t *testing.T) {
 	s = complete(t, s, workflow.WOKonstruksi)
 	_, _, err := workflow.Transition(s, workflow.PKVendor, workflow.Completed)
 	require.ErrorIs(t, err, workflow.ErrNotActionable)
-	s = complete(t, s, workflow.WOPDKB, workflow.Konstruksi)
+	s = complete(t, s, workflow.WOPDKB, workflow.Reservasi, workflow.Konstruksi)
 	r, err := workflow.Evaluate(s)
 	require.NoError(t, err)
 	require.EqualValues(t, 4, r.CurrentStage)
 	require.Contains(t, r.AvailableNodes, workflow.DokumentasiPDKB)
 	require.Equal(t, workflow.Locked, r.Nodes[workflow.Energize])
 	require.Equal(t, workflow.Locked, r.Nodes[workflow.SRAPP])
-	s = complete(t, s, workflow.WOAPP, workflow.Reservasi, workflow.Tera, workflow.SRAPP)
+	s = complete(t, s, workflow.WOAPP, workflow.Tera, workflow.SRAPP)
 	r, err = workflow.Evaluate(s)
 	require.NoError(t, err)
 	require.Equal(t, workflow.Locked, r.Nodes[workflow.PDL])

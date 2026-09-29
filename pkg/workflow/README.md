@@ -20,6 +20,10 @@ Decisions take effect only when their owning node completes. A service can compo
 ordered transitions for bundled endpoints whose nodes share one owner (RAB plus
 pole decision, NPS submission, or closing) and persist them in one transaction.
 Material reservation and APP tera are separate transitions because their owners differ.
+After delegation, material reservation follows the construction WO, while APP tera
+follows the APP WO. Construction execution requires the construction WO, completed
+material reservation, and either completed WO PDKB or an explicit PDKB skip when
+`perlu_pdkb=false`.
 The service must prohibit revisions of completed decisions and validate evidence
 and structured payloads. This package cannot validate those against a database.
 

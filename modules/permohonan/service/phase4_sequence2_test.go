@@ -59,7 +59,7 @@ func TestStage4ParallelWorkOrdersCanCompleteInEitherOrder(t *testing.T) {
 			require.Equal(t, string(workflow.Completed), persistedNode(t, repo.byID, workflow.WOKonstruksi).Status)
 			require.Equal(t, string(workflow.Completed), persistedNode(t, repo.byID, workflow.WOAPP).Status)
 			require.Equal(t, string(workflow.Available), persistedNode(t, repo.byID, workflow.PemasanganTiang).Status)
-			require.Equal(t, string(workflow.Available), persistedNode(t, repo.byID, workflow.Konstruksi).Status)
+			require.Equal(t, string(workflow.Locked), persistedNode(t, repo.byID, workflow.Konstruksi).Status)
 			require.Equal(t, string(workflow.Available), persistedNode(t, repo.byID, workflow.Reservasi).Status)
 		})
 	}
@@ -102,7 +102,7 @@ func TestWOConstructionControlsPDKBAndAuditsDerivedSkips(t *testing.T) {
 		wantAction       string
 	}{
 		{name: "JTR requires PDKB", connection: rbac.JenisSambunganJTR, required: true, wantWOPDKB: workflow.Available, wantConstruction: workflow.Locked, wantLogSize: 1, wantAction: "pdkb_required"},
-		{name: "PLG TM skips PDKB", connection: rbac.JenisSambunganPlgTmLebih5, required: false, wantWOPDKB: workflow.Skipped, wantConstruction: workflow.Available, wantLogSize: 3, wantAction: "pdkb_not_required"},
+		{name: "PLG TM skips PDKB", connection: rbac.JenisSambunganPlgTmLebih5, required: false, wantWOPDKB: workflow.Skipped, wantConstruction: workflow.Locked, wantLogSize: 3, wantAction: "pdkb_not_required"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -146,7 +146,7 @@ func TestWOConstructionControlsPDKBAndAuditsDerivedSkips(t *testing.T) {
 	}
 }
 
-func TestWOPDKBMustPrecedeConstructionWhenRequired(t *testing.T) {
+func TestConstructionRequiresReservationAndPDKBWhenRequired(t *testing.T) {
 	p := delegatedRequest(t, rbac.JenisSambunganJTR, false)
 	pdkbRequired := true
 	advancePhase4(t, &p, &workflow.Decisions{PerluPDKB: &pdkbRequired}, workflow.WOKonstruksi)
@@ -164,16 +164,20 @@ func TestWOPDKBMustPrecedeConstructionWhenRequired(t *testing.T) {
 	response, err := s.SubmitWOPDKB(context.Background(), p.ID.String(), construction.ID.String(), evidenceRequest())
 	require.NoError(t, err)
 	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.WOPDKB).Status)
-	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.Konstruksi).Status)
+	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.Reservasi).Status)
+	require.Equal(t, string(workflow.Locked), responseNode(t, response, workflow.Konstruksi).Status)
 
 	vendor := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
 	s.userRepository = &phase3UserRepository{user: vendor}
+	response, err = s.SubmitReservation(context.Background(), p.ID.String(), vendor.ID.String(), evidenceRequest())
+	require.NoError(t, err)
+	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.Konstruksi).Status)
 	response, err = s.SubmitConstructionExecution(context.Background(), p.ID.String(), vendor.ID.String(), executionRequest(workflow.Konstruksi))
 	require.NoError(t, err)
 	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.Konstruksi).Status)
 }
 
-func TestConstructionOpensDirectlyWhenPDKBNotRequired(t *testing.T) {
+func TestConstructionRequiresReservationWhenPDKBNotRequired(t *testing.T) {
 	p := delegatedRequest(t, rbac.JenisSambunganPlgTmKurang5, false)
 	pdkbRequired := false
 	advancePhase4(t, &p, &workflow.Decisions{PerluPDKB: &pdkbRequired}, workflow.WOKonstruksi)
@@ -186,16 +190,21 @@ func TestConstructionOpensDirectlyWhenPDKBNotRequired(t *testing.T) {
 	require.ErrorIs(t, err, workflow.ErrNotActionable)
 	vendor := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
 	s.userRepository = &phase3UserRepository{user: vendor}
-	response, err := s.SubmitConstructionExecution(context.Background(), p.ID.String(), vendor.ID.String(), executionRequest(workflow.Konstruksi))
+	_, err = s.SubmitConstructionExecution(context.Background(), p.ID.String(), vendor.ID.String(), executionRequest(workflow.Konstruksi))
+	require.ErrorIs(t, err, workflow.ErrNotActionable)
+	response, err := s.SubmitReservation(context.Background(), p.ID.String(), vendor.ID.String(), evidenceRequest())
+	require.NoError(t, err)
+	response, err = s.SubmitConstructionExecution(context.Background(), p.ID.String(), vendor.ID.String(), executionRequest(workflow.Konstruksi))
 	require.NoError(t, err)
 	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.Konstruksi).Status)
 }
 
-func TestWOAPPThenVendorReservationAndEnergyTera(t *testing.T) {
+func TestConstructionReservationAndAPPTeraAreSeparateBranches(t *testing.T) {
 	p := delegatedRequest(t, rbac.JenisSambunganPlgTmLebih5, false)
 	repo := &phase3PermohonanRepository{byID: p}
 	docRepo := &phase4DocumentRepository{}
 	user := entities.User{ID: uuid.New(), Role: rbac.RoleTransaksiEnergi, Unit: "UP3"}
+	construction := entities.User{ID: uuid.New(), Role: rbac.RoleKonstruksi, Unit: "UP3"}
 	vendor := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
 	s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: user}, documentRepository: docRepo, db: phase3DB(t)}
 	reservation := evidenceRequest()
@@ -206,34 +215,38 @@ func TestWOAPPThenVendorReservationAndEnergyTera(t *testing.T) {
 
 	response, err := s.SubmitWOAPP(context.Background(), p.ID.String(), user.ID.String(), evidenceRequest())
 	require.NoError(t, err)
+	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.Tera).Status)
+	response, err = s.SubmitTera(context.Background(), p.ID.String(), user.ID.String(), reservation)
+	require.NoError(t, err)
+	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.Tera).Status)
+
+	pdkbRequired := false
+	s.userRepository = &phase3UserRepository{user: construction}
+	response, err = s.SubmitWOConstruction(context.Background(), p.ID.String(), construction.ID.String(), dto.WOConstructionSubmitRequest{
+		EstimasiTanggalSelesai: "2026-09-30", PerluPdkb: &pdkbRequired, DocumentIDs: []string{uuid.NewString()},
+	})
+	require.NoError(t, err)
 	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.Reservasi).Status)
-	_, err = s.SubmitTera(context.Background(), p.ID.String(), user.ID.String(), evidenceRequest())
-	require.ErrorIs(t, err, workflow.ErrNotActionable)
 
 	s.userRepository = &phase3UserRepository{user: vendor}
 	response, err = s.SubmitReservation(context.Background(), p.ID.String(), vendor.ID.String(), reservation)
 	require.NoError(t, err)
 	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.Reservasi).Status)
-	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.Tera).Status)
-	require.Equal(t, []workflow.Code{workflow.WOAPP, workflow.Reservasi}, docRepo.attachCalls)
+	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.Tera).Status)
+	require.Equal(t, []workflow.Code{workflow.WOAPP, workflow.Tera, workflow.WOKonstruksi, workflow.Reservasi}, docRepo.attachCalls)
 
 	s.userRepository = &phase3UserRepository{user: vendor}
 	_, err = s.SubmitTera(context.Background(), p.ID.String(), vendor.ID.String(), reservation)
 	require.ErrorIs(t, err, rbac.ErrWorkflowForbidden)
-	s.userRepository = &phase3UserRepository{user: user}
-	response, err = s.SubmitTera(context.Background(), p.ID.String(), user.ID.String(), reservation)
-	require.NoError(t, err)
-	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.Tera).Status)
-	require.Equal(t, []workflow.Code{workflow.WOAPP, workflow.Reservasi, workflow.Tera}, docRepo.attachCalls)
-
-	_, err = s.SubmitTera(context.Background(), p.ID.String(), user.ID.String(), reservation)
-	require.Error(t, err)
-	require.Len(t, docRepo.attachCalls, 3)
+	_, err = s.SubmitReservation(context.Background(), p.ID.String(), vendor.ID.String(), reservation)
+	require.ErrorIs(t, err, workflow.ErrNotActionable)
+	require.Len(t, docRepo.attachCalls, 4)
 }
 
 func TestReservationEvidenceFailureRollsBackReservationOnly(t *testing.T) {
 	p := delegatedRequest(t, rbac.JenisSambunganJTR, false)
-	advancePhase4(t, &p, nil, workflow.WOAPP)
+	pdkbRequired := false
+	advancePhase4(t, &p, &workflow.Decisions{PerluPDKB: &pdkbRequired}, workflow.WOKonstruksi, workflow.WOAPP)
 	repo := &phase3PermohonanRepository{byID: p}
 	docRepo := &phase4DocumentRepository{failAt: 1}
 	user := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
@@ -243,7 +256,7 @@ func TestReservationEvidenceFailureRollsBackReservationOnly(t *testing.T) {
 	require.ErrorIs(t, err, documentDTO.ErrDocumentAlreadyAttached)
 	require.Zero(t, repo.saveCalls)
 	require.Equal(t, string(workflow.Available), persistedNode(t, repo.byID, workflow.Reservasi).Status)
-	require.Equal(t, string(workflow.Locked), persistedNode(t, repo.byID, workflow.Tera).Status)
+	require.Equal(t, string(workflow.Available), persistedNode(t, repo.byID, workflow.Tera).Status)
 }
 
 func TestTeraAttachmentConflictDoesNotUndoReservation(t *testing.T) {
@@ -253,7 +266,8 @@ func TestTeraAttachmentConflictDoesNotUndoReservation(t *testing.T) {
 	require.NoError(t, db.Create(&vendor).Error)
 	require.NoError(t, db.Create(&energy).Error)
 	p := delegatedRequest(t, rbac.JenisSambunganJTR, false)
-	advancePhase4(t, &p, nil, workflow.WOAPP)
+	pdkbRequired := false
+	advancePhase4(t, &p, &workflow.Decisions{PerluPDKB: &pdkbRequired}, workflow.WOKonstruksi, workflow.WOAPP)
 	require.NoError(t, db.Omit("WorkflowNodes").Create(&p).Error)
 	for i := range p.WorkflowNodes {
 		p.WorkflowNodes[i].PermohonanID = p.ID
@@ -336,21 +350,16 @@ func TestSequence2ExitUnlocksApplicableStage5Branches(t *testing.T) {
 	require.NoError(t, err)
 	vendor := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
 	s.userRepository = &phase3UserRepository{user: vendor}
+	_, err = s.SubmitReservation(context.Background(), p.ID.String(), vendor.ID.String(), evidenceRequest())
+	require.NoError(t, err)
 	_, err = s.SubmitConstructionExecution(context.Background(), p.ID.String(), vendor.ID.String(), executionRequest(workflow.Konstruksi))
 	require.NoError(t, err)
 
 	transactionEnergy := entities.User{ID: uuid.New(), Role: rbac.RoleTransaksiEnergi, Unit: "UP3"}
-	constructionVendor := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
 	s.userRepository = &phase3UserRepository{user: transactionEnergy}
 	_, err = s.SubmitWOAPP(context.Background(), p.ID.String(), transactionEnergy.ID.String(), evidenceRequest())
 	require.NoError(t, err)
-	s.userRepository = &phase3UserRepository{user: constructionVendor}
-	response, err := s.SubmitReservation(context.Background(), p.ID.String(), constructionVendor.ID.String(), dto.EvidenceSubmitRequest{
-		DocumentIDs: []string{uuid.NewString()},
-	})
-	require.NoError(t, err)
-	s.userRepository = &phase3UserRepository{user: transactionEnergy}
-	response, err = s.SubmitTera(context.Background(), p.ID.String(), transactionEnergy.ID.String(), dto.EvidenceSubmitRequest{
+	response, err := s.SubmitTera(context.Background(), p.ID.String(), transactionEnergy.ID.String(), dto.EvidenceSubmitRequest{
 		DocumentIDs: []string{uuid.NewString()},
 	})
 	require.NoError(t, err)

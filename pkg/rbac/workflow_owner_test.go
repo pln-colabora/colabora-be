@@ -117,7 +117,7 @@ func TestWorkflowAuthorizationAndActions(t *testing.T) {
 	actions, err := AvailableActions(RoleVendorKonstruksi, "vendor", "ULP Taman", s)
 	require.NoError(t, err)
 	require.Len(t, actions, 1)
-	require.Equal(t, workflow.Konstruksi, actions[0].Code)
+	require.Equal(t, workflow.Reservasi, actions[0].Code)
 	actions, err = AvailableActions(RoleSuperUser, "UP3", "ULP Taman", s)
 	require.NoError(t, err)
 	require.Empty(t, actions)

@@ -61,11 +61,11 @@ Stages are visual groupings, not global barriers. A later-stage node may become 
 | `wo_tiang` | #6 WO Vendor Tiang | `perencanaan` | NPS delegated and `kebutuhan_tiang = true`; otherwise skipped |
 | `wo_konstruksi` | #7 WO Vendor Konstruksi | `konstruksi` | NPS delegated |
 | `wo_app` | #8 WO Vendor APP | `transaksi-energi` | NPS delegated |
-| `reservasi_material` | #9 Reservasi Material | `vendor-konstruksi` | WO APP completed |
-| `tera_app` | #10 Perakitan dan Tera APP | `transaksi-energi` | Reservasi material completed |
+| `reservasi_material` | #9 Reservasi Material | `vendor-konstruksi` | WO Konstruksi completed |
+| `tera_app` | #10 Perakitan dan Tera APP | `transaksi-energi` | WO APP completed |
 | `wo_pdkb` | Conditional supporting node | `konstruksi` | WO Konstruksi completed and `perlu_pdkb = true`; otherwise skipped |
 | `pemasangan_tiang` | #11 Pemasangan Tiang | `vendor-tiang` | WO Tiang completed; skipped when poles are not required |
-| `pelaksanaan_konstruksi` | #12 Pelaksanaan Konstruksi | `vendor-konstruksi` | WO Konstruksi and WO PDKB completed when required |
+| `pelaksanaan_konstruksi` | #12 Pelaksanaan Konstruksi | `vendor-konstruksi` | WO Konstruksi and Reservasi Material completed; WO PDKB completed when required or explicitly skipped when not required |
 | `pdkb_documentation` | Conditional supporting node | `pdkb` | Construction completed and `perlu_pdkb = true`; otherwise skipped |
 | `energize_jaringan` | #13 Pengoperasian Jaringan | `teknik` for JTR/JTM; `jaringan` for PLG TM | Construction, applicable pole work, and applicable PDKB documentation completed |
 | `pemasangan_sr_app` | #14 Pemasangan SR/APP | `vendor-sr-app` for JTR/JTM; `vendor-konstruksi` for PLG TM | Construction and APP tera completed |

@@ -77,7 +77,7 @@ paths:
       tags: ["Tahap 4 — Pra Pelaksanaan Konstruksi"]
       operationId: submitReservation
       summary: Reservasi material (Activity #9)
-      description: Owner Vendor — Vendor Konstruksi dengan assignment eksplisit; berjalan independen setelah WO Vendor APP.
+      description: Owner Vendor — Vendor Konstruksi dengan assignment eksplisit; tersedia setelah WO Vendor Konstruksi selesai.
       security: [{ bearerAuth: [] }]
       parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
       requestBody:
@@ -97,7 +97,7 @@ paths:
       tags: ["Tahap 4 — Pra Pelaksanaan Konstruksi"]
       operationId: submitTera
       summary: Perakitan & Tera APP (Activity #10)
-      description: Owner UP3 — Transaksi Energi; tersedia setelah Reservasi material selesai.
+      description: Owner UP3 — Transaksi Energi; tersedia setelah WO Vendor APP selesai dan berjalan pada branch APP terpisah dari reservasi material.
       security: [{ bearerAuth: [] }]
       parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
       requestBody:

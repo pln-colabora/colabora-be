@@ -61,7 +61,8 @@ flowchart TD
   wo_konstruksi -->|perlu_pdkb=true| wo_pdkb --> pelaksanaan_konstruksi
   wo_konstruksi -->|perlu_pdkb=false; wo_pdkb skipped| pelaksanaan_konstruksi
   wo_pdkb --> pelaksanaan_konstruksi
-  wo_app --> reservasi_material --> tera_app
+  wo_konstruksi --> reservasi_material --> pelaksanaan_konstruksi
+  wo_app --> tera_app
   pemasangan_tiang --> energize_jaringan
   pelaksanaan_konstruksi -->|perlu_pdkb=true| pdkb_documentation
   pelaksanaan_konstruksi -->|perlu_pdkb=false; documentation skipped| energize_jaringan

@@ -44,7 +44,8 @@ flowchart TB
   expansion -. setelah delegated .-> assignment_req
   expansion --> wotiang
   expansion --> wokonstruksi
-  expansion --> woapp --> reservasi --> tera
+  expansion --> woapp --> tera
+  wokonstruksi --> reservasi --> construction
   wokonstruksi --> wopdkb --> construction
   wokonstruksi -->|PDKB tidak diperlukan| construction
   wotiang --> construction
