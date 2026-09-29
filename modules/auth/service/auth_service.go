@@ -68,17 +68,12 @@ func (s *authService) Register(ctx context.Context, req userDto.UserCreateReques
 		return userDto.UserResponse{}, userDto.ErrEmailAlreadyExists
 	}
 
-	hashedPassword, err := helpers.HashPassword(req.Password)
-	if err != nil {
-		return userDto.UserResponse{}, err
-	}
-
 	user := entities.User{
 		ID:         uuid.New(),
 		Name:       req.Name,
 		Email:      req.Email,
 		TelpNumber: req.TelpNumber,
-		Password:   hashedPassword,
+		Password:   req.Password,
 		Role:       "user",
 		IsVerified: false,
 	}
