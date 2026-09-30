@@ -287,6 +287,19 @@ components:
         unit: { type: string }
         image_url: { type: string }
         is_verified: { type: boolean }
+    AccountListItem:
+      allOf:
+        - $ref: "#/components/schemas/UserResponse"
+        - type: object
+          properties:
+            account_document_url:
+              type: string
+              nullable: true
+              example: /api/documents/550e8400-e29b-41d4-a716-446655440001/download
+              description: >-
+                Download route for the registration verification document, when the
+                account was created through public registration. It requires an admin
+                or super-user bearer token.
     UserUpdateResponse:
       type: object
       properties:
@@ -348,7 +361,7 @@ components:
         message: { type: string }
         data:
           type: array
-          items: { $ref: "#/components/schemas/UserResponse" }
+          items: { $ref: "#/components/schemas/AccountListItem" }
         pagination: { $ref: "#/components/schemas/PaginationMeta" }
     PaginatedVendorResponse:
       description: Shape produced by github.com/Caknoooo/go-pagination's PaginatedResponse

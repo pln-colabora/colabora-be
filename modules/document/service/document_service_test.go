@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pln-colabora/colabora-be/database/entities"
 	"github.com/pln-colabora/colabora-be/modules/document/dto"
+	documentRepository "github.com/pln-colabora/colabora-be/modules/document/repository"
 	"github.com/pln-colabora/colabora-be/modules/document/scanning"
 	permohonanQuery "github.com/pln-colabora/colabora-be/modules/permohonan/query"
 	"github.com/pln-colabora/colabora-be/pkg/rbac"
@@ -540,6 +541,65 @@ func TestDocumentService_Download(t *testing.T) {
 		_, err := s.Download(context.Background(), actorID.String(), docID.String())
 		assert.ErrorIs(t, err, dto.ErrDocumentUnavailable)
 	})
+}
+
+func TestAccountManagerCanPreviewAndDownloadOnlyBoundRegistrationDocument(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.Exec(`CREATE TABLE users (
+		id TEXT PRIMARY KEY, name TEXT, email TEXT, telp_number TEXT, password TEXT,
+		role TEXT, unit TEXT, image_url TEXT, is_verified BOOLEAN, created_at DATETIME, updated_at DATETIME
+	)`).Error)
+	require.NoError(t, db.Exec(`CREATE TABLE documents (
+		id TEXT PRIMARY KEY, type TEXT, file_path TEXT, original_filename TEXT, mime_type TEXT,
+		size_bytes INTEGER, checksum_sha256 TEXT, source TEXT, classification TEXT, scan_status TEXT,
+		scan_checked_at DATETIME, revision INTEGER, supersedes_id TEXT, superseded_by_id TEXT,
+		uploaded_by TEXT, permohonan_id TEXT, created_at DATETIME, updated_at DATETIME
+	)`).Error)
+	require.NoError(t, db.Exec(`CREATE TABLE account_documents (
+		id TEXT PRIMARY KEY, user_id TEXT, document_id TEXT, document_type TEXT, created_at DATETIME, updated_at DATETIME
+	)`).Error)
+
+	manager := entities.User{ID: uuid.New(), Name: "Admin", Email: "admin@example.test", Password: "password123", Role: rbac.RoleAdmin}
+	otherUser := entities.User{ID: uuid.New(), Name: "Other", Email: "other@example.test", Password: "password123", Role: rbac.RoleUser}
+	require.NoError(t, db.Create(&manager).Error)
+	require.NoError(t, db.Create(&otherUser).Error)
+	document := entities.Document{
+		ID: uuid.New(), Type: "account_verification", FilePath: "documents/account", OriginalFilename: "identity.pdf",
+		MimeType: "application/pdf", SizeBytes: 7, ChecksumSHA256: strings.Repeat("a", 64),
+		Source: "uploaded", Classification: "restricted", ScanStatus: scanning.StatusClean, Revision: 1, UploadedBy: otherUser.ID,
+	}
+	require.NoError(t, db.Create(&document).Error)
+	require.NoError(t, db.Create(&entities.AccountDocument{ID: uuid.New(), UserID: otherUser.ID, DocumentID: document.ID, DocumentType: "account_verification"}).Error)
+
+	store := &fakeStorageClient{objectBody: io.NopCloser(strings.NewReader("private"))}
+	s := &documentService{
+		documentRepository:  &fakeDocumentRepository{byId: document},
+		accountDocumentRepo: documentRepository.NewAccountDocumentRepository(db),
+		storageClient:       store,
+		db:                  db,
+	}
+
+	preview, err := s.Preview(context.Background(), manager.ID.String(), document.ID.String())
+	require.NoError(t, err)
+	require.NoError(t, preview.Body.Close())
+	store.objectBody = io.NopCloser(strings.NewReader("private"))
+	download, err := s.Download(context.Background(), manager.ID.String(), document.ID.String())
+	require.NoError(t, err)
+	require.NoError(t, download.Body.Close())
+
+	// The fake repository always returns the bound document; use a non-manager role
+	// with a different ID to verify account-document access is not granted broadly.
+	unauthorized := entities.User{ID: uuid.New(), Name: "Unauthorized", Email: "unauthorized@example.test", Password: "password123", Role: rbac.RoleTeknik, Unit: "ULP Taman"}
+	require.NoError(t, db.Create(&unauthorized).Error)
+	_, err = s.Download(context.Background(), unauthorized.ID.String(), document.ID.String())
+	require.ErrorIs(t, err, dto.ErrDocumentNotFound)
+
+	unbound := document
+	unbound.ID = uuid.New()
+	s.documentRepository.(*fakeDocumentRepository).byId = unbound
+	_, err = s.Download(context.Background(), manager.ID.String(), unbound.ID.String())
+	require.ErrorIs(t, err, dto.ErrDocumentNotFound)
 }
 
 func TestPreviewDoesNotRevealUnavailableAttachedDocumentToUnauthorizedCaller(t *testing.T) {

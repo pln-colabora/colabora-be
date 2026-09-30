@@ -319,10 +319,13 @@ func (s *documentService) AttachToWorkflowNode(ctx context.Context, userId, perm
 
 func (s *documentService) Download(ctx context.Context, userID, docID string) (DocumentContent, error) {
 	document, err := s.documentRepository.GetById(ctx, s.db, docID)
-	if err != nil || document.PermohonanID == nil {
+	if err != nil {
 		return DocumentContent{}, dto.ErrDocumentNotFound
 	}
-	if !s.canReadDocument(ctx, userID, document) {
+	if document.PermohonanID == nil && !s.canManageAccountDocument(ctx, userID, document) {
+		return DocumentContent{}, dto.ErrDocumentNotFound
+	}
+	if document.PermohonanID != nil && !s.canReadDocument(ctx, userID, document) {
 		return DocumentContent{}, dto.ErrDocumentNotFound
 	}
 	if document.ScanStatus == scanning.StatusInfected {
@@ -381,6 +384,9 @@ func (s *documentService) canReadDocument(ctx context.Context, userID string, do
 		return false
 	}
 	if document.PermohonanID == nil {
+		if s.canManageAccountDocument(ctx, userID, document) {
+			return true
+		}
 		return !rbac.IsVendor(actor.Role) && document.UploadedBy.String() == userID
 	}
 	if !s.canReadPermohonan(ctx, userID, document.PermohonanID.String()) {
@@ -391,6 +397,18 @@ func (s *documentService) canReadDocument(ctx context.Context, userID string, do
 	}
 	assignedNode, assigned := rbac.VendorWO(actor.Role)
 	return document.UploadedBy == actor.ID || (assigned && hasWorkflowEvidence(document, assignedNode))
+}
+
+func (s *documentService) canManageAccountDocument(ctx context.Context, userID string, document entities.Document) bool {
+	if s.db == nil || s.accountDocumentRepo == nil {
+		return false
+	}
+	var actor entities.User
+	if err := s.db.WithContext(ctx).Where("id = ?", userID).Take(&actor).Error; err != nil || !rbac.CanManageAccounts(actor.Role) {
+		return false
+	}
+	accountDocument, err := s.accountDocumentRepo.GetByDocumentID(ctx, s.db, document.ID.String())
+	return err == nil && accountDocument.DocumentID == document.ID && accountDocument.DocumentType == "account_verification"
 }
 
 func (s *documentService) CleanupOrphans(ctx context.Context, before time.Time, limit int) (int, error) {

@@ -10,6 +10,8 @@ import (
 type AccountDocumentRepository interface {
 	Create(ctx context.Context, tx *gorm.DB, accountDocument entities.AccountDocument) (entities.AccountDocument, error)
 	GetByUserID(ctx context.Context, tx *gorm.DB, userID string) (entities.AccountDocument, error)
+	GetByDocumentID(ctx context.Context, tx *gorm.DB, documentID string) (entities.AccountDocument, error)
+	ListByUserIDs(ctx context.Context, tx *gorm.DB, userIDs []string) ([]entities.AccountDocument, error)
 }
 
 type accountDocumentRepository struct{ db *gorm.DB }
@@ -39,4 +41,23 @@ func (r *accountDocumentRepository) GetByUserID(ctx context.Context, tx *gorm.DB
 		Where("user_id = ?", userID).
 		Take(&accountDocument).Error
 	return accountDocument, err
+}
+
+func (r *accountDocumentRepository) GetByDocumentID(ctx context.Context, tx *gorm.DB, documentID string) (entities.AccountDocument, error) {
+	var accountDocument entities.AccountDocument
+	err := r.database(tx).WithContext(ctx).
+		Where("document_id = ?", documentID).
+		Take(&accountDocument).Error
+	return accountDocument, err
+}
+
+func (r *accountDocumentRepository) ListByUserIDs(ctx context.Context, tx *gorm.DB, userIDs []string) ([]entities.AccountDocument, error) {
+	if len(userIDs) == 0 {
+		return []entities.AccountDocument{}, nil
+	}
+	var accountDocuments []entities.AccountDocument
+	err := r.database(tx).WithContext(ctx).
+		Where("user_id IN ?", userIDs).
+		Find(&accountDocuments).Error
+	return accountDocuments, err
 }

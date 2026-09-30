@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pln-colabora/colabora-be/modules/user/dto"
+	"github.com/pln-colabora/colabora-be/modules/user/query"
 	"github.com/pln-colabora/colabora-be/modules/user/validation"
 	"github.com/stretchr/testify/require"
 )
@@ -16,6 +17,10 @@ import (
 type deleteUserService struct {
 	deletedUserID string
 	updatedUserID string
+}
+
+func (s *deleteUserService) ListAccounts(context.Context, *query.UserFilter) ([]query.User, int64, error) {
+	return nil, 0, nil
 }
 
 func (s *deleteUserService) GetUserById(context.Context, string) (dto.UserResponse, error) {

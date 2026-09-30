@@ -7,14 +7,15 @@ import (
 )
 
 type User struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	Email      string `json:"email"`
-	TelpNumber string `json:"telp_number"`
-	Role       string `json:"role"`
-	Unit       string `json:"unit"`
-	ImageUrl   string `json:"image_url"`
-	IsVerified bool   `json:"is_verified"`
+	ID                 string  `json:"id"`
+	Name               string  `json:"name"`
+	Email              string  `json:"email"`
+	TelpNumber         string  `json:"telp_number"`
+	Role               string  `json:"role"`
+	Unit               string  `json:"unit"`
+	ImageUrl           string  `json:"image_url"`
+	IsVerified         bool    `json:"is_verified"`
+	AccountDocumentURL *string `gorm:"-" json:"account_document_url"`
 }
 
 type UserFilter struct {

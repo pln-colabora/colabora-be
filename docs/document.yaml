@@ -134,9 +134,11 @@ paths:
       description: >-
         Streams a PDF or image through the backend for inline preview. Attached
         documents require read access to their permohonan. Unattached uploads can
-        only be previewed by their uploader. Superseded and infected documents are
-        unavailable. Vendor callers can only preview evidence attached to
-        `survei`. The response never exposes a Garage URL or object key.
+        only be previewed by their uploader, except an `account_verification`
+        document linked through `account_documents`, which an admin or super-user
+        may preview. Superseded and infected documents are unavailable. Vendor
+        callers can only preview evidence attached to `survei`. The response never
+        exposes a Garage URL or object key.
       security:
         - bearerAuth: []
       parameters:
@@ -179,10 +181,11 @@ paths:
       description: >-
         Streams an attached document through the backend as an attachment. The
         backend resolves the associated permohonan and requires the caller to have
-        read access to it. Unattached documents and inaccessible requests return
-        404. Vendors require an explicit account/role assignment and may only
-        download evidence attached to `survei`. The response never exposes a
-        Garage URL or object key.
+        read access to it. An `account_verification` document linked through
+        `account_documents` may instead be downloaded by an admin or super-user.
+        Other unattached documents and inaccessible requests return 404. Vendors
+        require an explicit account/role assignment and may only download evidence
+        attached to `survei`. The response never exposes a Garage URL or object key.
       security:
         - bearerAuth: []
       parameters:

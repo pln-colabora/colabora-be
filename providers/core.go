@@ -61,7 +61,7 @@ func RegisterDependencies(injector *do.Injector) {
 	documentRepository := documentRepo.NewDocumentRepository(db)
 	accountDocumentRepository := documentRepo.NewAccountDocumentRepository(db)
 
-	userService := userService.NewUserService(userRepository, refreshTokenRepository, db)
+	userService := userService.NewUserService(userRepository, refreshTokenRepository, accountDocumentRepository, db)
 	documentSvc := documentService.NewDocumentService(documentRepository, accountDocumentRepository, permohonanRepository, userRepository, storageClient, documentScanner, db)
 	permohonanService := permohonanService.NewPermohonanService(permohonanRepository, slaRuleRepository, tariffPowerRepository, userRepository, documentRepository, documentSvc, permohonanRepo.NewVendorAssignmentRepository(), db)
 	authService := authService.NewAuthService(userRepository, refreshTokenRepository, jwtService, documentSvc, accountDocumentRepository, db)

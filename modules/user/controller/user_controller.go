@@ -88,7 +88,7 @@ func (c *userController) GetAllUser(ctx *gin.Context) {
 
 	ctx.ShouldBindQuery(filter)
 
-	users, total, err := pagination.PaginatedQueryWithIncludable[query.User](c.db, filter)
+	users, total, err := c.userService.ListAccounts(ctx.Request.Context(), filter)
 	if err != nil {
 		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_USER, err.Error(), nil)
 		ctx.JSON(http.StatusBadRequest, res)
