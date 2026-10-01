@@ -45,6 +45,7 @@ The remaining hifi forms, detail pages, demo navigation, and client-side RBAC ar
 - Workflow-node persistence: creation initializes all 20 active canonical nodes, with nullable display/SLA fields for decision and support nodes; retired PK Vendor rows remain historical; logs carry the canonical node code.
 - Exact-node role/unit ownership helpers, plus a compatibility middleware for remaining numbered routes.
 - Private Garage/S3-compatible document upload, list, download, validation, and upload-first node-evidence helpers. One stored file may evidence multiple nodes of the same request.
+- Formal unsigned PDF export for completed WO Tiang and WO Konstruksi nodes. Generated files are private, immutable, linked to the corresponding WO node, and returned as downloads; missing template fields remain blank.
 - Runtime OpenAPI for the currently implemented auth, user, permohonan, document, and health endpoints.
 - Phase 4 activity submissions through Sequence 5: survey/planning/NPS decisions, parallel Stage 4 preparation, conditional pole and PDKB branches, construction execution, network energization, SR/APP installation, and atomic PDL → AIL/DIJ → terminal closing.
 

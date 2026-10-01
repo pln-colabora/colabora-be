@@ -61,6 +61,14 @@ type DocumentContent struct {
 	SizeBytes int64
 }
 
+// GeneratedDocumentResult exposes only the public identifier and the internal
+// object key needed for transaction compensation. The object key must never be
+// returned to an HTTP client.
+type GeneratedDocumentResult struct {
+	ID         string
+	StorageKey string
+}
+
 type documentService struct {
 	documentRepository   repository.DocumentLifecycleRepository
 	accountDocumentRepo  repository.AccountDocumentRepository
@@ -213,6 +221,54 @@ func (s *documentService) UploadForWorkflow(ctx context.Context, tx *gorm.DB, us
 		}
 	}
 	return keys, nil
+}
+
+// CreateGeneratedForWorkflow stores a trusted PDF produced by the backend and
+// attaches it to an already completed workflow node in the caller's transaction.
+func (s *documentService) CreateGeneratedForWorkflow(ctx context.Context, tx *gorm.DB, userID, permohonanID, workflowNode, documentType, filename string, content []byte) (GeneratedDocumentResult, error) {
+	if tx == nil || len(content) < 5 || string(content[:5]) != "%PDF-" {
+		return GeneratedDocumentResult{}, errors.New("invalid generated PDF")
+	}
+	uploaderID, err := uuid.Parse(userID)
+	if err != nil {
+		return GeneratedDocumentResult{}, err
+	}
+	requestID, err := uuid.Parse(permohonanID)
+	if err != nil {
+		return GeneratedDocumentResult{}, err
+	}
+	key := fmt.Sprintf("documents/%s", uuid.New().String())
+	if err := s.storageClient.PutObject(ctx, key, bytes.NewReader(content), int64(len(content)), "application/pdf"); err != nil {
+		return GeneratedDocumentResult{}, err
+	}
+	checksum := sha256.Sum256(content)
+	document := entities.Document{
+		Type: strings.TrimSpace(documentType), FilePath: key, OriginalFilename: filepath.Base(filename),
+		MimeType: "application/pdf", SizeBytes: int64(len(content)), ChecksumSHA256: fmt.Sprintf("%x", checksum),
+		Source: "generated", Classification: "restricted", ScanStatus: scanning.StatusNotScanned,
+		Revision: 1, UploadedBy: uploaderID, PermohonanID: &requestID,
+	}
+	created, err := s.documentRepository.Create(ctx, tx, document)
+	if err == nil {
+		err = tx.WithContext(ctx).Create(&entities.DocumentEvidence{
+			DocumentID: created.ID, PermohonanID: requestID, WorkflowNode: workflowNode, AttachedBy: uploaderID,
+		}).Error
+	}
+	if err != nil {
+		_ = s.storageClient.DeleteObject(ctx, key)
+		return GeneratedDocumentResult{}, err
+	}
+	return GeneratedDocumentResult{ID: created.ID.String(), StorageKey: key}, nil
+}
+
+// ReadAuthorizedDocument returns an authorized file stream using the same access
+// checks as the normal document download endpoint.
+func (s *documentService) ReadAuthorizedDocument(ctx context.Context, userID, documentID string) (io.ReadCloser, string, error) {
+	content, err := s.Download(ctx, userID, documentID)
+	if err != nil {
+		return nil, "", err
+	}
+	return content.Body, content.Filename, nil
 }
 
 func (s *documentService) DeleteStoredObject(ctx context.Context, key string) error {

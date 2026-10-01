@@ -30,6 +30,24 @@ paths:
                 latitude: -6.200000
                 longitude: 106.816666
       responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
+  /api/permohonan/{id}/wo-vendor/tiang/export:
+    post:
+      tags: ["Tahap 4 — Pra Pelaksanaan Konstruksi"]
+      operationId: exportWOTiangPDF
+      summary: Unduh PDF WO Vendor Tiang
+      description: Owner Perencanaan; node WO Tiang harus selesai dan vendor tiang harus sudah ditugaskan. PDF privat dibuat sekali, ditautkan ke node WO, dan selalu dikembalikan sebagai file PDF tanpa lampiran atau tanda tangan digital.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
+      responses:
+        "200":
+          description: PDF WO Tiang
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /api/permohonan/{id}/wo-vendor/konstruksi:
     post:
       tags: ["Tahap 4 — Pra Pelaksanaan Konstruksi"]
@@ -52,6 +70,24 @@ paths:
                 latitude: -6.200000
                 longitude: 106.816666
       responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
+  /api/permohonan/{id}/wo-vendor/konstruksi/export:
+    post:
+      tags: ["Tahap 4 — Pra Pelaksanaan Konstruksi"]
+      operationId: exportWOConstructionPDF
+      summary: Unduh PDF WO Vendor Konstruksi
+      description: Owner Konstruksi; node WO Konstruksi harus selesai dan vendor konstruksi harus sudah ditugaskan. PDF privat dibuat sekali, ditautkan ke node WO, dan selalu dikembalikan sebagai file PDF tanpa lampiran atau tanda tangan digital.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
+      responses:
+        "200":
+          description: PDF WO Konstruksi
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /api/permohonan/{id}/wo-vendor/app:
     post:
       tags: ["Tahap 4 — Pra Pelaksanaan Konstruksi"]

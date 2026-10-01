@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/pln-colabora/colabora-be/database/entities"
 	documentDTO "github.com/pln-colabora/colabora-be/modules/document/dto"
 	documentRepository "github.com/pln-colabora/colabora-be/modules/document/repository"
+	documentModuleService "github.com/pln-colabora/colabora-be/modules/document/service"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/dto"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/query"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/repository"
@@ -55,6 +57,11 @@ type TariffOptionsService interface {
 type WorkflowDocumentUploader interface {
 	UploadForWorkflow(ctx context.Context, tx *gorm.DB, userID, permohonanID, workflowNode string, files []*multipart.FileHeader) ([]string, error)
 	DeleteStoredObject(ctx context.Context, key string) error
+}
+
+type generatedWODocumentStore interface {
+	CreateGeneratedForWorkflow(ctx context.Context, tx *gorm.DB, userID, permohonanID, workflowNode, documentType, filename string, content []byte) (documentModuleService.GeneratedDocumentResult, error)
+	ReadAuthorizedDocument(ctx context.Context, userID, documentID string) (io.ReadCloser, string, error)
 }
 
 type permohonanService struct {
