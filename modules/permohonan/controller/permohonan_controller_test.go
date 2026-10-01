@@ -48,6 +48,12 @@ func (phase3ControllerService) GetActivities(context.Context, string, string) ([
 func (f phase3ControllerService) GetActivity(context.Context, string, string, string) (dto.WorkflowNodeDetailResponse, error) {
 	return dto.WorkflowNodeDetailResponse{}, f.activityErr
 }
+func (f phase3ControllerService) ExportActivityPDF(context.Context, string, string, string) ([]byte, string, error) {
+	if f.activityErr != nil {
+		return nil, "", f.activityErr
+	}
+	return []byte("%PDF-test"), "jawaban_request_survei.pdf", nil
+}
 func (phase3ControllerService) GetLogs(context.Context, string, string) ([]dto.ActivityLogResponse, error) {
 	return nil, nil
 }
@@ -201,6 +207,24 @@ func TestGetActivityHTTPContract(t *testing.T) {
 			require.Equal(t, tc.status, recorder.Code)
 		})
 	}
+}
+
+func TestExportActivityHTTPContract(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	controller := &permohonanController{permohonanService: phase3ControllerService{}}
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/permohonan/request/activities/survei/export", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: "request"}, {Key: "workflow_node", Value: "survei"}}
+	ctx.Set("user_id", "actor-id")
+
+	controller.ExportActivity(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, "application/pdf", recorder.Header().Get("Content-Type"))
+	require.Equal(t, "attachment; filename=jawaban_request_survei.pdf", recorder.Header().Get("Content-Disposition"))
+	require.Equal(t, "no-store", recorder.Header().Get("Cache-Control"))
+	require.True(t, bytes.HasPrefix(recorder.Body.Bytes(), []byte("%PDF")))
 }
 
 func TestSubmitWOConstructionAcceptsExplicitFalseDecision(t *testing.T) {

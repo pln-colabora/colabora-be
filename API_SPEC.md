@@ -34,6 +34,7 @@ route or OpenAPI contract.
 | `GET` | `/api/permohonan/:id` | Aggregate detail, workflow nodes, and caller-specific available actions; vendors receive their issued WO plus nodes owned by their role for the connection type |
 | `GET` | `/api/permohonan/:id/activities` | Workflow-node timeline; vendors receive their issued WO plus nodes owned by their role for the connection type |
 | `GET` | `/api/permohonan/:id/activities/:workflow_node` | Detail payload input dan evidence dokumen untuk satu workflow node |
+| `GET` | `/api/permohonan/:id/activities/:workflow_node/export` | Unduh jawaban payload satu workflow node dalam PDF; memakai batas akses yang sama dengan detail activity dan tidak menyertakan evidence |
 | `GET` | `/api/permohonan/:id/documents` | Attached evidence, optionally filtered by `workflow_node` |
 | `GET` | `/api/permohonan/:id/logs` | Audit history; vendors receive only logs authored by their account |
 

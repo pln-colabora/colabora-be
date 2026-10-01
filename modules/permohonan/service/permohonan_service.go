@@ -30,6 +30,7 @@ type PermohonanService interface {
 	List(ctx context.Context, filter *query.PermohonanFilter, userId string) ([]query.Permohonan, int64, error)
 	GetActivities(ctx context.Context, id, userID string) ([]dto.WorkflowNodeResponse, error)
 	GetActivity(ctx context.Context, id, workflowNode, userID string) (dto.WorkflowNodeDetailResponse, error)
+	ExportActivityPDF(ctx context.Context, id, workflowNode, userID string) ([]byte, string, error)
 	GetLogs(ctx context.Context, id, userID string) ([]dto.ActivityLogResponse, error)
 	SubmitSurvey(ctx context.Context, id, userID string, req dto.SurveySubmitRequest) (dto.PermohonanResponse, error)
 	SubmitRAB(ctx context.Context, id, userID string, req dto.RABSubmitRequest) (dto.PermohonanResponse, error)
@@ -755,6 +756,40 @@ func (s *permohonanService) GetActivity(ctx context.Context, id, workflowNode, u
 		WorkflowNodeResponse: nodeResponses[0],
 		Documents:            documents,
 	}, nil
+}
+
+func (s *permohonanService) ExportActivityPDF(ctx context.Context, id, workflowNode, userID string) ([]byte, string, error) {
+	activity, err := s.GetActivity(ctx, id, workflowNode, userID)
+	if err != nil {
+		return nil, "", err
+	}
+	p, err := s.permohonanRepository.GetById(ctx, s.db, id)
+	if err != nil {
+		return nil, "", dto.ErrPermohonanNotFound
+	}
+
+	var activityNumber *int16
+	if activity.ActivityNumber != nil {
+		activityNumber = activity.ActivityNumber
+	}
+	var completedAt string
+	if activity.CompletedAt != nil {
+		completedAt = *activity.CompletedAt
+	}
+	content, err := generateActivityPDF(activityPDFData{
+		NoPermohonan:   p.NoPermohonan,
+		JenisSambungan: p.JenisSambungan,
+		WorkflowNode:   activity.WorkflowNode,
+		ActivityNumber: activityNumber,
+		StageNumber:    activity.StageNumber,
+		Status:         activity.Status,
+		CompletedAt:    completedAt,
+		Payload:        activity.Payload,
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	return content, fmt.Sprintf("jawaban_%s_%s.pdf", safeFilenamePart(p.NoPermohonan), safeFilenamePart(workflowNode)), nil
 }
 
 func (s *permohonanService) GetLogs(ctx context.Context, id, userID string) ([]dto.ActivityLogResponse, error) {

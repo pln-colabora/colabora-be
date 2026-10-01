@@ -161,6 +161,34 @@ paths:
         "200": { description: Detail workflow node, content: { application/json: { schema: { $ref: "#/components/schemas/WorkflowNodeDetailEnvelope" } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /api/permohonan/{id}/activities/{workflow_node}/export:
+    get:
+      tags: ["Tahap 1 — Permohonan PB/PD"]
+      operationId: exportPermohonanActivityAnswers
+      summary: Unduh jawaban satu workflow node sebagai PDF
+      description: >-
+        Mengunduh jawaban payload beserta identitas permohonan dan metadata
+        workflow node. Mengikuti batas akses yang sama dengan detail activity;
+        dokumen evidence tidak disertakan.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/PermohonanID" }
+        - name: workflow_node
+          in: path
+          required: true
+          schema: { type: string, example: survei }
+      responses:
+        "200":
+          description: PDF jawaban activity
+          headers:
+            Content-Disposition: { schema: { type: string, example: 'attachment; filename="jawaban_PB-2026-00001_survei.pdf"' } }
+            Cache-Control: { schema: { type: string, example: no-store } }
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { description: Gagal membuat file PDF }
   /api/permohonan/{id}/logs:
     get:
       tags: ["Tahap 1 — Permohonan PB/PD"]

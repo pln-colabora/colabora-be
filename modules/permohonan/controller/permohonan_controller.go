@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"mime"
 	"net/http"
 	"strings"
 
@@ -30,6 +31,7 @@ type (
 		GetById(ctx *gin.Context)
 		GetActivities(ctx *gin.Context)
 		GetActivity(ctx *gin.Context)
+		ExportActivity(ctx *gin.Context)
 		GetLogs(ctx *gin.Context)
 		SubmitSurvey(ctx *gin.Context)
 		SubmitRAB(ctx *gin.Context)
@@ -264,6 +266,22 @@ func (c *permohonanController) GetActivity(ctx *gin.Context) {
 	}
 	res := utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_GET_ACTIVITY, result)
 	ctx.JSON(http.StatusOK, res)
+}
+
+func (c *permohonanController) ExportActivity(ctx *gin.Context) {
+	content, filename, err := c.permohonanService.ExportActivityPDF(ctx, ctx.Param("id"), ctx.Param("workflow_node"), ctx.MustGet("user_id").(string))
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, dto.ErrPermohonanNotFound) || errors.Is(err, dto.ErrWorkflowNodeNotFound) {
+			status = http.StatusNotFound
+		}
+		ctx.JSON(status, utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_ACTIVITY, err.Error(), nil))
+		return
+	}
+	ctx.Header("Content-Type", "application/pdf")
+	ctx.Header("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
+	ctx.Header("Cache-Control", "no-store")
+	ctx.Data(http.StatusOK, "application/pdf", content)
 }
 
 func (c *permohonanController) GetLogs(ctx *gin.Context) {
