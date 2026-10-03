@@ -25,6 +25,16 @@ type phase3ControllerService struct {
 	activityErr error
 }
 
+type vendorWOControllerService struct {
+	phase3ControllerService
+	workflowNode string
+}
+
+func (f *vendorWOControllerService) ExportVendorWOPDF(_ context.Context, _, workflowNode, _ string) ([]byte, string, error) {
+	f.workflowNode = workflowNode
+	return []byte("%PDF-test"), "WO_APP_request.pdf", nil
+}
+
 func (f phase3ControllerService) AssignVendor(context.Context, string, string, dto.VendorAssignmentRequest) (dto.PermohonanResponse, error) {
 	return dto.PermohonanResponse{}, f.activityErr
 }
@@ -223,6 +233,26 @@ func TestExportActivityHTTPContract(t *testing.T) {
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Equal(t, "application/pdf", recorder.Header().Get("Content-Type"))
 	require.Equal(t, "attachment; filename=jawaban_request_survei.pdf", recorder.Header().Get("Content-Disposition"))
+	require.Equal(t, "no-store", recorder.Header().Get("Cache-Control"))
+	require.True(t, bytes.HasPrefix(recorder.Body.Bytes(), []byte("%PDF")))
+}
+
+func TestExportVendorWOAPPHTTPContract(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	service := &vendorWOControllerService{}
+	controller := &permohonanController{permohonanService: service}
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/permohonan/request/wo-vendor/app/export", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: "request"}, {Key: "wo_type", Value: "app"}}
+	ctx.Set("user_id", "actor-id")
+
+	controller.ExportVendorWO(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, string(workflow.WOAPP), service.workflowNode)
+	require.Equal(t, "application/pdf", recorder.Header().Get("Content-Type"))
+	require.Equal(t, "attachment; filename=WO_APP_request.pdf", recorder.Header().Get("Content-Disposition"))
 	require.Equal(t, "no-store", recorder.Header().Get("Cache-Control"))
 	require.True(t, bytes.HasPrefix(recorder.Body.Bytes(), []byte("%PDF")))
 }

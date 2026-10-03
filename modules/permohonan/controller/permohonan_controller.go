@@ -297,6 +297,8 @@ func (c *permohonanController) ExportVendorWO(ctx *gin.Context) {
 		workflowNode = string(workflow.WOTiang)
 	case "konstruksi":
 		workflowNode = string(workflow.WOKonstruksi)
+	case "app":
+		workflowNode = string(workflow.WOAPP)
 	default:
 		ctx.JSON(http.StatusNotFound, utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_ACTIVITY, dto.ErrWorkflowNodeNotFound.Error(), nil))
 		return

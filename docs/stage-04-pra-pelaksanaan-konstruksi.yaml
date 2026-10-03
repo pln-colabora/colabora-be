@@ -108,6 +108,24 @@ paths:
                 latitude: -6.200000
                 longitude: 106.816666
       responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
+  /api/permohonan/{id}/wo-vendor/app/export:
+    post:
+      tags: ["Tahap 4 — Pra Pelaksanaan Konstruksi"]
+      operationId: exportWOAPP
+      summary: Unduh PDF WO Vendor APP
+      description: Owner Transaksi Energi; node WO APP harus selesai dan vendor tujuan harus sudah ditugaskan sesuai owner pemasangan SR/APP untuk jenis sambungan. PDF privat dibuat sekali, ditautkan ke node WO APP, dan dikembalikan sebagai file PDF tanpa lampiran atau tanda tangan digital.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
+      responses:
+        "200":
+          description: PDF WO Vendor APP
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /api/permohonan/{id}/reservasi-material:
     post:
       tags: ["Tahap 4 — Pra Pelaksanaan Konstruksi"]

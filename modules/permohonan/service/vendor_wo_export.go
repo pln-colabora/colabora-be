@@ -38,6 +38,9 @@ func (s *permohonanService) ExportVendorWOPDF(ctx context.Context, id, workflowN
 	case workflow.WOKonstruksi:
 		docType, vendorRole, title, filenamePrefix = "wo_vendor_konstruksi", rbac.RoleVendorKonstruksi, "SURAT PERINTAH KERJA VENDOR KONSTRUKSI", "Konstruksi"
 		workScope = "Pekerjaan konstruksi jaringan sesuai dokumen teknis"
+	case workflow.WOAPP:
+		docType, title, filenamePrefix = "wo_vendor_app", "SURAT PERINTAH KERJA VENDOR APP", "APP"
+		workScope = "Pekerjaan APP sesuai dokumen teknis"
 	default:
 		return nil, "", dto.ErrWorkflowNodeNotFound
 	}
@@ -60,6 +63,15 @@ func (s *permohonanService) ExportVendorWOPDF(ctx context.Context, id, workflowN
 		}
 		if !rbac.OwnsWorkflowNode(actor.Role, actor.Unit, p.JenisSambungan, p.UlpUnit, code) {
 			return rbac.ErrWorkflowForbidden
+		}
+		if code == workflow.WOAPP {
+			// The WO APP is issued by Transaksi Energi, while its recipient follows
+			// the connection-specific owner of the downstream SR/APP installation.
+			var ok bool
+			vendorRole, ok = vendorRoleForWO(code, p.JenisSambungan)
+			if !ok {
+				return dto.ErrWorkflowNodeNotFound
+			}
 		}
 		var node *entities.PermohonanActivity
 		for i := range p.WorkflowNodes {
@@ -183,4 +195,11 @@ func (s *permohonanService) ExportVendorWOPDF(ctx context.Context, id, workflowN
 		filename = storedFilename
 	}
 	return content, filename, nil
+}
+
+func vendorRoleForWO(code workflow.Code, connection string) (string, bool) {
+	if code == workflow.WOAPP {
+		return workflow.Owner(workflow.SRAPP, connection)
+	}
+	return "", false
 }

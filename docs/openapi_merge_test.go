@@ -80,8 +80,11 @@ func TestPermohonanStageDocumentsKeepBusinessGrouping(t *testing.T) {
 			tag: "Tahap 4 — Pra Pelaksanaan Konstruksi",
 			paths: []string{
 				"/api/permohonan/{id}/wo-vendor/tiang",
+				"/api/permohonan/{id}/wo-vendor/tiang/export",
 				"/api/permohonan/{id}/wo-vendor/konstruksi",
+				"/api/permohonan/{id}/wo-vendor/konstruksi/export",
 				"/api/permohonan/{id}/wo-vendor/app",
+				"/api/permohonan/{id}/wo-vendor/app/export",
 				"/api/permohonan/{id}/reservasi-material",
 				"/api/permohonan/{id}/tera-app",
 				"/api/permohonan/{id}/wo-pdkb",
