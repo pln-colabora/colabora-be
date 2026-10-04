@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	_ "embed"
 	"fmt"
 	"strings"
 	"time"
@@ -11,6 +12,9 @@ import (
 	"golang.org/x/image/font/gofont/gobold"
 	"golang.org/x/image/font/gofont/goregular"
 )
+
+//go:embed assets/pln_wordmark.png
+var plnWordmark []byte
 
 type vendorWOPDFData struct {
 	Title           string
@@ -33,85 +37,31 @@ type vendorWOPDFData struct {
 	EstimasiSelesai string
 	PerluPDKB       string
 	Notes           string
+	IssuerRole      string
 }
 
-// generateVendorWOPDF creates a private unsigned WO artefact. Missing source
-// values are deliberately rendered as empty cells so the existing WO request
-// payload does not need to change.
+// generateVendorWOPDF creates a private, unsigned work-order letter. The
+// letter follows the operational WO correspondence layout while keeping fields
+// that are unavailable in COLABORA blank.
 func generateVendorWOPDF(data vendorWOPDFData) ([]byte, error) {
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.SetTitle(data.Title, false)
-	pdf.SetMargins(17, 15, 17)
-	pdf.SetAutoPageBreak(true, 16)
+	pdf.SetMargins(17, 12, 17)
+	pdf.SetAutoPageBreak(true, 15)
 	pdf.AddUTF8FontFromBytes("Go", "", goregular.TTF)
 	pdf.AddUTF8FontFromBytes("Go", "B", gobold.TTF)
+	pdf.RegisterImageOptionsReader("pln-wordmark", gofpdf.ImageOptions{ImageType: "PNG"}, bytes.NewReader(plnWordmark))
 	if err := pdf.Error(); err != nil {
-		return nil, fmt.Errorf("load WO PDF fonts: %w", err)
+		return nil, fmt.Errorf("load WO PDF assets: %w", err)
 	}
 	pdf.AddPage()
 
-	pdf.SetFont("Go", "B", 10)
-	pdf.CellFormat(0, 6, "PT PLN (PERSERO)", "", 1, "C", false, 0, "")
-	pdf.SetFont("Go", "", 9)
-	pdf.CellFormat(0, 5, safePDFText(data.UlpUnit), "", 1, "C", false, 0, "")
-	pdf.Ln(3)
-	pdf.SetDrawColor(24, 62, 112)
-	pdf.SetLineWidth(.7)
-	pdf.Line(17, pdf.GetY(), 193, pdf.GetY())
-	pdf.Ln(4)
-	pdf.SetFont("Go", "B", 15)
-	pdf.CellFormat(0, 8, data.Title, "", 1, "C", false, 0, "")
-	pdf.SetFont("Go", "", 9)
-	pdf.CellFormat(0, 5, "DRAFT - BELUM DITANDATANGANI", "", 1, "C", false, 0, "")
-	pdf.Ln(4)
-
-	writeWOSection(pdf, "IDENTITAS PERINTAH KERJA")
-	writeWOFields(pdf, [][2]string{
-		{"Nomor WO", ""},
-		{"Nomor Permohonan", data.NoPermohonan},
-		{"Jenis Permohonan", data.JenisPermohonan},
-		{"Jenis Sambungan", data.JenisSambungan},
-		{"Tanggal Terbit", formatWODate(&data.IssuedAt)},
-	})
-
-	writeWOSection(pdf, "DATA PELANGGAN DAN LOKASI PEKERJAAN")
-	writeWOFields(pdf, [][2]string{
-		{"Nama Pelanggan", data.PelangganNama},
-		{"Alamat Pekerjaan", data.PelangganAlamat},
-		{"Nomor Telepon", data.PelangganNoHp},
-		{"ULP", data.UlpUnit},
-		{"Tarif", data.Tarif},
-		{"Daya Lama (VA)", data.DayaLama},
-		{"Daya Baru (VA)", data.DayaBaru},
-	})
-
-	writeWOSection(pdf, "PENUGASAN VENDOR")
-	writeWOFields(pdf, [][2]string{
-		{"Nama Vendor", data.VendorNama},
-		{"Email Vendor", data.VendorEmail},
-		{"Telepon Vendor", data.VendorTelepon},
-		{"Referensi Kontrak", ""},
-		{"Pengawas / Kontak Lapangan", ""},
-	})
-
-	writeWOSection(pdf, "URAIAN PEKERJAAN")
-	writeWOFields(pdf, [][2]string{
-		{"Ruang Lingkup", data.Scope},
-		{"Koordinat Lokasi", data.Coordinates},
-		{"Volume Pekerjaan", ""},
-		{"Nilai / Harga Pekerjaan", ""},
-		{"Referensi Gambar Teknik", ""},
-		{"SLA Vendor", ""},
-		{"Estimasi Selesai", data.EstimasiSelesai},
-		{"Memerlukan PDKB", data.PerluPDKB},
-		{"Catatan", data.Notes},
-	})
-
-	pdf.Ln(2)
-	pdf.SetFont("Go", "", 8)
-	pdf.MultiCell(0, 4, "Kolom yang belum memiliki data pada sistem sengaja dikosongkan. Lampiran pendukung tidak digabungkan ke PDF ini.", "", "L", false)
-	pdf.Ln(5)
-	writeWOSignatureBlocks(pdf)
+	writeWOLetterhead(pdf, data)
+	writeWOMetadata(pdf, data)
+	writeWORecipient(pdf, data)
+	writeWOBody(pdf, data)
+	writeWOSignature(pdf, data)
+	writeWOFooter(pdf)
 
 	var output bytes.Buffer
 	if err := pdf.Output(&output); err != nil {
@@ -120,63 +70,150 @@ func generateVendorWOPDF(data vendorWOPDFData) ([]byte, error) {
 	return output.Bytes(), nil
 }
 
-func writeWOSection(pdf *gofpdf.Fpdf, title string) {
-	if pdf.GetY() > 250 {
-		pdf.AddPage()
+func writeWOLetterhead(pdf *gofpdf.Fpdf, data vendorWOPDFData) {
+	pdf.ImageOptions("pln-wordmark", 154, 11, 38, 0, false, gofpdf.ImageOptions{ImageType: "PNG"}, 0, "")
+	pdf.SetXY(154, 26)
+	pdf.SetFont("Go", "", 9.5)
+	pdf.CellFormat(38, 4.8, "UID JAWA TIMUR", "", 1, "R", false, 0, "")
+	pdf.SetX(154)
+	pdf.SetFont("Go", "B", 11)
+	pdf.CellFormat(38, 4.8, "UP3 SBY BARAT", "", 1, "R", false, 0, "")
+	pdf.SetY(48)
+}
+
+func writeWOMetadata(pdf *gofpdf.Fpdf, data vendorWOPDFData) {
+	leftX, rightX := 28.0, 123.0
+	rows := [][2]string{
+		{"Nomor", ""},
+		{"Lampiran", ""},
+		{"Sifat", ""},
+		{"Hal", woSubject(data.Title)},
 	}
-	pdf.SetFillColor(231, 239, 248)
+
+	pdf.SetFont("Go", "", 9)
+	for _, row := range rows {
+		y := pdf.GetY()
+		pdf.SetXY(leftX, y)
+		pdf.CellFormat(22, 4.5, row[0], "", 0, "L", false, 0, "")
+		pdf.CellFormat(4, 4.5, ":", "", 0, "C", false, 0, "")
+		pdf.MultiCell(61, 4.5, safePDFText(row[1]), "", "L", false)
+		if pdf.GetY() < y+4.5 {
+			pdf.SetY(y + 4.5)
+		}
+	}
+
+	pdf.SetXY(rightX, 43)
+	pdf.SetFont("Go", "", 9)
+	pdf.CellFormat(64, 5, formatWODate(&data.IssuedAt), "", 1, "R", false, 0, "")
+}
+
+func writeWORecipient(pdf *gofpdf.Fpdf, data vendorWOPDFData) {
+	const recipientX = 123.0
+	pdf.SetXY(recipientX, 57)
+	pdf.SetFont("Go", "", 9)
+	pdf.CellFormat(64, 4.5, "Kepada", "", 0, "L", false, 0, "")
+	pdf.SetXY(recipientX, 61.5)
+	pdf.CellFormat(64, 4.5, "Yth.", "", 0, "L", false, 0, "")
+	pdf.SetXY(recipientX, 66)
 	pdf.SetFont("Go", "B", 9)
-	pdf.CellFormat(0, 7, title, "", 1, "L", true, 0, "")
+	pdf.MultiCell(64, 4.5, safePDFText(data.VendorNama), "", "L", false)
+	pdf.SetFont("Go", "", 8)
+	if data.VendorEmail != "" {
+		pdf.MultiCell(64, 4, safePDFText(data.VendorEmail), "", "L", false)
+	}
+	if data.VendorTelepon != "" {
+		pdf.MultiCell(64, 4, safePDFText(data.VendorTelepon), "", "L", false)
+	}
+}
+
+func writeWOBody(pdf *gofpdf.Fpdf, data vendorWOPDFData) {
+	pdf.SetY(83)
+	pdf.SetX(49)
+	pdf.SetFont("Go", "", 9)
+	pdf.CellFormat(0, 5, "u.p. Yth. Direktur", "", 1, "L", false, 0, "")
+	pdf.Ln(5)
+
+	pdf.SetX(49)
+	pdf.MultiCell(140, 4.6, "Sehubungan dengan pelaksanaan pekerjaan, kami mohon agar Saudara melaksanakan pekerjaan dengan ketentuan sebagai berikut:", "", "L", false)
+	pdf.Ln(4)
+
+	scope := safePDFText(data.Scope)
+	if scope == "" {
+		scope = "____________________________"
+	}
+	writeWONumberedInstruction(pdf, "1.", "Melaksanakan "+scope+" sesuai data dan dokumen teknis terlampir.")
+	writeWONumberedInstruction(pdf, "2.", "Sebelum pelaksanaan pekerjaan, menyampaikan jadwal kepada PIC pengawas pekerjaan.")
+	writeWONumberedInstruction(pdf, "3.", "Mematuhi standar keselamatan dan ketentuan kerja yang berlaku.")
+	pdf.Ln(6)
+
+	pdf.SetX(49)
+	pdf.MultiCell(140, 4.6, "Demikian disampaikan, atas perhatian dan kerja samanya kami ucapkan terima kasih.", "", "L", false)
+}
+
+func writeWONumberedInstruction(pdf *gofpdf.Fpdf, number, text string) {
+	startY := pdf.GetY()
+	pdf.SetX(49)
+	pdf.SetFont("Go", "", 9)
+	pdf.CellFormat(8, 4.6, number, "", 0, "L", false, 0, "")
+	pdf.SetXY(57, startY)
+	pdf.MultiCell(132, 4.6, text, "", "L", false)
 	pdf.Ln(1)
 }
 
-func writeWOFields(pdf *gofpdf.Fpdf, fields [][2]string) {
-	labelWidth := 57.0
-	for _, field := range fields {
-		if pdf.GetY() > 266 {
-			pdf.AddPage()
-		}
-		startY := pdf.GetY()
-		pdf.SetFont("Go", "B", 8)
-		pdf.MultiCell(labelWidth, 5, safePDFText(field[0]), "", "L", false)
-		labelHeight := pdf.GetY() - startY
-		pdf.SetXY(17+labelWidth, startY)
-		pdf.SetFont("Go", "", 8)
-		pdf.MultiCell(176-labelWidth, 5, safePDFText(field[1]), "", "L", false)
-		valueHeight := pdf.GetY() - startY
-		if labelHeight > valueHeight {
-			pdf.SetY(startY + labelHeight)
-		}
-		pdf.SetDrawColor(220, 226, 232)
-		pdf.Line(17, pdf.GetY(), 193, pdf.GetY())
-		pdf.Ln(1)
+func writeWOSignature(pdf *gofpdf.Fpdf, data vendorWOPDFData) {
+	if pdf.GetY() < 190 {
+		pdf.SetY(190)
 	}
+	pdf.SetX(108)
+	pdf.SetFont("Go", "B", 9)
+	pdf.MultiCell(79, 4.5, "PEJABAT BERWENANG", "", "C", false)
+	pdf.SetX(108)
+	pdf.SetFont("Go", "", 8)
+	pdf.CellFormat(79, 4.5, safePDFText(data.IssuerRole), "", 1, "C", false, 0, "")
+	pdf.Ln(18)
+	pdf.SetDrawColor(50, 50, 50)
+	pdf.SetLineWidth(.3)
+	pdf.Line(120, pdf.GetY(), 175, pdf.GetY())
+	pdf.SetX(108)
+	pdf.SetFont("Go", "", 8)
+	pdf.CellFormat(79, 4.5, "Nama dan Jabatan", "", 1, "C", false, 0, "")
 }
 
-func writeWOSignatureBlocks(pdf *gofpdf.Fpdf) {
-	if pdf.GetY() > 224 {
-		pdf.AddPage()
+func writeWOFooter(pdf *gofpdf.Fpdf) {
+	pdf.SetAutoPageBreak(false, 0)
+	pdf.SetXY(17, 273)
+	pdf.SetFont("Go", "", 7.5)
+	pdf.CellFormat(120, 4, "Jl. Raya Taman No 48 D, Sepanjang, Surabaya Barat 61257", "", 1, "L", false, 0, "")
+	pdf.SetTextColor(0, 126, 181)
+	pdf.CellFormat(3, 4, "T", "", 0, "L", false, 0, "")
+	pdf.SetTextColor(0, 0, 0)
+	pdf.CellFormat(15, 4, " (031) 123", "", 0, "L", false, 0, "")
+	pdf.SetTextColor(0, 126, 181)
+	pdf.CellFormat(3, 4, "W", "", 0, "L", false, 0, "")
+	pdf.SetTextColor(0, 0, 0)
+	pdf.CellFormat(30, 4, " www.pln.co.id", "", 0, "L", false, 0, "")
+	pdf.SetXY(164, 277)
+	pdf.CellFormat(12, 4, "Paraf", "", 0, "L", false, 0, "")
+	pdf.SetDrawColor(50, 50, 50)
+	pdf.SetLineWidth(.3)
+	pdf.Line(176, 281, 193, 281)
+}
+
+func woSubject(title string) string {
+	switch title {
+	case "SURAT PERINTAH KERJA VENDOR TIANG":
+		return "Perintah Kerja / Work Order Pemasangan Tiang"
+	case "SURAT PERINTAH KERJA VENDOR KONSTRUKSI":
+		return "Perintah Kerja / Work Order Konstruksi Jaringan"
+	case "SURAT PERINTAH KERJA VENDOR APP":
+		return "Perintah Kerja / Work Order APP"
+	default:
+		return "Perintah Kerja / Work Order"
 	}
-	leftX, rightX := 24.0, 112.0
-	y := pdf.GetY()
-	pdf.SetFont("Go", "", 8)
-	pdf.SetXY(leftX, y)
-	pdf.CellFormat(68, 5, "Dibuat oleh,", "", 0, "C", false, 0, "")
-	pdf.SetXY(rightX, y)
-	pdf.CellFormat(68, 5, "Diterima oleh,", "", 1, "C", false, 0, "")
-	pdf.Ln(22)
-	pdf.SetDrawColor(80, 80, 80)
-	pdf.Line(leftX+8, pdf.GetY(), leftX+60, pdf.GetY())
-	pdf.Line(rightX+8, pdf.GetY(), rightX+60, pdf.GetY())
-	pdf.SetY(pdf.GetY() + 2)
-	pdf.SetXY(leftX, pdf.GetY())
-	pdf.CellFormat(68, 5, "Nama / Jabatan", "", 0, "C", false, 0, "")
-	pdf.SetXY(rightX, pdf.GetY())
-	pdf.CellFormat(68, 5, "Nama / Jabatan", "", 1, "C", false, 0, "")
 }
 
 func formatWODate(value *time.Time) string {
-	if value == nil {
+	if value == nil || value.IsZero() {
 		return ""
 	}
 	months := [...]string{"Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"}

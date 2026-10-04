@@ -30,16 +30,16 @@ func (s *permohonanService) ExportVendorWOPDF(ctx context.Context, id, workflowN
 	}
 
 	code := workflow.Code(workflowNode)
-	var docType, vendorRole, title, filenamePrefix string
+	var docType, vendorRole, title, filenamePrefix, issuerRole string
 	workScope := "Pekerjaan pemasangan tiang sesuai dokumen teknis"
 	switch code {
 	case workflow.WOTiang:
-		docType, vendorRole, title, filenamePrefix = "wo_vendor_tiang", rbac.RoleVendorTiang, "SURAT PERINTAH KERJA VENDOR TIANG", "Tiang"
+		docType, vendorRole, title, filenamePrefix, issuerRole = "wo_vendor_tiang", rbac.RoleVendorTiang, "SURAT PERINTAH KERJA VENDOR TIANG", "Tiang", "PERENCANAAN"
 	case workflow.WOKonstruksi:
-		docType, vendorRole, title, filenamePrefix = "wo_vendor_konstruksi", rbac.RoleVendorKonstruksi, "SURAT PERINTAH KERJA VENDOR KONSTRUKSI", "Konstruksi"
+		docType, vendorRole, title, filenamePrefix, issuerRole = "wo_vendor_konstruksi", rbac.RoleVendorKonstruksi, "SURAT PERINTAH KERJA VENDOR KONSTRUKSI", "Konstruksi", "KONSTRUKSI"
 		workScope = "Pekerjaan konstruksi jaringan sesuai dokumen teknis"
 	case workflow.WOAPP:
-		docType, title, filenamePrefix = "wo_vendor_app", "SURAT PERINTAH KERJA VENDOR APP", "APP"
+		docType, title, filenamePrefix, issuerRole = "wo_vendor_app", "SURAT PERINTAH KERJA VENDOR APP", "APP", "TRANSAKSI ENERGI"
 		workScope = "Pekerjaan APP sesuai dokumen teknis"
 	default:
 		return nil, "", dto.ErrWorkflowNodeNotFound
@@ -120,7 +120,7 @@ func (s *permohonanService) ExportVendorWOPDF(ctx context.Context, id, workflowN
 			JenisPermohonan: p.JenisPermohonan, JenisSambungan: p.JenisSambungan, UlpUnit: p.UlpUnit,
 			PelangganNama: p.PelangganNama, PelangganAlamat: p.PelangganAlamat, PelangganNoHp: p.PelangganNoHp,
 			VendorNama: assignment.Vendor.Name, VendorEmail: assignment.Vendor.Email,
-			VendorTelepon: assignment.Vendor.TelpNumber, IssuedAt: issuedAt, Scope: workScope,
+			VendorTelepon: assignment.Vendor.TelpNumber, IssuedAt: issuedAt, Scope: workScope, IssuerRole: issuerRole,
 		}
 		if p.Tarif != nil {
 			data.Tarif = *p.Tarif

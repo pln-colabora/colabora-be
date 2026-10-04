@@ -2,6 +2,7 @@ package service
 
 import (
 	"testing"
+	"time"
 
 	"github.com/pln-colabora/colabora-be/pkg/rbac"
 	"github.com/pln-colabora/colabora-be/pkg/workflow"
@@ -41,4 +42,53 @@ func TestGenerateVendorAPPWOPDF(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, len(content) > 5)
 	require.Equal(t, "%PDF", string(content[:4]))
+}
+
+func TestGenerateVendorWOPDFSupportsBlankTemplateValues(t *testing.T) {
+	tests := []struct {
+		name       string
+		title      string
+		scope      string
+		issuerRole string
+		subject    string
+	}{
+		{
+			name:       "tiang",
+			title:      "SURAT PERINTAH KERJA VENDOR TIANG",
+			scope:      "Pekerjaan pemasangan tiang sesuai dokumen teknis",
+			issuerRole: "PERENCANAAN",
+			subject:    "Perintah Kerja / Work Order Pemasangan Tiang",
+		},
+		{
+			name:       "konstruksi",
+			title:      "SURAT PERINTAH KERJA VENDOR KONSTRUKSI",
+			scope:      "Pekerjaan konstruksi jaringan sesuai dokumen teknis",
+			issuerRole: "KONSTRUKSI",
+			subject:    "Perintah Kerja / Work Order Konstruksi Jaringan",
+		},
+		{
+			name:       "app",
+			title:      "SURAT PERINTAH KERJA VENDOR APP",
+			scope:      "Pekerjaan APP sesuai dokumen teknis",
+			issuerRole: "TRANSAKSI ENERGI",
+			subject:    "Perintah Kerja / Work Order APP",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			content, err := generateVendorWOPDF(vendorWOPDFData{
+				Title: test.title, Scope: test.scope, IssuerRole: test.issuerRole,
+			})
+			require.NoError(t, err)
+			require.Greater(t, len(content), 5)
+			require.Equal(t, "%PDF", string(content[:4]))
+			require.Equal(t, test.subject, woSubject(test.title))
+		})
+	}
+
+	zero := time.Time{}
+	require.Empty(t, formatWODate(&zero))
+	issuedAt := time.Date(2026, time.October, 4, 0, 0, 0, 0, time.UTC)
+	require.Equal(t, "04 Oktober 2026", formatWODate(&issuedAt))
 }
