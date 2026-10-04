@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/pln-colabora/colabora-be/middlewares"
 	"github.com/pln-colabora/colabora-be/modules/auth"
 	"github.com/pln-colabora/colabora-be/modules/document"
+	notificationService "github.com/pln-colabora/colabora-be/modules/notification/service"
 	"github.com/pln-colabora/colabora-be/modules/permohonan"
 	"github.com/pln-colabora/colabora-be/modules/user"
 	"github.com/pln-colabora/colabora-be/providers"
@@ -61,6 +63,9 @@ func main() {
 	if !args(injector) {
 		return
 	}
+	workerContext, stopNotificationWorker := context.WithCancel(context.Background())
+	defer stopNotificationWorker()
+	go do.MustInvoke[notificationService.EmailService](injector).Run(workerContext)
 
 	server := gin.Default()
 	server.Use(middlewares.CORSMiddleware())

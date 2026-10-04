@@ -67,6 +67,10 @@ paths:
           in: query
           description: Matches against name
           schema: { type: string }
+        - name: is_verified
+          in: query
+          description: Filters accounts by verification state; use false for registrations awaiting review
+          schema: { type: boolean }
         - name: sort
           in: query
           schema: { type: string, default: id }

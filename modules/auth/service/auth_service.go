@@ -31,12 +31,17 @@ type AuthService interface {
 	VerifyUser(ctx context.Context, userID string, req dto.VerifyUserRequest) (dto.VerifyUserResponse, error)
 }
 
+type AccountRegistrationNotifier interface {
+	QueueAccountRegistration(context.Context, *gorm.DB, entities.User) error
+}
+
 type authService struct {
 	userRepository         repository.UserRepository
 	refreshTokenRepository authRepo.RefreshTokenRepository
 	jwtService             JWTService
 	documentService        documentService.DocumentService
 	accountDocumentRepo    documentRepo.AccountDocumentRepository
+	accountNotifier        AccountRegistrationNotifier
 	db                     *gorm.DB
 }
 
@@ -47,8 +52,9 @@ func NewAuthService(
 	documentSvc documentService.DocumentService,
 	accountDocumentRepo documentRepo.AccountDocumentRepository,
 	db *gorm.DB,
+	notifiers ...AccountRegistrationNotifier,
 ) AuthService {
-	return &authService{
+	service := &authService{
 		userRepository:         userRepo,
 		refreshTokenRepository: refreshTokenRepo,
 		jwtService:             jwtService,
@@ -56,6 +62,10 @@ func NewAuthService(
 		accountDocumentRepo:    accountDocumentRepo,
 		db:                     db,
 	}
+	if len(notifiers) > 0 {
+		service.accountNotifier = notifiers[0]
+	}
+	return service
 }
 
 func (s *authService) Register(ctx context.Context, req userDto.UserCreateRequest) (userDto.UserResponse, error) {
@@ -96,6 +106,11 @@ func (s *authService) Register(ctx context.Context, req userDto.UserCreateReques
 			return uploadErr
 		}
 		storageKey = uploaded.StorageKey
+		if s.accountNotifier != nil {
+			if err := s.accountNotifier.QueueAccountRegistration(ctx, tx, createdUser); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 	if err != nil {

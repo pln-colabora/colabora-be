@@ -64,6 +64,12 @@ type generatedWODocumentStore interface {
 	ReadAuthorizedDocument(ctx context.Context, userID, documentID string) (io.ReadCloser, string, error)
 }
 
+type WorkflowNotifier interface {
+	QueueInitialAvailable(context.Context, *gorm.DB, entities.Permohonan, workflow.Result) error
+	QueueNewlyAvailable(context.Context, *gorm.DB, entities.Permohonan, workflow.Result, workflow.Result) error
+	QueueVendorAssigned(context.Context, *gorm.DB, entities.Permohonan, entities.User) error
+}
+
 type permohonanService struct {
 	vendorAssignmentRepository repository.VendorAssignmentRepository
 	permohonanRepository       repository.PermohonanRepository
@@ -72,6 +78,7 @@ type permohonanService struct {
 	userRepository             userRepository.UserRepository
 	documentRepository         documentRepository.DocumentRepository
 	workflowDocumentUploader   WorkflowDocumentUploader
+	workflowNotifier           WorkflowNotifier
 	db                         *gorm.DB
 }
 
@@ -84,8 +91,9 @@ func NewPermohonanService(
 	workflowDocumentUploader WorkflowDocumentUploader,
 	assignmentRepo repository.VendorAssignmentRepository,
 	db *gorm.DB,
+	notifiers ...WorkflowNotifier,
 ) PermohonanService {
-	return &permohonanService{
+	service := &permohonanService{
 		vendorAssignmentRepository: assignmentRepo,
 		permohonanRepository:       permohonanRepo,
 		slaRuleRepository:          slaRuleRepo,
@@ -95,6 +103,10 @@ func NewPermohonanService(
 		workflowDocumentUploader:   workflowDocumentUploader,
 		db:                         db,
 	}
+	if len(notifiers) > 0 {
+		service.workflowNotifier = notifiers[0]
+	}
+	return service
 }
 
 func (s *permohonanService) SubmitSurvey(ctx context.Context, id, userID string, req dto.SurveySubmitRequest) (dto.PermohonanResponse, error) {
@@ -320,6 +332,10 @@ func (s *permohonanService) completeWorkflowNodes(
 		}
 
 		snapshot := permohonan.WorkflowSnapshot()
+		previous, err := workflow.Evaluate(snapshot)
+		if err != nil {
+			return err
+		}
 		if applyDecision != nil {
 			applyDecision(&snapshot)
 		}
@@ -414,6 +430,11 @@ func (s *permohonanService) completeWorkflowNodes(
 				PermohonanID: permohonan.ID, ActivityNumber: definition.ActivityNumber,
 				Actor: actor.ID, Action: "node_skipped", WorkflowNode: &codeValue,
 			})
+		}
+		if s.workflowNotifier != nil {
+			if err := s.workflowNotifier.QueueNewlyAvailable(ctx, tx, permohonan, previous, result); err != nil {
+				return err
+			}
 		}
 		if err := s.permohonanRepository.SaveWorkflow(ctx, tx, permohonan, logs); err != nil {
 			return dto.ErrSubmitActivity
@@ -538,6 +559,12 @@ func (s *permohonanService) Create(ctx context.Context, req dto.PermohonanCreate
 			}
 			uploadedKeys, txErr = s.workflowDocumentUploader.UploadForWorkflow(ctx, tx, userId, created.ID.String(), string(workflow.Permohonan), req.EvidenceFiles)
 			if txErr != nil {
+				return txErr
+			}
+		}
+		created.WorkflowNodes = activities
+		if s.workflowNotifier != nil {
+			if txErr = s.workflowNotifier.QueueInitialAvailable(ctx, tx, created, result); txErr != nil {
 				return txErr
 			}
 		}

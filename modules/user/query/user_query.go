@@ -20,10 +20,13 @@ type User struct {
 
 type UserFilter struct {
 	pagination.BaseFilter
+	IsVerified *bool `json:"is_verified" form:"is_verified"`
 }
 
 func (f *UserFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
-	// Apply your filters here
+	if f.IsVerified != nil {
+		query = query.Where("is_verified = ?", *f.IsVerified)
+	}
 	return query
 }
 

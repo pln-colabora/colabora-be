@@ -70,6 +70,11 @@ func (s *permohonanService) AssignVendor(ctx context.Context, id, userID string,
 		if err != nil {
 			return dto.ErrSubmitActivity
 		}
+		if s.workflowNotifier != nil {
+			if err := s.workflowNotifier.QueueVendorAssigned(ctx, tx, p, vendor); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 	if err != nil {

@@ -13,6 +13,8 @@ import (
 	documentScanning "github.com/pln-colabora/colabora-be/modules/document/scanning"
 	documentService "github.com/pln-colabora/colabora-be/modules/document/service"
 	documentStorage "github.com/pln-colabora/colabora-be/modules/document/storage"
+	notificationRepo "github.com/pln-colabora/colabora-be/modules/notification/repository"
+	notificationService "github.com/pln-colabora/colabora-be/modules/notification/service"
 	permohonanController "github.com/pln-colabora/colabora-be/modules/permohonan/controller"
 	permohonanRepo "github.com/pln-colabora/colabora-be/modules/permohonan/repository"
 	permohonanService "github.com/pln-colabora/colabora-be/modules/permohonan/service"
@@ -60,14 +62,19 @@ func RegisterDependencies(injector *do.Injector) {
 	tariffPowerRepository := permohonanRepo.NewTariffPowerRepository(db)
 	documentRepository := documentRepo.NewDocumentRepository(db)
 	accountDocumentRepository := documentRepo.NewAccountDocumentRepository(db)
+	emailNotificationRepository := notificationRepo.NewEmailRepository(db)
+	emailService := notificationService.NewEmailService(emailNotificationRepository, nil)
 
 	userService := userService.NewUserService(userRepository, refreshTokenRepository, accountDocumentRepository, db)
 	documentSvc := documentService.NewDocumentService(documentRepository, accountDocumentRepository, permohonanRepository, userRepository, storageClient, documentScanner, db)
-	permohonanService := permohonanService.NewPermohonanService(permohonanRepository, slaRuleRepository, tariffPowerRepository, userRepository, documentRepository, documentSvc, permohonanRepo.NewVendorAssignmentRepository(), db)
-	authService := authService.NewAuthService(userRepository, refreshTokenRepository, jwtService, documentSvc, accountDocumentRepository, db)
+	permohonanService := permohonanService.NewPermohonanService(permohonanRepository, slaRuleRepository, tariffPowerRepository, userRepository, documentRepository, documentSvc, permohonanRepo.NewVendorAssignmentRepository(), db, emailService)
+	authService := authService.NewAuthService(userRepository, refreshTokenRepository, jwtService, documentSvc, accountDocumentRepository, db, emailService)
 
 	do.Provide(injector, func(i *do.Injector) (documentService.DocumentService, error) {
 		return documentSvc, nil
+	})
+	do.Provide(injector, func(i *do.Injector) (notificationService.EmailService, error) {
+		return emailService, nil
 	})
 
 	do.Provide(injector, func(i *do.Injector) (repository.UserRepository, error) {
