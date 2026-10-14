@@ -11,6 +11,26 @@ export IMAGE_TAG="${IMAGE_TAG:?IMAGE_TAG must be set}"
 echo "==> Pulling ${IMAGE_TAG}"
 docker compose -f "$COMPOSE_FILE" pull app
 
+echo "==> Starting deployment dependencies"
+docker compose -f "$COMPOSE_FILE" up -d postgres garage
+
+echo "==> Waiting for PostgreSQL"
+database_ready=false
+for i in $(seq 1 30); do
+  if docker compose -f "$COMPOSE_FILE" exec -T postgres \
+    sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' > /dev/null 2>&1; then
+    database_ready=true
+    break
+  fi
+  sleep 2
+done
+
+if [[ "$database_ready" != "true" ]]; then
+  echo "PostgreSQL did not become ready in time."
+  docker compose -f "$COMPOSE_FILE" logs --tail=50 postgres
+  exit 1
+fi
+
 echo "==> Running migrations against the new image (before cutover)"
 docker compose -f "$COMPOSE_FILE" run --rm app ./server --migrate:run
 
