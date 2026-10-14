@@ -87,11 +87,11 @@ jobs:
           chmod 0600 "$HOME/.ssh/config"
       - name: Copy staging deployment files
         run: |
-          ssh staging 'mkdir -p /opt/colabora-be-staging/docker/nginx /opt/colabora-be-staging/docker/garage'
+          ssh staging 'mkdir -p /opt/colabora-be-staging/docker/nginx /opt/colabora-be-staging/docker/garage /opt/colabora-be-staging/scripts'
           scp docker-compose.staging.yml staging:/opt/colabora-be-staging/
           scp docker/nginx/staging.conf staging:/opt/colabora-be-staging/docker/nginx/
           scp docker/garage/garage.toml staging:/opt/colabora-be-staging/docker/garage/
-          scp scripts/deploy.sh staging:/opt/colabora-be-staging/
+          scp scripts/deploy.sh staging:/opt/colabora-be-staging/scripts/
       - name: Deploy staging image
         run: |
           ssh staging \
