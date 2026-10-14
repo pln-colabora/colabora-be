@@ -1,6 +1,6 @@
 services:
   app:
-    image: ghcr.io/pln-colabora/colabora-be:${IMAGE_TAG:-latest}
+    image: ghcr.io/pln-colabora/colabora-be:${IMAGE_TAG:-production}
     container_name: ${APP_NAME:-colabora-be}-app
     restart: unless-stopped
     env_file:

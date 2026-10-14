@@ -96,4 +96,7 @@ When the server is running, the same Mermaid sources are available at
 
 ## Deployment
 
-Production uses Docker Compose, GHCR, GitHub Actions, nginx, PostgreSQL, and Garage. See [`DEPLOY.md`](./DEPLOY.md) for setup, deployment, and rollback instructions.
+`main` deploys staging to the homeserver through Cloudflare Tunnel; `production`
+deploys the existing VPS. Both use Docker Compose, GHCR, GitHub Actions, nginx,
+PostgreSQL, and Garage. See [`DEPLOY.md`](./DEPLOY.md) for setup, branch rules,
+deployment, and rollback instructions.
