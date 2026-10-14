@@ -99,7 +99,7 @@ jobs:
              IMAGE_TAG=${{ needs.build-and-push.outputs.image-tag }} \
              DEPLOY_DIR=/opt/colabora-be-staging \
              COMPOSE_FILE=docker-compose.staging.yml \
-             HEALTHCHECK_URL=http://127.0.0.1:8889/health \
+             HEALTHCHECK_URL=http://127.0.0.1:8888/health \
              /opt/colabora-be-staging/scripts/deploy.sh'
 
   deploy-production:

@@ -6,7 +6,7 @@ services:
     env_file:
       - .env
     ports:
-      - "127.0.0.1:${GOLANG_PORT:-8889}:8888"
+      - "127.0.0.1:${GOLANG_PORT:-8888}:8888"
     depends_on:
       - postgres
     networks:

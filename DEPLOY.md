@@ -92,7 +92,7 @@ repository-level controls and must be configured once in GitHub Settings.
    ```dotenv
    APP_NAME=colabora-be-staging
    APP_ENV=staging
-   GOLANG_PORT=8889
+   GOLANG_PORT=8888
    NGINX_PORT=8081
    DB_HOST=postgres
    GARAGE_S3_ENDPOINT=http://garage:3900
@@ -163,7 +163,7 @@ cd /opt/colabora-be-staging
 IMAGE_TAG=sha-<previous-full-sha> \
 DEPLOY_DIR=/opt/colabora-be-staging \
 COMPOSE_FILE=docker-compose.staging.yml \
-HEALTHCHECK_URL=http://127.0.0.1:8889/health \
+HEALTHCHECK_URL=http://127.0.0.1:8888/health \
 ./scripts/deploy.sh
 ```
 
