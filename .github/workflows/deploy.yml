@@ -2,13 +2,12 @@ name: CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [main, production]
   pull_request:
-    branches: [main]
+    branches: [main, production]
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   test:
@@ -24,14 +23,17 @@ jobs:
 
   build-and-push:
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/production')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     outputs:
-      image-tag: sha-${{ steps.sha.outputs.short }}
+      image-tag: sha-${{ steps.sha.outputs.full }}
     steps:
       - uses: actions/checkout@v4
       - id: sha
-        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+        run: echo "full=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -43,16 +45,71 @@ jobs:
           file: docker/Dockerfile.prod
           push: true
           tags: |
-            ghcr.io/pln-colabora/colabora-be:latest
-            ghcr.io/pln-colabora/colabora-be:sha-${{ steps.sha.outputs.short }}
+            ghcr.io/pln-colabora/colabora-be:sha-${{ steps.sha.outputs.full }}
+            ghcr.io/pln-colabora/colabora-be:${{ github.ref_name }}
 
-  deploy:
+  deploy-staging:
     needs: build-and-push
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment: staging
+    env:
+      TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@v4
-      - name: Copy compose file + deploy script to VPS
+      - name: Install cloudflared
+        env:
+          CLOUDFLARED_VERSION: 2026.5.1
+        run: |
+          curl --fail --silent --show-error --location \
+            "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-amd64" \
+            --output cloudflared
+          chmod +x cloudflared
+          sudo install -m 0755 cloudflared /usr/local/bin/cloudflared
+      - name: Configure SSH through Cloudflare Access
+        env:
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          STAGING_SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+        run: |
+          install -m 0700 -d "$HOME/.ssh"
+          printf '%s\n' "$STAGING_SSH_KEY" > "$HOME/.ssh/staging_key"
+          chmod 0600 "$HOME/.ssh/staging_key"
+          cat > "$HOME/.ssh/config" <<EOF
+          Host staging
+            HostName ${STAGING_SSH_HOST}
+            User ${STAGING_SSH_USER}
+            IdentityFile ${HOME}/.ssh/staging_key
+            ProxyCommand cloudflared access ssh --hostname %h
+            StrictHostKeyChecking accept-new
+          EOF
+          chmod 0600 "$HOME/.ssh/config"
+      - name: Copy staging deployment files
+        run: |
+          ssh staging 'mkdir -p /opt/colabora-be-staging/docker/nginx /opt/colabora-be-staging/docker/garage /opt/colabora-be-staging/scripts'
+          scp docker-compose.staging.yml staging:/opt/colabora-be-staging/
+          scp docker/nginx/staging.conf staging:/opt/colabora-be-staging/docker/nginx/
+          scp docker/garage/garage.toml staging:/opt/colabora-be-staging/docker/garage/
+          scp scripts/deploy.sh staging:/opt/colabora-be-staging/scripts/
+      - name: Deploy staging image
+        run: |
+          ssh staging \
+            'chmod +x /opt/colabora-be-staging/scripts/deploy.sh && \
+             IMAGE_TAG=${{ needs.build-and-push.outputs.image-tag }} \
+             DEPLOY_DIR=/opt/colabora-be-staging \
+             COMPOSE_FILE=docker-compose.staging.yml \
+             HEALTHCHECK_URL=http://127.0.0.1:8888/health \
+             /opt/colabora-be-staging/scripts/deploy.sh'
+
+  deploy-production:
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/production'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Copy production deployment files
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -60,7 +117,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           source: "docker-compose.prod.yml,docker/nginx/default.conf,scripts/deploy.sh"
           target: "/opt/colabora-be"
-      - name: Run deploy script on VPS
+      - name: Deploy production image
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -69,4 +126,8 @@ jobs:
           script: |
             cd /opt/colabora-be
             chmod +x scripts/deploy.sh
-            IMAGE_TAG=${{ needs.build-and-push.outputs.image-tag }} ./scripts/deploy.sh
+            IMAGE_TAG=${{ needs.build-and-push.outputs.image-tag }} \
+            DEPLOY_DIR=/opt/colabora-be \
+            COMPOSE_FILE=docker-compose.prod.yml \
+            HEALTHCHECK_URL=http://127.0.0.1:8888/health \
+            ./scripts/deploy.sh

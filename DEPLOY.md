@@ -1,43 +1,172 @@
 # Deploying colabora-be
 
-Production deploy target: a self-managed VPS running Docker + the Compose plugin, with GitHub Actions building/pushing the image to GHCR and deploying over SSH on every push to `main`.
+The repository has two deployment targets:
 
-## One-time VPS setup
+| Target | Branch | Host | Trigger |
+| --- | --- | --- | --- |
+| Staging | `main` | Homeserver behind Cloudflare Tunnel | Every push to `main` |
+| Production | `production` | Existing VPS | Every push to `production` |
 
-1. Provision the VPS, install Docker + the Docker Compose plugin.
-2. Create a dedicated deploy user (avoid deploying as root). Add its SSH public key as an authorized key on the VPS.
-3. Add these secrets in GitHub (`Settings → Secrets and variables → Actions`):
-   - `VPS_HOST` — VPS IP or hostname
-   - `VPS_USER` — the deploy user
-   - `VPS_SSH_KEY` — the matching private key
-4. As root/sudo (not the deploy user), create the deploy directory and hand it to the deploy user:
+`main` is intentionally direct-push friendly for development and staging. The
+`production` branch must be protected in GitHub so changes arrive through a pull
+request, but the production GitHub Environment must have **no required reviewers**.
+Production deployment starts automatically after a successful push to `production`.
+
+The workflow builds immutable GHCR images using the full commit SHA:
+
+```text
+ghcr.io/pln-colabora/colabora-be:sha-<full-commit-sha>
+```
+
+It also updates the `main` or `production` branch tag. Deploy scripts always receive
+the immutable SHA tag, so `latest` is not used for a rollout.
+
+## GitHub configuration
+
+Create two GitHub Environments:
+
+### `staging`
+
+Add these environment secrets:
+
+- `STAGING_SSH_HOST` — Cloudflare Access SSH hostname, for example `staging-ssh.example.com`
+- `STAGING_SSH_USER` — dedicated staging deploy user
+- `STAGING_SSH_KEY` — private key for that user
+- `CF_ACCESS_CLIENT_ID` — Cloudflare Access service-token client ID
+- `CF_ACCESS_CLIENT_SECRET` — Cloudflare Access service-token client secret
+
+Do not configure required reviewers or a wait timer for this environment.
+
+### `production`
+
+Add these environment secrets:
+
+- `VPS_HOST` — VPS IP or hostname
+- `VPS_USER` — dedicated production deploy user
+- `VPS_SSH_KEY` — private key for that user
+
+Do not configure required reviewers for this environment. The CI job references the
+environment only to scope production secrets.
+
+## Branch protection
+
+Configure GitHub branch protection/rulesets as follows:
+
+- `main`: direct push allowed; CI runs on pull requests and pushes.
+- `production`: direct push disabled; require pull request and successful CI status.
+- Disable force-push and branch deletion on `production`.
+- Do not add required reviewers to the `production` deployment environment.
+
+The repository workflow cannot create these GitHub settings automatically; they are
+repository-level controls and must be configured once in GitHub Settings.
+
+## Production VPS setup
+
+1. Install Docker and the Docker Compose plugin.
+2. Create a dedicated deploy user and install the matching SSH public key.
+3. Create the deployment directory as root/sudo and give it to the deploy user:
+
    ```bash
    sudo mkdir -p /opt/colabora-be
    sudo chown "$VPS_USER":"$VPS_USER" /opt/colabora-be
    ```
-   This step is required because `/opt` is root-owned by default — the CI deploy step (`appleboy/scp-action`) connects as `VPS_USER` over SSH and will fail with `create folder /opt/colabora-be: ... Process exited with status 1` if this directory doesn't already exist and isn't owned by that user.
-5. Create `/opt/colabora-be/.env` by hand on the VPS (copy from this repo's `.env.example`, fill in real `DB_*`, `JWT_SECRET`, `SMTP_*`, and set `APP_ENV=production`, `NGINX_PORT`). **Never commit this file.**
-6. If the `ghcr.io/pln-colabora/colabora-be` package is private (default), the VPS needs pull access: run `docker login ghcr.io -u <github-username>` once on the VPS using a PAT with `read:packages` scope. Simpler alternative: make the package public in GitHub (`Settings → Packages`), which needs no VPS-side login at all.
-7. In Cloudflare, point `api-colabora.anargya.fun` (proxied, orange cloud is fine) at the VPS's IP, and set SSL/TLS mode to **Flexible** (`SSL/TLS → Overview`). Flexible means Cloudflare terminates HTTPS for visitors and talks to the VPS over plain HTTP — the origin nginx (`docker/nginx/default.conf`) is already configured for plain HTTP only, with no certbot/TLS on the origin. Do **not** add an HTTP→HTTPS redirect at the origin — with Flexible mode, Cloudflare always connects to origin over HTTP, so an origin-side redirect causes a redirect loop.
 
-## Deploying
+4. Create `/opt/colabora-be/.env` manually from `.env.example`. Set real production
+   values, `APP_ENV=production`, and the production port configuration. Never commit
+   this file.
+5. Authenticate the host to GHCR using a read-only package credential, or make the
+   package public if that is acceptable for this deployment.
+6. Keep production PostgreSQL and Garage volumes on this VPS. Do not reuse staging
+   credentials or volumes.
+7. Keep the existing production Cloudflare DNS mapping. The origin currently uses
+   plain HTTP behind Cloudflare Flexible mode; changing to Full (strict) requires an
+   origin certificate and a coordinated nginx change.
 
-Push to `main`. GitHub Actions runs three jobs: `test` → `build-and-push` (builds `docker/Dockerfile.prod`, pushes to `ghcr.io/pln-colabora/colabora-be` tagged `:latest` and `:sha-<short-sha>`) → `deploy` (copies `docker-compose.prod.yml`, `docker/nginx/default.conf`, and `scripts/deploy.sh` to `/opt/colabora-be` on the VPS over SSH, then runs `scripts/deploy.sh`, which pulls the new image, runs migrations, rolls the app container, and verifies `/health`).
+## Staging homeserver setup
 
-No manual steps are needed after the one-time setup above — the first push creates `docker-compose.prod.yml` on the VPS itself.
+1. Install Docker, Docker Compose, SSH, and `cloudflared`.
+2. Create a dedicated deploy user and `/opt/colabora-be-staging`.
+3. Create a staging `.env` manually. It must use different values for database,
+   JWT, Garage bucket/credentials, and SMTP from production. The Compose defaults are:
+
+   ```dotenv
+   APP_NAME=colabora-be-staging
+   APP_ENV=staging
+   GOLANG_PORT=8888
+   NGINX_PORT=8081
+   DB_HOST=postgres
+   GARAGE_S3_ENDPOINT=http://garage:3900
+   GARAGE_BUCKET=colabora-documents-staging
+   ```
+
+4. Authenticate the homeserver to GHCR with read-only package access.
+5. Create a Cloudflare Tunnel route for the staging API:
+
+   ```text
+   staging-api.<your-domain> → http://127.0.0.1:8081
+   ```
+
+6. Create a protected Cloudflare Access SSH route:
+
+   ```text
+   staging-ssh.<your-domain> → ssh://127.0.0.1:22
+   ```
+
+7. Add a Cloudflare Access Service Auth policy for the CI service token. The
+   `cloudflared` client version in the workflow is pinned; upgrade it only after
+   testing non-interactive SSH from GitHub Actions.
+8. On Fedora, keep SELinux enforcing. The staging Compose file applies private `:Z`
+   labels to the nginx and Garage configuration bind mounts.
+
+The staging nginx port is bound to loopback only. Public API access occurs through
+the Tunnel; no public inbound application port is required on the homeserver.
+
+## Deployment behavior
+
+### Push to `main`
+
+GitHub Actions runs:
+
+```text
+test → build/push SHA image → Cloudflare Access SSH → staging docker compose pull → migration → rollout → healthcheck
+```
+
+The homeserver performs the actual GHCR pull. GitHub Actions only connects through
+Cloudflare Access and invokes the remote deployment script.
+
+### Merge to `production`
+
+GitHub Actions runs:
+
+```text
+test → build/push SHA image → VPS SSH → production docker compose pull → migration → rollout → healthcheck
+```
+
+There is no reviewer approval pause. The only release gate is the protected
+`production` branch and successful CI.
 
 ## Rollback
 
-SSH into the VPS and run:
+Find a previous successful image SHA in GitHub Actions, then run on the target host:
+
+Production:
 
 ```bash
 cd /opt/colabora-be
-IMAGE_TAG=sha-<previous-short-sha> ./scripts/deploy.sh
+IMAGE_TAG=sha-<previous-full-sha> ./scripts/deploy.sh
 ```
 
-Find `<previous-short-sha>` from a prior successful GitHub Actions run, or `git log --oneline` locally.
+Staging:
 
-## Known limitations (not covered by this setup)
+```bash
+cd /opt/colabora-be-staging
+IMAGE_TAG=sha-<previous-full-sha> \
+DEPLOY_DIR=/opt/colabora-be-staging \
+COMPOSE_FILE=docker-compose.staging.yml \
+HEALTHCHECK_URL=http://127.0.0.1:8888/health \
+./scripts/deploy.sh
+```
 
-- **Cloudflare↔origin traffic is plain HTTP** (Flexible mode) — only visitor↔Cloudflare is encrypted. If Cloudflare↔origin encryption is needed later, switch Cloudflare's SSL/TLS mode to Full (strict) and issue a free Cloudflare Origin CA certificate for nginx (`SSL/TLS → Origin Server` in the Cloudflare dashboard) — simpler than certbot/Let's Encrypt since it doesn't need port 80 open for ACME challenges or a renewal cron.
-- **Migrations run automatically before cutover**, which is safe for additive/`AutoMigrate`-style changes but not for destructive/breaking schema changes — those need manual coordination.
+Back up production PostgreSQL and Garage data before migrations that are not purely
+additive. The deployment script intentionally does not attempt destructive database
+rollback automatically.
