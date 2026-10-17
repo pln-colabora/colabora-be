@@ -116,6 +116,10 @@ repository-level controls and must be configured once in GitHub Settings.
    Authentik services respectively. The Relay and Authentik stack is documented
    in [`deploy/relay/README.md`](./deploy/relay/README.md).
 
+   CI/CD synchronizes the Relay templates to
+   `/opt/colabora-be-staging/deploy/relay`; it never copies or overwrites the
+   runtime `.env` file.
+
 6. Create a protected Cloudflare Access SSH route:
 
    ```text

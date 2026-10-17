@@ -4,6 +4,10 @@ This stack is intentionally separate from the COLABORA application database and
 Garage volumes. It is currently an infrastructure pilot: the application still
 uses Resend until the API migration is implemented and verified.
 
+CI/CD synchronizes these files under the existing application deployment
+directory. It does not copy secrets, create `.env`, or start this stack
+automatically.
+
 ## Hostnames
 
 | Environment | Relay | Authentik | Instance domain |
@@ -20,8 +24,18 @@ their required host ports 25, 53, and 587.
 1. Ensure the application stack is already running so its Docker network exists:
    `colabora-be_app-network` in production or `colabora-be-staging_app-network`
    in staging.
-2. Copy the matching environment example to `.env`, replace every placeholder,
-   and set file mode 600.
+2. From the server's application deployment directory, copy the matching
+   environment example to `.env`, replace every placeholder, and set file mode
+   600. For staging:
+
+   ```sh
+   cd /opt/colabora-be-staging/deploy/relay
+   cp .env.staging.example .env
+   chmod 600 .env
+   ```
+
+   Production uses `/opt/colabora-be/deploy/relay` and
+   `.env.production.example`.
 3. Replace floating image tags with reviewed, pinned releases.
 4. Do not expose ports 8090, 15432, or 15433 publicly. Production Relay also
    requires static IPv4, outbound SMTP port 25, DNS port 53 TCP/UDP, PTR/rDNS,
