@@ -81,6 +81,10 @@ repository-level controls and must be configured once in GitHub Settings.
 7. Keep the existing production Cloudflare DNS mapping. The origin currently uses
    plain HTTP behind Cloudflare Flexible mode; changing to Full (strict) requires an
    origin certificate and a coordinated nginx change.
+8. For the Relay pilot, production web hostnames are `relay.colabora.my.id` and
+   `auth.colabora.my.id`. The Relay mail instance hostname is
+   `mail-relay.colabora.my.id`; it must remain DNS-only and have the required
+   PTR/rDNS, SPF, DKIM, DMARC, and Relay NS delegation.
 
 ## Staging homeserver setup
 
@@ -100,11 +104,17 @@ repository-level controls and must be configured once in GitHub Settings.
    ```
 
 4. Authenticate the homeserver to GHCR with read-only package access.
-5. Create a Cloudflare Tunnel route for the staging API:
+5. Create Cloudflare Tunnel routes for the staging application and Relay pilot:
 
    ```text
-   staging-api.<your-domain> → http://127.0.0.1:8081
+   api-staging-colabora.anargya.fun → http://127.0.0.1:8081
+   relay.anargya.fun → http://127.0.0.1:8081
+   auth.anargya.fun → http://127.0.0.1:8081
    ```
+
+   The staging nginx routes these hostnames to the application, Relay, and
+   Authentik services respectively. The Relay and Authentik stack is documented
+   in [`deploy/relay/README.md`](./deploy/relay/README.md).
 
 6. Create a protected Cloudflare Access SSH route:
 

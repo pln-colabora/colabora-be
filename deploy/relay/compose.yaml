@@ -1,0 +1,117 @@
+services:
+  relay-postgres:
+    image: postgres:${RELAY_POSTGRES_TAG:-18}
+    container_name: ${RELAY_CONTAINER_PREFIX:-colabora-relay}-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${RELAY_POSTGRES_PASSWORD:?RELAY_POSTGRES_PASSWORD is required}
+      POSTGRES_DB: hyvor_relay
+    ports:
+      - "127.0.0.1:${RELAY_DB_PORT:-15432}:5432"
+    volumes:
+      - relay-postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hyvor_relay"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  relay:
+    image: ${RELAY_IMAGE:?RELAY_IMAGE is required}
+    container_name: ${RELAY_CONTAINER_PREFIX:-colabora-relay}-relay
+    restart: unless-stopped
+    depends_on:
+      relay-postgres:
+        condition: service_healthy
+    network_mode: host
+    env_file:
+      - .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - relay-media:/app/media
+
+  authentik-postgresql:
+    image: postgres:16-alpine
+    container_name: ${RELAY_CONTAINER_PREFIX:-colabora-relay}-authentik-postgresql
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: authentik
+      POSTGRES_USER: authentik
+      POSTGRES_PASSWORD: ${AUTHENTIK_PG_PASSWORD:?AUTHENTIK_PG_PASSWORD is required}
+    volumes:
+      - authentik-postgresql-data:/var/lib/postgresql/data
+    networks:
+      - relay-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authentik -d authentik"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  authentik-redis:
+    image: redis:alpine
+    container_name: ${RELAY_CONTAINER_PREFIX:-colabora-relay}-authentik-redis
+    restart: unless-stopped
+    command: --save 60 1 --loglevel warning
+    volumes:
+      - authentik-redis-data:/data
+    networks:
+      - relay-internal
+
+  authentik-server:
+    image: ${AUTHENTIK_IMAGE:?AUTHENTIK_IMAGE is required}
+    container_name: ${RELAY_CONTAINER_PREFIX:-colabora-relay}-authentik-server
+    restart: unless-stopped
+    command: server
+    environment: &authentik-environment
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgresql
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_PG_PASSWORD:?AUTHENTIK_PG_PASSWORD is required}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?AUTHENTIK_SECRET_KEY is required}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+    depends_on:
+      authentik-postgresql:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_started
+    volumes:
+      - authentik-media:/media
+      - authentik-templates:/templates
+    networks:
+      - relay-internal
+      - app-network
+
+  authentik-worker:
+    image: ${AUTHENTIK_IMAGE:?AUTHENTIK_IMAGE is required}
+    container_name: ${RELAY_CONTAINER_PREFIX:-colabora-relay}-authentik-worker
+    restart: unless-stopped
+    command: worker
+    environment: *authentik-environment
+    depends_on:
+      authentik-postgresql:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_started
+    volumes:
+      - authentik-media:/media
+      - authentik-templates:/templates
+    networks:
+      - relay-internal
+
+volumes:
+  relay-postgres-data:
+  relay-media:
+  authentik-postgresql-data:
+  authentik-redis-data:
+  authentik-media:
+  authentik-templates:
+
+networks:
+  relay-internal:
+    driver: bridge
+  app-network:
+    external: true
+    name: ${APP_NETWORK_NAME:?APP_NETWORK_NAME is required}
