@@ -19,6 +19,10 @@ The application nginx remains the public edge. Relay's web process listens on
 host port 8090 and is reached through nginx. Relay's SMTP/DNS listeners retain
 their required host ports 25, 53, and 587.
 
+Because the web process uses a non-default host port to coexist with the
+application nginx, `GO_SYMFONY_URL=http://localhost:8090` is required. This
+lets Relay's worker reach its own local API instead of the application nginx.
+
 ## Before starting
 
 1. Ensure the application stack is already running so its Docker network exists:

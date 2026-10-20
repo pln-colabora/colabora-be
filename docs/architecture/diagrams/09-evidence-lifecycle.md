@@ -10,7 +10,7 @@ flowchart TD
   accountvalidate -->|valid| accountstore["Store private object<br/>and create user/document/account_documents<br/>in one DB transaction"]
   accountstore -->|commit failure| accountcleanup["Delete object as compensation"]
   accountstore --> accountpending["is_verified = false<br/>login denied until account-manager verification"]
-  upload["POST /api/documents<br/>authenticated uploader"] --> validate{"Validate request,<br/>type, filename, ≤10 MiB"}
+  upload["POST /api/documents<br/>authenticated uploader"] --> validate{"Validate request,<br/>type, filename, ≤30 MiB"}
   validate -->|invalid| reject400["Reject 400"]
   validate -->|valid| sniff{"Read bounded bytes<br/>detected MIME = declared MIME?"}
   sniff -->|tidak| rejecttype["Reject invalid file"]

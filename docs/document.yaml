@@ -24,10 +24,10 @@ paths:
       summary: Upload a raw evidence file (standalone, not yet attached to any permohonan)
       description: >-
         No RBAC/ownership check here — there's no permohonan/workflow-node context
-        yet to check ownership against. Max 10MB; application/pdf,
+        yet to check ownership against. Max 30 MiB; application/pdf,
         image/jpeg, or image/png only. The service checks the actual file bytes
         against the declared MIME type and enforces the actual byte limit.
-        The full multipart request is limited to 11 MiB. Storage keys are opaque
+        The full multipart request is limited to 31 MiB. Storage keys are opaque
         and exclude the original filename. Upload provenance records the original
         filename, detected MIME, measured size, SHA-256, classification and scan
         status. When CLAMAV_ADDRESS is configured, scanning is synchronous and a

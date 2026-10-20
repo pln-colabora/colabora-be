@@ -17,6 +17,7 @@ import (
 	"github.com/pln-colabora/colabora-be/modules/document/dto"
 	documentRepository "github.com/pln-colabora/colabora-be/modules/document/repository"
 	"github.com/pln-colabora/colabora-be/modules/document/scanning"
+	"github.com/pln-colabora/colabora-be/modules/document/validation"
 	permohonanQuery "github.com/pln-colabora/colabora-be/modules/permohonan/query"
 	"github.com/pln-colabora/colabora-be/pkg/rbac"
 	"github.com/pln-colabora/colabora-be/pkg/workflow"
@@ -246,7 +247,7 @@ func TestUploadRejectsSpoofedContentAndActualOversize(t *testing.T) {
 	}{
 		{"spoofed PDF", "<html>not a PDF</html>", dto.ErrInvalidFileType},
 		{"empty", "", dto.ErrInvalidFileType},
-		{"actual oversize", "%PDF-1.7\n" + strings.Repeat("x", 10<<20), dto.ErrFileTooLarge},
+		{"actual oversize", "%PDF-1.7\n" + strings.Repeat("x", validation.MaxUploadSizeBytes), dto.ErrFileTooLarge},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			store := &fakeStorageClient{}

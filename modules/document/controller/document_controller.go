@@ -48,7 +48,7 @@ func NewDocumentController(injector *do.Injector, s service.DocumentService) Doc
 func (c *documentController) Upload(ctx *gin.Context) {
 	ctx.Header("Cache-Control", "no-store")
 	// Include bounded multipart overhead as well as the file itself.
-	ctx.Request.Body = http.MaxBytesReader(ctx.Writer, ctx.Request.Body, validation.MaxUploadSizeBytes+(1<<20))
+	ctx.Request.Body = http.MaxBytesReader(ctx.Writer, ctx.Request.Body, validation.MaxMultipartBodySizeBytes)
 	defer func() {
 		if ctx.Request.MultipartForm != nil {
 			_ = ctx.Request.MultipartForm.RemoveAll()

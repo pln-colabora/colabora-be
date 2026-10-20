@@ -17,7 +17,7 @@ Two things ROADMAP.md assumes aren't true, discovered during investigation:
 ## What was built
 
 - `database/entities/document_entity.go` + `database/migrations/20260824010000_create_documents_table.go` — the `Document` entity/table.
-- `modules/document/` — standalone module: `dto`, `validation` (MIME allow-list: pdf/jpg/jpeg/png, 10MB max), `repository`, `service`, `controller`, `routes.go`, plus `storage/` (a small `Client` interface + an S3-backed implementation against `github.com/aws/aws-sdk-go-v2/service/s3`, so the service is unit-testable without a live Garage instance).
+- `modules/document/` — standalone module: `dto`, `validation` (MIME allow-list: pdf/jpg/jpeg/png, 30 MiB max), `repository`, `service`, `controller`, `routes.go`, plus `storage/` (a small `Client` interface + an S3-backed implementation against `github.com/aws/aws-sdk-go-v2/service/s3`, so the service is unit-testable without a live Garage instance).
 - `config/storage.go` (`SetUpStorageClient`) + `pkg/constants.Storage` — wired into `providers/core.go` the same way `constants.DB` is.
 - `docker/garage/garage.toml`, a `garage` service in `docker-compose.yml` (S3 port published to host, for on-host `make run`) and `docker-compose.prod.yml` (internal `app-network` only), and matching `GARAGE_*` vars in `.env.example`/`.env`.
 - `make container-garage` — shells into the container for the one-time bootstrap below (note: the Garage image has no shell — `docker exec` the `/garage` binary directly per the bootstrap commands, don't try to `sh` in first).

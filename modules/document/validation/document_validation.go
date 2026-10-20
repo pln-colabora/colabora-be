@@ -10,7 +10,10 @@ import (
 	"github.com/pln-colabora/colabora-be/modules/document/dto"
 )
 
-const MaxUploadSizeBytes = 10 << 20
+const (
+	MaxUploadSizeBytes        = 30 << 20
+	MaxMultipartBodySizeBytes = MaxUploadSizeBytes + (1 << 20)
+)
 
 var allowedMimeTypes = map[string]bool{
 	"application/pdf": true,

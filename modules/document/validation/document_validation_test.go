@@ -54,10 +54,18 @@ func TestValidateDocumentUploadRequest(t *testing.T) {
 		{
 			name: "file too large",
 			req: dto.DocumentUploadRequest{
-				File: fileHeader(11<<20, "application/pdf"),
+				File: fileHeader(MaxUploadSizeBytes+1, "application/pdf"),
 				Type: "evidence",
 			},
 			wantErr: dto.ErrFileTooLarge,
+		},
+		{
+			name: "file exactly at the size limit",
+			req: dto.DocumentUploadRequest{
+				File: fileHeader(MaxUploadSizeBytes, "application/pdf"),
+				Type: "evidence",
+			},
+			wantErr: nil,
 		},
 		{
 			name: "disallowed mime type",
