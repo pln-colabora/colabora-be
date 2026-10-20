@@ -1,6 +1,7 @@
 package service
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"errors"
@@ -261,6 +262,53 @@ func TestUploadRejectsSpoofedContentAndActualOversize(t *testing.T) {
 			require.Equal(t, uuid.Nil, repo.created.ID)
 		})
 	}
+}
+
+func TestUploadAcceptsExcelEvidence(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		filename    string
+		contentType string
+		content     string
+	}{
+		{name: "xlsx", filename: "evidence.xlsx", contentType: validation.MimeTypeXLSX, content: string(xlsxFixture(t))},
+		{name: "xls", filename: "evidence.xls", contentType: validation.MimeTypeXLS, content: string(xlsFixture())},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := &fakeStorageClient{}
+			repo := &fakeDocumentRepository{}
+			s := &documentService{documentRepository: repo, userRepository: &fakeUserRepository{user: entities.User{ID: uuid.New()}}, storageClient: store}
+			file := newFileHeader(t, tc.filename, tc.contentType, tc.content)
+			file.Size = 1
+
+			_, err := s.Upload(context.Background(), uuid.NewString(), dto.DocumentUploadRequest{File: file, Type: "evidence"})
+			require.NoError(t, err)
+			require.Equal(t, tc.contentType, store.contentType)
+		})
+	}
+}
+
+func xlsxFixture(t *testing.T) []byte {
+	t.Helper()
+	var buffer bytes.Buffer
+	writer := zip.NewWriter(&buffer)
+	for _, name := range []string{"[Content_Types].xml", "xl/", "xl/workbook.xml"} {
+		entry, err := writer.Create(name)
+		require.NoError(t, err)
+		if name != "xl/" {
+			_, err = entry.Write([]byte("synthetic"))
+			require.NoError(t, err)
+		}
+	}
+	require.NoError(t, writer.Close())
+	return buffer.Bytes()
+}
+
+func xlsFixture() []byte {
+	content := make([]byte, 2048)
+	copy(content, []byte{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1})
+	copy(content[512:], []byte{0x09, 0x08, 0x10, 0x00, 0x00, 0x06, 0x05, 0x00})
+	return content
 }
 
 func TestUploadUsesOpaqueKeyAndMeasuredSize(t *testing.T) {

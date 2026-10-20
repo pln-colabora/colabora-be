@@ -12,7 +12,7 @@ flowchart TD
   accountstore --> accountpending["is_verified = false<br/>login denied until account-manager verification"]
   upload["POST /api/documents<br/>authenticated uploader"] --> validate{"Validate request,<br/>type, filename, ≤30 MiB"}
   validate -->|invalid| reject400["Reject 400"]
-  validate -->|valid| sniff{"Read bounded bytes<br/>detected MIME = declared MIME?"}
+  validate -->|valid| sniff{"Read bounded bytes<br/>detected MIME = declared MIME?<br/>PDF/JPEG/PNG/XLS/XLSX"}
   sniff -->|tidak| rejecttype["Reject invalid file"]
   sniff -->|ya| configured{"CLAMAV_ADDRESS<br/>configured?"}
   configured -->|ya| scan["Synchronous ClamAV scan"]
