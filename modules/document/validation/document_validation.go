@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"mime/multipart"
 	"path/filepath"
 	"strings"
 	"unicode"
@@ -10,12 +11,23 @@ import (
 	"github.com/pln-colabora/colabora-be/modules/document/dto"
 )
 
-const MaxUploadSizeBytes = 10 << 20
+const (
+	MaxUploadSizeBytes        = 30 << 20
+	MaxMultipartBodySizeBytes = MaxUploadSizeBytes + (1 << 20)
+)
 
-var allowedMimeTypes = map[string]bool{
-	"application/pdf": true,
-	"image/jpeg":      true,
-	"image/png":       true,
+const (
+	MimeTypePDF  = "application/pdf"
+	MimeTypeJPEG = "image/jpeg"
+	MimeTypePNG  = "image/png"
+	MimeTypeXLS  = "application/vnd.ms-excel"
+	MimeTypeXLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
+var baseAllowedMimeTypes = map[string]bool{
+	MimeTypePDF:  true,
+	MimeTypeJPEG: true,
+	MimeTypePNG:  true,
 }
 
 type DocumentValidation struct{}
@@ -25,6 +37,25 @@ func NewDocumentValidation() *DocumentValidation {
 }
 
 func (v *DocumentValidation) ValidateDocumentUploadRequest(req dto.DocumentUploadRequest) error {
+	return v.validateDocumentUploadRequest(req, true)
+}
+
+func (v *DocumentValidation) ValidateAccountUploadRequest(req dto.DocumentUploadRequest) error {
+	return v.validateDocumentUploadRequest(req, false)
+}
+
+func (v *DocumentValidation) ValidateWorkflowUpload(file *multipart.FileHeader) error {
+	return v.validateDocumentUploadRequest(dto.DocumentUploadRequest{File: file, Type: "workflow_evidence"}, true)
+}
+
+func IsAllowedMimeType(contentType string, allowExcel bool) bool {
+	if baseAllowedMimeTypes[contentType] {
+		return true
+	}
+	return allowExcel && (contentType == MimeTypeXLS || contentType == MimeTypeXLSX)
+}
+
+func (v *DocumentValidation) validateDocumentUploadRequest(req dto.DocumentUploadRequest, allowExcel bool) error {
 	if strings.TrimSpace(req.Type) == "" || utf8.RuneCountInString(req.Type) > 50 {
 		return dto.ErrInvalidDocumentType
 	}
@@ -36,7 +67,7 @@ func (v *DocumentValidation) ValidateDocumentUploadRequest(req dto.DocumentUploa
 		return dto.ErrFileTooLarge
 	}
 
-	if !allowedMimeTypes[req.File.Header.Get("Content-Type")] {
+	if !IsAllowedMimeType(req.File.Header.Get("Content-Type"), allowExcel) {
 		return dto.ErrInvalidFileType
 	}
 	filename := strings.TrimSpace(filepath.Base(req.File.Filename))

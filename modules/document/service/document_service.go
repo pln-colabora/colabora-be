@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
-	"net/http"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/google/uuid"
 	"github.com/pln-colabora/colabora-be/database/entities"
 	"github.com/pln-colabora/colabora-be/modules/document/dto"
@@ -108,7 +108,7 @@ func (s *documentService) Upload(ctx context.Context, userId string, req dto.Doc
 		return dto.DocumentResponse{}, err
 	}
 
-	document, key, err := s.prepareAndStore(ctx, uploader.ID, req)
+	document, key, err := s.prepareAndStore(ctx, uploader.ID, req, true)
 	if err != nil {
 		return dto.DocumentResponse{}, err
 	}
@@ -158,7 +158,7 @@ func (s *documentService) Upload(ctx context.Context, userId string, req dto.Doc
 }
 
 func (s *documentService) UploadForAccount(ctx context.Context, tx *gorm.DB, userID string, req dto.DocumentUploadRequest) (AccountUploadResult, error) {
-	if err := validation.NewDocumentValidation().ValidateDocumentUploadRequest(req); err != nil {
+	if err := validation.NewDocumentValidation().ValidateAccountUploadRequest(req); err != nil {
 		return AccountUploadResult{}, err
 	}
 	if req.SupersedesDocumentID != "" {
@@ -168,7 +168,7 @@ func (s *documentService) UploadForAccount(ctx context.Context, tx *gorm.DB, use
 	if err != nil {
 		return AccountUploadResult{}, err
 	}
-	document, key, err := s.prepareAndStore(ctx, uploaderID, req)
+	document, key, err := s.prepareAndStore(ctx, uploaderID, req, false)
 	if err != nil {
 		return AccountUploadResult{}, err
 	}
@@ -202,8 +202,13 @@ func (s *documentService) UploadForWorkflow(ctx context.Context, tx *gorm.DB, us
 		return nil, err
 	}
 	keys := make([]string, 0, len(files))
+	documentValidation := validation.NewDocumentValidation()
 	for _, file := range files {
-		document, key, prepareErr := s.prepareAndStore(ctx, uploaderID, dto.DocumentUploadRequest{File: file, Type: "permohonan_pbpd"})
+		req := dto.DocumentUploadRequest{File: file, Type: "permohonan_pbpd"}
+		if validateErr := documentValidation.ValidateWorkflowUpload(file); validateErr != nil {
+			return keys, validateErr
+		}
+		document, key, prepareErr := s.prepareAndStore(ctx, uploaderID, req, true)
 		if prepareErr != nil {
 			return keys, prepareErr
 		}
@@ -278,7 +283,7 @@ func (s *documentService) DeleteStoredObject(ctx context.Context, key string) er
 	return s.storageClient.DeleteObject(ctx, key)
 }
 
-func (s *documentService) prepareAndStore(ctx context.Context, uploaderID uuid.UUID, req dto.DocumentUploadRequest) (entities.Document, string, error) {
+func (s *documentService) prepareAndStore(ctx context.Context, uploaderID uuid.UUID, req dto.DocumentUploadRequest, allowExcel bool) (entities.Document, string, error) {
 	file, err := req.File.Open()
 	if err != nil {
 		return entities.Document{}, "", err
@@ -293,8 +298,8 @@ func (s *documentService) prepareAndStore(ctx context.Context, uploaderID uuid.U
 	if len(content) > validation.MaxUploadSizeBytes {
 		return entities.Document{}, "", dto.ErrFileTooLarge
 	}
-	contentType := http.DetectContentType(content)
-	if len(content) == 0 || contentType != req.File.Header.Get("Content-Type") {
+	contentType := mimetype.Detect(content).String()
+	if len(content) == 0 || !validation.IsAllowedMimeType(contentType, allowExcel) || contentType != req.File.Header.Get("Content-Type") {
 		return entities.Document{}, "", dto.ErrInvalidFileType
 	}
 	scanner := s.scanner

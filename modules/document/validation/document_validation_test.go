@@ -44,6 +44,22 @@ func TestValidateDocumentUploadRequest(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name: "valid xlsx",
+			req: dto.DocumentUploadRequest{
+				File: fileHeader(1<<20, MimeTypeXLSX),
+				Type: "evidence",
+			},
+			wantErr: nil,
+		},
+		{
+			name: "valid xls",
+			req: dto.DocumentUploadRequest{
+				File: fileHeader(1<<20, MimeTypeXLS),
+				Type: "evidence",
+			},
+			wantErr: nil,
+		},
+		{
 			name: "empty type",
 			req: dto.DocumentUploadRequest{
 				File: fileHeader(1<<20, "application/pdf"),
@@ -54,10 +70,18 @@ func TestValidateDocumentUploadRequest(t *testing.T) {
 		{
 			name: "file too large",
 			req: dto.DocumentUploadRequest{
-				File: fileHeader(11<<20, "application/pdf"),
+				File: fileHeader(MaxUploadSizeBytes+1, "application/pdf"),
 				Type: "evidence",
 			},
 			wantErr: dto.ErrFileTooLarge,
+		},
+		{
+			name: "file exactly at the size limit",
+			req: dto.DocumentUploadRequest{
+				File: fileHeader(MaxUploadSizeBytes, "application/pdf"),
+				Type: "evidence",
+			},
+			wantErr: nil,
 		},
 		{
 			name: "disallowed mime type",
@@ -79,6 +103,14 @@ func TestValidateDocumentUploadRequest(t *testing.T) {
 			err := v.ValidateDocumentUploadRequest(tt.req)
 			assert.Equal(t, tt.wantErr, err)
 		})
+	}
+}
+
+func TestValidateAccountUploadRequestRejectsExcel(t *testing.T) {
+	v := NewDocumentValidation()
+	for _, mimeType := range []string{MimeTypeXLS, MimeTypeXLSX} {
+		err := v.ValidateAccountUploadRequest(dto.DocumentUploadRequest{File: fileHeader(1, mimeType), Type: "account_verification"})
+		assert.ErrorIs(t, err, dto.ErrInvalidFileType, mimeType)
 	}
 }
 

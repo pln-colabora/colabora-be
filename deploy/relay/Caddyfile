@@ -1,0 +1,38 @@
+# Relay normally owns ports 80/443. The COLABORA nginx container remains the
+# public edge, so this deployment intentionally serves Relay on host port 8090.
+# Keep this file aligned with Hyvor Relay's production Caddyfile when upgrading
+# the Relay image.
+
+:8090 {
+	@backend {
+		path /api/*
+	}
+
+	handle @backend {
+		root * /app/backend/public
+		php_server {
+			file_server off
+			worker {
+				file /app/backend/public/index.php
+				num {$WORKERS:0}
+			}
+		}
+	}
+
+	handle {
+		root * /app/static
+		file_server {
+			pass_thru
+		}
+		encode zstd gzip
+		try_files {path} {path}.html
+	}
+
+	handle {
+		root * /app/static
+		encode zstd gzip
+		file_server
+		header Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+		rewrite * /fallback.html
+	}
+}

@@ -87,11 +87,17 @@ jobs:
           chmod 0600 "$HOME/.ssh/config"
       - name: Copy staging deployment files
         run: |
-          ssh staging 'mkdir -p /opt/colabora-be-staging/docker/nginx /opt/colabora-be-staging/docker/garage /opt/colabora-be-staging/scripts'
+          ssh staging 'mkdir -p /opt/colabora-be-staging/docker/nginx /opt/colabora-be-staging/docker/garage /opt/colabora-be-staging/scripts /opt/colabora-be-staging/deploy/relay'
           scp docker-compose.staging.yml staging:/opt/colabora-be-staging/
           scp docker/nginx/staging.conf staging:/opt/colabora-be-staging/docker/nginx/
           scp docker/garage/garage.toml staging:/opt/colabora-be-staging/docker/garage/
           scp scripts/deploy.sh staging:/opt/colabora-be-staging/scripts/
+          scp deploy/relay/compose.yaml staging:/opt/colabora-be-staging/deploy/relay/
+          scp deploy/relay/Caddyfile staging:/opt/colabora-be-staging/deploy/relay/
+          scp deploy/relay/resource-guard.sh staging:/opt/colabora-be-staging/deploy/relay/
+          scp deploy/relay/.env.staging.example staging:/opt/colabora-be-staging/deploy/relay/
+          scp deploy/relay/README.md staging:/opt/colabora-be-staging/deploy/relay/
+          ssh staging 'chmod +x /opt/colabora-be-staging/deploy/relay/resource-guard.sh'
       - name: Deploy staging image
         run: |
           ssh staging \
@@ -115,8 +121,18 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "docker-compose.prod.yml,docker/nginx/default.conf,scripts/deploy.sh"
+          source: "docker-compose.prod.yml,docker/nginx/default.conf,scripts/deploy.sh,deploy/relay/compose.yaml,deploy/relay/Caddyfile,deploy/relay/resource-guard.sh,deploy/relay/.env.production.example,deploy/relay/README.md"
           target: "/opt/colabora-be"
+
+      - name: Prepare production Relay templates
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            mkdir -p /opt/colabora-be/deploy/relay
+            chmod +x /opt/colabora-be/deploy/relay/resource-guard.sh
       - name: Deploy production image
         uses: appleboy/ssh-action@v1
         with:

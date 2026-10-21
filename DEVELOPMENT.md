@@ -152,7 +152,7 @@ Sequence 5 delivers `POST /api/permohonan/:id/closing`, recording PDL → AIL/DI
 
 ### Phase 5 — Evidence and access hardening — Complete
 
-Upload hardening validates actual file bytes against the declared PDF/JPEG/PNG MIME type, enforces the 10 MiB service limit and 11 MiB multipart limit, bounds document categories and filenames, and uses opaque storage keys. Every new row records original filename, detected MIME, measured size, SHA-256 checksum, source, classification, scan status and revision provenance. A configured ClamAV daemon scans bytes synchronously and scanner failures reject the upload; deployments without `CLAMAV_ADDRESS` explicitly record `not_scanned` rather than claiming a clean verdict.
+Upload hardening validates actual file bytes against the declared PDF/JPEG/PNG/XLS/XLSX MIME type, enforces the 30 MiB service limit and 31 MiB multipart limit, bounds document categories and filenames, and uses opaque storage keys. Account-verification uploads remain limited to PDF/JPEG/PNG. Every new row records original filename, detected MIME, measured size, SHA-256 checksum, source, classification, scan status and revision provenance. A configured ClamAV daemon scans bytes synchronously and scanner failures reject the upload; deployments without `CLAMAV_ADDRESS` explicitly record `not_scanned` rather than claiming a clean verdict.
 
 Decision: vendor access is limited to explicitly assigned accounts, not all accounts
 sharing a role. The new vendor_assignments table and assignment endpoint implement
