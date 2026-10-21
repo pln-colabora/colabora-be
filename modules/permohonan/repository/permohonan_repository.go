@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/Caknoooo/go-pagination"
 	"github.com/pln-colabora/colabora-be/database/entities"
@@ -16,7 +17,7 @@ type PermohonanRepository interface {
 	GetByIdForUpdate(ctx context.Context, tx *gorm.DB, id string) (entities.Permohonan, error)
 	SaveWorkflow(ctx context.Context, tx *gorm.DB, permohonan entities.Permohonan, logs []entities.ActivityLog) error
 	List(ctx context.Context, tx *gorm.DB, filter *query.PermohonanFilter) ([]query.Permohonan, int64, error)
-	CountByNoPermohonanPrefix(ctx context.Context, tx *gorm.DB, prefix string) (int64, error)
+	AllocateNoPermohonan(ctx context.Context, tx *gorm.DB, year int) (string, error)
 	ListWorkflowNodes(ctx context.Context, tx *gorm.DB, permohonanID string) ([]entities.PermohonanActivity, error)
 	ListActivityLogs(ctx context.Context, tx *gorm.DB, permohonanID string) ([]entities.ActivityLog, error)
 }
@@ -160,17 +161,23 @@ func (r *permohonanRepository) List(ctx context.Context, tx *gorm.DB, filter *qu
 	return results, total, nil
 }
 
-func (r *permohonanRepository) CountByNoPermohonanPrefix(ctx context.Context, tx *gorm.DB, prefix string) (int64, error) {
+func (r *permohonanRepository) AllocateNoPermohonan(ctx context.Context, tx *gorm.DB, year int) (string, error) {
 	if tx == nil {
 		tx = r.db
 	}
 
-	var count int64
-	if err := tx.WithContext(ctx).Model(&entities.Permohonan{}).Where("no_permohonan LIKE ?", prefix+"%").Count(&count).Error; err != nil {
-		return 0, err
+	var number int
+	if err := tx.WithContext(ctx).Raw(`
+		INSERT INTO permohonan_number_counters (request_year, last_number)
+		VALUES (?, 1)
+		ON CONFLICT (request_year) DO UPDATE
+		SET last_number = permohonan_number_counters.last_number + 1
+		RETURNING last_number
+	`, year).Scan(&number).Error; err != nil {
+		return "", err
 	}
 
-	return count, nil
+	return fmt.Sprintf("PBPD-%d-%04d", year, number), nil
 }
 
 func (r *permohonanRepository) ListWorkflowNodes(ctx context.Context, tx *gorm.DB, permohonanID string) ([]entities.PermohonanActivity, error) {
