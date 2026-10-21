@@ -171,8 +171,8 @@ func (f *fakePermohonanRepository) SaveWorkflow(context.Context, *gorm.DB, entit
 func (f *fakePermohonanRepository) List(ctx context.Context, tx *gorm.DB, filter *permohonanQuery.PermohonanFilter) ([]permohonanQuery.Permohonan, int64, error) {
 	return nil, 0, nil
 }
-func (f *fakePermohonanRepository) CountByNoPermohonanPrefix(ctx context.Context, tx *gorm.DB, prefix string) (int64, error) {
-	return 0, nil
+func (f *fakePermohonanRepository) AllocateNoPermohonan(ctx context.Context, tx *gorm.DB, year int) (string, error) {
+	return "PBPD-2026-0001", nil
 }
 func (f *fakePermohonanRepository) ListWorkflowNodes(ctx context.Context, tx *gorm.DB, permohonanID string) ([]entities.PermohonanActivity, error) {
 	return nil, nil

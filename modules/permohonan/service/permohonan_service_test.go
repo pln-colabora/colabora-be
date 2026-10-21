@@ -99,8 +99,8 @@ func (f *phase3PermohonanRepository) List(_ context.Context, _ *gorm.DB, filter 
 	f.filter = filter
 	return f.list, int64(len(f.list)), nil
 }
-func (f *phase3PermohonanRepository) CountByNoPermohonanPrefix(context.Context, *gorm.DB, string) (int64, error) {
-	return 0, nil
+func (f *phase3PermohonanRepository) AllocateNoPermohonan(context.Context, *gorm.DB, int) (string, error) {
+	return "PBPD-2026-0001", nil
 }
 func (f *phase3PermohonanRepository) ListWorkflowNodes(context.Context, *gorm.DB, string) ([]entities.PermohonanActivity, error) {
 	return f.byID.WorkflowNodes, nil

@@ -61,12 +61,36 @@ func TestSaveWorkflowPersistsProjectionNodesAndLogs(t *testing.T) {
 	require.EqualValues(t, 1, logCount)
 }
 
+func TestAllocateNoPermohonanUsesNextNumberAfterExistingGap(t *testing.T) {
+	db := workflowRepositoryDB(t)
+	repo := NewPermohonanRepository(db)
+	require.NoError(t, db.Exec(`INSERT INTO permohonan_number_counters (request_year, last_number) VALUES (2026, 16)`).Error)
+
+	allocated, err := repo.AllocateNoPermohonan(context.Background(), db, 2026)
+	require.NoError(t, err)
+	require.Equal(t, "PBPD-2026-0017", allocated)
+
+	var counter entities.PermohonanNumberCounter
+	require.NoError(t, db.First(&counter, "request_year = ?", 2026).Error)
+	require.Equal(t, 17, counter.LastNumber)
+}
+
+func TestAllocateNoPermohonanStartsAtOneForNewYear(t *testing.T) {
+	db := workflowRepositoryDB(t)
+	repo := NewPermohonanRepository(db)
+
+	allocated, err := repo.AllocateNoPermohonan(context.Background(), db, 2027)
+	require.NoError(t, err)
+	require.Equal(t, "PBPD-2027-0001", allocated)
+}
+
 func workflowRepositoryDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open("file:"+uuid.NewString()+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 	statements := []string{
 		`CREATE TABLE permohonan (id TEXT PRIMARY KEY, no_permohonan TEXT, jenis_permohonan TEXT, jenis_sambungan TEXT, tarif TEXT, daya_lama INTEGER, daya_baru INTEGER, ulp_unit TEXT, pelanggan_nama TEXT, pelanggan_alamat TEXT, pelanggan_no_hp TEXT, request_date DATETIME, current_stage INTEGER, status TEXT, kebutuhan_tiang NUMERIC, nps_delegation_status TEXT, perlu_pdkb NUMERIC, created_by TEXT, created_at DATETIME, updated_at DATETIME)`,
+		`CREATE TABLE permohonan_number_counters (request_year INTEGER PRIMARY KEY, last_number INTEGER NOT NULL)`,
 		`CREATE TABLE permohonan_activities (id TEXT PRIMARY KEY, permohonan_id TEXT, workflow_node TEXT, activity_number INTEGER, stage_number INTEGER, status TEXT, sla_deadline DATETIME, payload TEXT, completed_by TEXT, completed_at DATETIME, created_at DATETIME, updated_at DATETIME, UNIQUE(permohonan_id, workflow_node))`,
 		`CREATE TABLE activity_logs (id TEXT PRIMARY KEY, permohonan_id TEXT, activity_number INTEGER, actor TEXT, action TEXT, detail TEXT, workflow_node TEXT, created_at DATETIME, updated_at DATETIME)`,
 	}

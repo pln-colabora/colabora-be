@@ -504,40 +504,10 @@ func (s *permohonanService) Create(ctx context.Context, req dto.PermohonanCreate
 	requestDate := time.Now()
 	year := requestDate.Year()
 
-	prefix := fmt.Sprintf("PBPD-%d-", year)
-	count, err := s.permohonanRepository.CountByNoPermohonanPrefix(ctx, s.db, prefix)
-	if err != nil {
-		return dto.PermohonanResponse{}, dto.ErrCreatePermohonan
-	}
-	noPermohonan := fmt.Sprintf("%s%04d", prefix, count+1)
-
 	rules, err := s.slaRuleRepository.ListByJenis(ctx, s.db, req.JenisSambungan)
 	if err != nil {
 		return dto.PermohonanResponse{}, dto.ErrCreatePermohonan
 	}
-
-	permohonan := entities.Permohonan{
-		NoPermohonan:    noPermohonan,
-		JenisPermohonan: req.JenisPermohonan,
-		JenisSambungan:  req.JenisSambungan,
-		Tarif:           req.Tarif,
-		DayaLama:        req.DayaLama,
-		DayaBaru:        req.DayaBaru,
-		UlpUnit:         ulpUnit,
-		PelangganNama:   req.PelangganNama,
-		PelangganAlamat: req.PelangganAlamat,
-		PelangganNoHp:   req.PelangganNoHp,
-		RequestDate:     requestDate,
-		CurrentStage:    2,
-		Status:          string(workflow.Active),
-		CreatedBy:       creator.ID,
-	}
-
-	activities, result, err := entities.InitializeWorkflow(permohonan, rules, time.Now())
-	if err != nil {
-		return dto.PermohonanResponse{}, dto.ErrCreatePermohonan
-	}
-	permohonan.CurrentStage = result.CurrentStage
 
 	log := entities.ActivityLog{
 		Actor:        creator.ID,
@@ -546,9 +516,36 @@ func (s *permohonanService) Create(ctx context.Context, req dto.PermohonanCreate
 	}
 
 	var created entities.Permohonan
+	var activities []entities.PermohonanActivity
+	var result workflow.Result
 	var uploadedKeys []string
 	err = s.db.Transaction(func(tx *gorm.DB) error {
-		var txErr error
+		noPermohonan, txErr := s.permohonanRepository.AllocateNoPermohonan(ctx, tx, year)
+		if txErr != nil {
+			return txErr
+		}
+		permohonan := entities.Permohonan{
+			NoPermohonan:    noPermohonan,
+			JenisPermohonan: req.JenisPermohonan,
+			JenisSambungan:  req.JenisSambungan,
+			Tarif:           req.Tarif,
+			DayaLama:        req.DayaLama,
+			DayaBaru:        req.DayaBaru,
+			UlpUnit:         ulpUnit,
+			PelangganNama:   req.PelangganNama,
+			PelangganAlamat: req.PelangganAlamat,
+			PelangganNoHp:   req.PelangganNoHp,
+			RequestDate:     requestDate,
+			CurrentStage:    2,
+			Status:          string(workflow.Active),
+			CreatedBy:       creator.ID,
+		}
+		activities, result, txErr = entities.InitializeWorkflow(permohonan, rules, time.Now())
+		if txErr != nil {
+			return txErr
+		}
+		permohonan.CurrentStage = result.CurrentStage
+
 		created, txErr = s.permohonanRepository.Create(ctx, tx, permohonan, activities, log)
 		if txErr != nil {
 			return txErr
