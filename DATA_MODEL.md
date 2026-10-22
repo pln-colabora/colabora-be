@@ -31,6 +31,8 @@ verified.
 | `UlpUnit` | varchar(50) | Caller ULP for JTR/JTM; explicitly selected target ULP for NPS-created PLG TM |
 | Customer fields | varchar | Name, address, and phone captured at Activity #1 |
 | `RequestDate` | date | H/G SLA reference date |
+| `TanggalPembayaran` | nullable date | Payment date, required on new requests |
+| `NominalPembayaran` | nullable bigint | Positive whole rupiah, required on new requests |
 | `CurrentStage` | smallint | Derived lowest stage containing an applicable unfinished node |
 | `Status` | varchar(20) | `in_progress`, `completed`, or terminal `returned` |
 | `KebutuhanTiang` | nullable boolean | Activity #3b branch decision |

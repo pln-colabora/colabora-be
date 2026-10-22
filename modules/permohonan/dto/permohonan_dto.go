@@ -53,16 +53,18 @@ type (
 		VendorRole string `json:"vendor_role" binding:"required,oneof=vendor-tiang vendor-konstruksi vendor-sr-app" validate:"required,oneof=vendor-tiang vendor-konstruksi vendor-sr-app"`
 	}
 	PermohonanCreateRequest struct {
-		JenisPermohonan string                  `json:"jenis_permohonan" form:"jenis_permohonan" binding:"required"`
-		JenisSambungan  string                  `json:"jenis_sambungan" form:"jenis_sambungan" binding:"required"`
-		Tarif           *string                 `json:"tarif" form:"tarif"`
-		DayaLama        *int64                  `json:"daya_lama" form:"daya_lama"`
-		DayaBaru        *int64                  `json:"daya_baru" form:"daya_baru"`
-		UlpUnit         *string                 `json:"ulp_unit" form:"ulp_unit"`
-		PelangganNama   string                  `json:"pelanggan_nama" form:"pelanggan_nama" binding:"required,min=2,max=150"`
-		PelangganAlamat string                  `json:"pelanggan_alamat" form:"pelanggan_alamat" binding:"required,min=2,max=255"`
-		PelangganNoHp   string                  `json:"pelanggan_no_hp" form:"pelanggan_no_hp" binding:"required,min=8,max=20"`
-		EvidenceFiles   []*multipart.FileHeader `json:"-" form:"evidence_files"`
+		JenisPermohonan   string                  `json:"jenis_permohonan" form:"jenis_permohonan" binding:"required"`
+		JenisSambungan    string                  `json:"jenis_sambungan" form:"jenis_sambungan" binding:"required"`
+		Tarif             *string                 `json:"tarif" form:"tarif"`
+		DayaLama          *int64                  `json:"daya_lama" form:"daya_lama"`
+		DayaBaru          *int64                  `json:"daya_baru" form:"daya_baru"`
+		UlpUnit           *string                 `json:"ulp_unit" form:"ulp_unit"`
+		PelangganNama     string                  `json:"pelanggan_nama" form:"pelanggan_nama" binding:"required,min=2,max=150"`
+		PelangganAlamat   string                  `json:"pelanggan_alamat" form:"pelanggan_alamat" binding:"required,min=2,max=255"`
+		PelangganNoHp     string                  `json:"pelanggan_no_hp" form:"pelanggan_no_hp" binding:"required,min=8,max=20"`
+		TanggalPembayaran string                  `json:"tanggal_pembayaran" form:"tanggal_pembayaran" binding:"required" validate:"required"`
+		NominalPembayaran *int64                  `json:"nominal_pembayaran" form:"nominal_pembayaran" binding:"required" validate:"required"`
+		EvidenceFiles     []*multipart.FileHeader `json:"-" form:"evidence_files"`
 	}
 
 	SurveySubmitRequest struct {
@@ -123,6 +125,8 @@ type (
 		PelangganAlamat     string                 `json:"pelanggan_alamat"`
 		PelangganNoHp       string                 `json:"pelanggan_no_hp"`
 		RequestDate         string                 `json:"request_date"`
+		TanggalPembayaran   *string                `json:"tanggal_pembayaran"`
+		NominalPembayaran   *int64                 `json:"nominal_pembayaran"`
 		CurrentStage        int16                  `json:"current_stage"`
 		Status              string                 `json:"status"`
 		KebutuhanTiang      *bool                  `json:"kebutuhan_tiang"`

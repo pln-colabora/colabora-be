@@ -389,7 +389,7 @@ func TestCreateMapsEntryAuthorizationErrors(t *testing.T) {
 				permohonanService:    phase3ControllerService{createErr: test.err},
 				permohonanValidation: validation.NewPermohonanValidation(),
 			}
-			body := []byte(`{"jenis_permohonan":"Pasang Baru (PB)","jenis_sambungan":"JTR","pelanggan_nama":"Pelanggan Uji","pelanggan_alamat":"Alamat sintetis","pelanggan_no_hp":"0800000000"}`)
+			body := []byte(`{"jenis_permohonan":"Pasang Baru (PB)","jenis_sambungan":"JTR","pelanggan_nama":"Pelanggan Uji","pelanggan_alamat":"Alamat sintetis","pelanggan_no_hp":"0800000000","tanggal_pembayaran":"2026-09-25","nominal_pembayaran":150000}`)
 			request := httptest.NewRequest(http.MethodPost, "/api/permohonan", bytes.NewReader(body))
 			request.Header.Set("Content-Type", "application/json")
 			recorder := httptest.NewRecorder()

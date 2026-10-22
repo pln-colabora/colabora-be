@@ -129,6 +129,12 @@ func (v *PermohonanValidation) ValidatePermohonanCreateRequest(req dto.Permohona
 	if err := v.validate.Struct(req); err != nil {
 		return err
 	}
+	if _, err := time.Parse("2006-01-02", req.TanggalPembayaran); err != nil {
+		return fmt.Errorf("tanggal_pembayaran must use YYYY-MM-DD format")
+	}
+	if req.NominalPembayaran == nil || *req.NominalPembayaran <= 0 {
+		return fmt.Errorf("nominal_pembayaran must be greater than zero")
+	}
 
 	if !contains(rbac.AllJenisPermohonan, req.JenisPermohonan) {
 		return fmt.Errorf("jenis_permohonan must be one of: %s", strings.Join(rbac.AllJenisPermohonan, ", "))

@@ -13,15 +13,18 @@ func TestValidatePermohonanPowerFields(t *testing.T) {
 	v := NewPermohonanValidation()
 	newPower := int64(2200)
 	oldPower := int64(1300)
+	amount := int64(150000)
 
 	base := dto.PermohonanCreateRequest{
-		JenisPermohonan: rbac.JenisPermohonanPasangBaru,
-		JenisSambungan:  rbac.JenisSambunganJTR,
-		Tarif:           stringPointer(rbac.TarifRumahTangga),
-		DayaBaru:        &newPower,
-		PelangganNama:   "Pelanggan Uji",
-		PelangganAlamat: "Alamat Uji",
-		PelangganNoHp:   "0800000000",
+		JenisPermohonan:   rbac.JenisPermohonanPasangBaru,
+		JenisSambungan:    rbac.JenisSambunganJTR,
+		Tarif:             stringPointer(rbac.TarifRumahTangga),
+		DayaBaru:          &newPower,
+		PelangganNama:     "Pelanggan Uji",
+		PelangganAlamat:   "Alamat Uji",
+		PelangganNoHp:     "0800000000",
+		TanggalPembayaran: "2026-09-25",
+		NominalPembayaran: &amount,
 	}
 	require.NoError(t, v.ValidatePermohonanCreateRequest(base))
 	legacyShape := base
@@ -45,6 +48,21 @@ func TestValidatePermohonanPowerFields(t *testing.T) {
 	invalidTariff := base
 	invalidTariff.Tarif = stringPointer("lainnya")
 	require.Error(t, v.ValidatePermohonanCreateRequest(invalidTariff))
+}
+
+func TestValidatePaymentFields(t *testing.T) {
+	v := NewPermohonanValidation()
+	amount := int64(150000)
+	req := dto.PermohonanCreateRequest{JenisPermohonan: rbac.JenisPermohonanPasangBaru, JenisSambungan: rbac.JenisSambunganJTR, PelangganNama: "Pelanggan", PelangganAlamat: "Alamat", PelangganNoHp: "0800000000", TanggalPembayaran: "2026-09-25", NominalPembayaran: &amount}
+	require.NoError(t, v.ValidatePermohonanCreateRequest(req))
+	req.TanggalPembayaran = "2026-02-30"
+	require.Error(t, v.ValidatePermohonanCreateRequest(req))
+	req.TanggalPembayaran = "2026-09-25"
+	zero := int64(0)
+	req.NominalPembayaran = &zero
+	require.Error(t, v.ValidatePermohonanCreateRequest(req))
+	req.NominalPembayaran = nil
+	require.Error(t, v.ValidatePermohonanCreateRequest(req))
 }
 
 func stringPointer(value string) *string { return &value }

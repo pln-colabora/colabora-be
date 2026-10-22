@@ -488,6 +488,10 @@ func notesWithinLimit(values ...string) bool {
 }
 
 func (s *permohonanService) Create(ctx context.Context, req dto.PermohonanCreateRequest, userId string) (dto.PermohonanResponse, error) {
+	paymentDate, err := time.Parse("2006-01-02", req.TanggalPembayaran)
+	if err != nil || req.NominalPembayaran == nil || *req.NominalPembayaran <= 0 {
+		return dto.PermohonanResponse{}, dto.ErrCreatePermohonan
+	}
 	creator, err := s.userRepository.GetUserById(ctx, s.db, userId)
 	if err != nil {
 		return dto.PermohonanResponse{}, dto.ErrCreatePermohonan
@@ -525,20 +529,22 @@ func (s *permohonanService) Create(ctx context.Context, req dto.PermohonanCreate
 			return txErr
 		}
 		permohonan := entities.Permohonan{
-			NoPermohonan:    noPermohonan,
-			JenisPermohonan: req.JenisPermohonan,
-			JenisSambungan:  req.JenisSambungan,
-			Tarif:           req.Tarif,
-			DayaLama:        req.DayaLama,
-			DayaBaru:        req.DayaBaru,
-			UlpUnit:         ulpUnit,
-			PelangganNama:   req.PelangganNama,
-			PelangganAlamat: req.PelangganAlamat,
-			PelangganNoHp:   req.PelangganNoHp,
-			RequestDate:     requestDate,
-			CurrentStage:    2,
-			Status:          string(workflow.Active),
-			CreatedBy:       creator.ID,
+			NoPermohonan:      noPermohonan,
+			JenisPermohonan:   req.JenisPermohonan,
+			JenisSambungan:    req.JenisSambungan,
+			Tarif:             req.Tarif,
+			DayaLama:          req.DayaLama,
+			DayaBaru:          req.DayaBaru,
+			UlpUnit:           ulpUnit,
+			PelangganNama:     req.PelangganNama,
+			PelangganAlamat:   req.PelangganAlamat,
+			PelangganNoHp:     req.PelangganNoHp,
+			RequestDate:       requestDate,
+			TanggalPembayaran: &paymentDate,
+			NominalPembayaran: req.NominalPembayaran,
+			CurrentStage:      2,
+			Status:            string(workflow.Active),
+			CreatedBy:         creator.ID,
 		}
 		activities, result, txErr = entities.InitializeWorkflow(permohonan, rules, time.Now())
 		if txErr != nil {
@@ -656,6 +662,11 @@ func (s *permohonanService) List(ctx context.Context, filter *query.PermohonanFi
 		return nil, 0, err
 	}
 	for i := range results {
+		// Database drivers can render DATE columns with a time component when scanning into strings.
+		if results[i].TanggalPembayaran != nil && len(*results[i].TanggalPembayaran) >= len("2006-01-02") {
+			date := (*results[i].TanggalPembayaran)[:len("2006-01-02")]
+			results[i].TanggalPembayaran = &date
+		}
 		p := entities.Permohonan{
 			JenisSambungan:      results[i].JenisSambungan,
 			UlpUnit:             results[i].UlpUnit,
@@ -950,6 +961,11 @@ func (s *permohonanService) creationULP(ctx context.Context, role, callerUnit st
 }
 
 func toPermohonanResponse(p entities.Permohonan, role, unit string, now time.Time) (dto.PermohonanResponse, error) {
+	var paymentDate *string
+	if p.TanggalPembayaran != nil {
+		value := p.TanggalPembayaran.Format("2006-01-02")
+		paymentDate = &value
+	}
 	evaluated, err := workflow.Evaluate(p.WorkflowSnapshot())
 	if err != nil {
 		return dto.PermohonanResponse{}, err
@@ -971,6 +987,8 @@ func toPermohonanResponse(p entities.Permohonan, role, unit string, now time.Tim
 		PelangganAlamat:     p.PelangganAlamat,
 		PelangganNoHp:       p.PelangganNoHp,
 		RequestDate:         p.RequestDate.Format("2006-01-02"),
+		TanggalPembayaran:   paymentDate,
+		NominalPembayaran:   p.NominalPembayaran,
 		CurrentStage:        evaluated.CurrentStage,
 		Status:              string(evaluated.Status),
 		KebutuhanTiang:      p.KebutuhanTiang,

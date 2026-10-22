@@ -24,6 +24,8 @@ type Permohonan struct {
 	PelangganAlamat     string                        `json:"pelanggan_alamat"`
 	PelangganNoHp       string                        `json:"pelanggan_no_hp"`
 	RequestDate         string                        `json:"request_date"`
+	TanggalPembayaran   *string                       `json:"tanggal_pembayaran"`
+	NominalPembayaran   *int64                        `json:"nominal_pembayaran"`
 	CurrentStage        int16                         `json:"current_stage"`
 	Status              string                        `json:"status"`
 	SlaDeadline         *string                       `json:"sla_deadline"`

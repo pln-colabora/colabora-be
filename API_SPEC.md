@@ -68,6 +68,7 @@ node. Decision/support nodes may have a null `activity_number`.
 ## Create contract
 
 `POST /api/permohonan` accepts customer/request fields plus `jenis_sambungan`.
+It also requires `tanggal_pembayaran` (YYYY-MM-DD) and `nominal_pembayaran` (positive whole rupiah). Both are returned in list and detail responses; historical requests may have null values. SLA remains based on `request_date` and calendar days.
 New clients may use `multipart/form-data` with one or more `evidence_files`; the
 files are scanned, stored, and attached to Activity #1 in the same database
 transaction. The legacy JSON shape remains accepted during the nullable-field
