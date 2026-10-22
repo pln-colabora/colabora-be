@@ -152,6 +152,14 @@ return 404. List totals and pages include only visible requests, even with
 | `POST` | `/api/permohonan/:id/pemasangan-sr-app` | `pemasangan_sr_app` | `vendor-sr-app` JTR/JTM; `vendor-konstruksi` PLG TM |
 | `POST` | `/api/permohonan/:id/closing` | `entri_mutasi_pdl`, `arsip_ail`, `selesai` | Matching ULP `pelayanan-pelanggan` |
 
+Survey requires at least one existing document in `document_ids`; its category is not validated. Landowner
+permission and/or village-official permission may also be attached, but are optional.
+Upload them through `POST /api/documents` using `type` values `izin_pemilik_tanah`,
+`izin_perangkat_desa`, or `izin_pemilik_tanah_dan_perangkat_desa` for a combined
+document, then include the returned IDs in the survey's `document_ids`. The existing
+attachment authorization, atomicity and document access rules apply; the type does
+not verify the contents of a permission document.
+
 The NPS request body uses `nps_delegation_status: delegated|returned`. `returned` terminally closes the workflow with aggregate status `returned`; it is not a draft/rework loop.
 
 The WO Konstruksi request body requires `estimasi_tanggal_selesai` in `YYYY-MM-DD` format and the typed decision `perlu_pdkb: true|false`. The completion date is stored in the node payload as the source of truth; any remaining duration is derived as a calendar-day difference at read/calculation time rather than persisted separately. Sequence 2 activities without another confirmed workflow-critical field accept optional notes and require evidence. Material reservation follows completed WO Konstruksi, while APP tera follows completed WO APP; each accepts optional `notes` and requires evidence. Detailed material and relay/OCR fields remain discovery items rather than inferred production contracts. Reservation requires an explicitly assigned `vendor-konstruksi` account; tera remains owned by `transaksi-energi`.

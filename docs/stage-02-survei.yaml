@@ -18,7 +18,12 @@ paths:
       description: >-
         Node `survei`. Owner adalah ULP — Bagian Teknik pada JTR/JTM dan
         UP3 — Bagian Perencanaan pada PLG TM. Setelah selesai, tahap
-        perencanaan dapat dilanjutkan.
+        perencanaan dapat dilanjutkan. Izin pemilik tanah dan/atau izin perangkat
+        desa dapat dilampirkan secara opsional. Minimal satu dokumen tetap wajib;
+        kategori dokumen tidak divalidasi.
+        Upload dahulu melalui POST /api/documents dengan type izin_pemilik_tanah,
+        izin_perangkat_desa, atau izin_pemilik_tanah_dan_perangkat_desa untuk
+        dokumen gabungan, lalu sertakan ID-nya di document_ids.
       security: [{ bearerAuth: [] }]
       parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
       requestBody:
@@ -29,7 +34,7 @@ paths:
             example:
               surveyed_at: "2026-09-26"
               notes: "Hasil survei lokasi pelanggan telah diverifikasi."
-              document_ids: ["550e8400-e29b-41d4-a716-446655440001"]
+              document_ids: ["550e8400-e29b-41d4-a716-446655440001", "550e8400-e29b-41d4-a716-446655440002"]
       responses:
         "200": { $ref: "#/components/responses/ActivitySubmitted" }
         "400": { $ref: "#/components/responses/BadRequest" }

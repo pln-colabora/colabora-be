@@ -358,6 +358,48 @@ func TestSubmitSurveySupportsBothConnectionFamilies(t *testing.T) {
 	}
 }
 
+func TestSurveyOptionalPermissionEvidence(t *testing.T) {
+	tests := []struct {
+		name  string
+		types []string
+	}{
+		{name: "no permission"},
+		{name: "landowner", types: []string{documentDTO.TypeIzinPemilikTanah}},
+		{name: "village official", types: []string{documentDTO.TypeIzinPerangkatDesa}},
+		{name: "both permissions", types: []string{documentDTO.TypeIzinPemilikTanah, documentDTO.TypeIzinPerangkatDesa}},
+		{name: "combined permission", types: []string{documentDTO.TypeIzinPemilikTanahDanPerangkatDesa}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			db := phase4IntegrationDB(t)
+			user := entities.User{ID: uuid.New(), Name: "Teknik", Email: uuid.NewString() + "@example.test", Role: rbac.RoleTeknik, Unit: "ULP Taman"}
+			require.NoError(t, db.Create(&user).Error)
+			p := phase4Request(t, rbac.JenisSambunganJTR)
+			require.NoError(t, db.Omit("WorkflowNodes").Create(&p).Error)
+			for i := range p.WorkflowNodes {
+				p.WorkflowNodes[i].PermohonanID = p.ID
+			}
+			require.NoError(t, db.Create(&p.WorkflowNodes).Error)
+			var ids []string
+			for _, kind := range append([]string{"survey"}, test.types...) {
+				doc := entities.Document{ID: uuid.New(), Type: kind, FilePath: "private/" + uuid.NewString(), UploadedBy: user.ID}
+				require.NoError(t, db.Create(&doc).Error)
+				ids = append(ids, doc.ID.String())
+			}
+			s := &permohonanService{permohonanRepository: repository.NewPermohonanRepository(db), userRepository: userRepository.NewUserRepository(db), documentRepository: documentRepository.NewDocumentRepository(db), db: db}
+			response, err := s.SubmitSurvey(context.Background(), p.ID.String(), user.ID.String(), dto.SurveySubmitRequest{SurveyedAt: "2026-09-08", DocumentIDs: ids})
+			require.NoError(t, err)
+			require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.Survei).Status)
+			var evidence []entities.DocumentEvidence
+			require.NoError(t, db.Where("permohonan_id = ? AND workflow_node = ?", p.ID, workflow.Survei).Find(&evidence).Error)
+			require.Len(t, evidence, len(ids))
+			for _, item := range evidence {
+				require.Contains(t, ids, item.DocumentID.String())
+			}
+		})
+	}
+}
+
 func TestSubmitSurveyRejectsWrongOwnerAndDuplicate(t *testing.T) {
 	p := phase4Request(t, rbac.JenisSambunganJTR)
 	repo := &phase3PermohonanRepository{byID: p}

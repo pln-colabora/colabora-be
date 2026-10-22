@@ -164,3 +164,5 @@ or historical completion actors.
 ## Migration strategy
 
 Breaking changes are allowed. `20260908120000_refactor_workflow_nodes` adds the workflow-node fields, maps retained numbered history, removes legacy ownership/NPS naming, and creates evidence associations. A development database reset is acceptable; do not edit already-shipped migration files in place.
+
+Izin pemilik tanah dan/atau perangkat desa dapat disimpan sebagai dokumen opsional pada node `survei`, menggunakan kategori `izin_pemilik_tanah`, `izin_perangkat_desa`, atau `izin_pemilik_tanah_dan_perangkat_desa` untuk dokumen gabungan. Asosiasi menggunakan `document_evidence` yang sudah ada.
