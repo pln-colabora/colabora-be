@@ -36,9 +36,10 @@ var (
 )
 
 type Decisions struct {
-	KebutuhanTiang *bool
-	PerluPDKB      *bool
-	NPS            Delegation
+	KebutuhanTiang       *bool
+	PerluPDKB            *bool
+	NPS                  Delegation
+	LegacyPriorityExempt bool
 }
 
 // Snapshot contains persisted facts. Missing nodes are treated as locked;
@@ -95,6 +96,11 @@ func Evaluate(s Snapshot) (Result, error) {
 	terminal := s.Nodes[NPS] == Completed && s.Decisions.NPS == Return
 	for _, d := range definitions {
 		known, applicable := true, true
+		// Only migrated requests that already passed NPS may bypass the new review.
+		if d.Code == Prioritas && s.Decisions.LegacyPriorityExempt && s.Nodes[NPS] == Completed {
+			r.Nodes[d.Code] = Skipped
+			continue
+		}
 		switch d.Applicability {
 		case PolesRequired:
 			known = r.Nodes[KebutuhanTiang] == Completed && s.Decisions.KebutuhanTiang != nil

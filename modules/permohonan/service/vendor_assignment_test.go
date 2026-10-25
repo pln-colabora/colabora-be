@@ -53,7 +53,7 @@ func TestVendorAssignmentAuthorizationAndAtomicAudit(t *testing.T) {
 			}
 			s := &permohonanService{db: db, permohonanRepository: repository.NewPermohonanRepository(db), userRepository: userRepository.NewUserRepository(db), vendorAssignmentRepository: repository.NewVendorAssignmentRepository()}
 			_, err := s.AssignVendor(context.Background(), p.ID.String(), actor.ID.String(), req)
-			success := scenario == "tiang" || scenario == "konstruksi" || scenario == "sr-app"
+			success := scenario == "tiang" || scenario == "konstruksi"
 			if success {
 				require.NoError(t, err)
 			} else {

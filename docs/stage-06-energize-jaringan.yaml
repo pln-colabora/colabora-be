@@ -26,6 +26,7 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/EnergizeSubmitRequest" }
             example:
+              energize_status: permanent
               operation_result: "Jaringan berhasil dioperasikan dan tegangan normal."
               notes: "Hasil pengoperasian telah dicatat."
               document_ids: ["550e8400-e29b-41d4-a716-446655440012"]
@@ -36,8 +37,8 @@ paths:
       operationId: submitSRAPP
       summary: Pemasangan SR/APP (Activity #14)
       description: >-
-        Owner Vendor — Vendor SR/APP untuk JTR/JTM dan Vendor — Vendor
-        Konstruksi untuk PLG TM. Berjalan paralel dengan Pengoperasian jaringan.
+        Owner Transaksi Energi untuk semua jenis sambungan. Hanya membutuhkan Tera APP
+        selesai, independen dari konstruksi dan pengoperasian jaringan.
       security: [{ bearerAuth: [] }]
       parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
       requestBody:
@@ -77,17 +78,21 @@ components:
         pelanggan_alamat: { type: string }
         pelanggan_no_hp: { type: string }
         request_date: { type: string, format: date }
+        energize_status: { type: string, nullable: true, enum: [temporary, permanent] }
+        sla_basis: { type: string, enum: [calendar, payment_workdays_v1] }
+        sla_remaining_days: { type: integer, nullable: true }
+        sla_calendar_error: { type: string }
         current_stage: { type: integer, minimum: 1, maximum: 7 }
         status: { type: string, enum: [in_progress, completed, returned] }
         sla_deadline: { type: string, format: date, nullable: true }
-        sla_status: { type: string, enum: [none, on_time, due_soon, overdue] }
+        sla_status: { type: string, enum: [none, on_time, due_soon, overdue, unavailable] }
         kebutuhan_tiang: { type: boolean, nullable: true }
         nps_delegation_status: { type: string, nullable: true, enum: [delegated, returned] }
         perlu_pdkb: { type: boolean, nullable: true }
         created_by: { type: string, format: uuid }
         workflow_nodes: { type: array, description: "Vendor callers receive their issued WO plus workflow nodes owned by their role for the connection type; internal callers receive the full projection.", items: { $ref: "#/components/schemas/WorkflowNode" } }
         available_actions: { type: array, items: { $ref: "#/components/schemas/AvailableAction" } }
-    WorkflowNode: { type: object, properties: { workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, status: { type: string, enum: [locked, available, in_progress, completed, skipped] }, sla_deadline: { type: string, format: date, nullable: true }, sla_status: { type: string, enum: [none, on_time, due_soon, overdue] }, payload: { type: object, additionalProperties: true }, completed_by: { type: string, format: uuid, nullable: true }, completed_at: { type: string, format: date-time, nullable: true } } }
+    WorkflowNode: { type: object, properties: { revision: { type: integer, minimum: 1 }, sla_basis: { type: string }, sla_remaining_days: { type: integer, nullable: true }, sla_calendar_error: { type: string }, workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, status: { type: string, enum: [locked, available, in_progress, completed, skipped] }, sla_deadline: { type: string, format: date, nullable: true }, sla_status: { type: string, enum: [none, on_time, due_soon, overdue, unavailable] }, payload: { type: object, additionalProperties: true }, completed_by: { type: string, format: uuid, nullable: true }, completed_at: { type: string, format: date-time, nullable: true } } }
     AvailableAction: { type: object, properties: { workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, method: { type: string }, path: { type: string } } }
     EvidenceSubmitRequest:
       type: object
@@ -104,12 +109,14 @@ components:
           longitude: 106.816666
     EnergizeSubmitRequest:
       type: object
-      required: [operation_result, document_ids]
+      required: [operation_result, energize_status, document_ids]
       properties:
+        energize_status: { type: string, enum: [temporary, permanent], description: Nyala sementara boleh dilanjutkan sampai closing. }
         operation_result: { type: string, maxLength: 500, description: Ringkasan terstruktur hasil pengoperasian jaringan }
         notes: { type: string, maxLength: 2000 }
         document_ids: { type: array, minItems: 1, uniqueItems: true, items: { type: string, format: uuid } }
       example:
+        energize_status: permanent
         operation_result: "Jaringan berhasil dioperasikan dan tegangan normal."
         notes: "Hasil pengoperasian telah dicatat."
         document_ids: ["550e8400-e29b-41d4-a716-446655440012"]

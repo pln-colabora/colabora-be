@@ -337,12 +337,12 @@ func TestSubmitSequenceFourValidatesPayloads(t *testing.T) {
 	}{
 		{
 			name: "energize result", path: "/api/permohonan/id/energize-jaringan",
-			body:   `{"operation_result":"operasi jaringan selesai","document_ids":["%s"]}`,
+			body:   `{"energize_status":"permanent","operation_result":"operasi jaringan selesai","document_ids":["%s"]}`,
 			submit: func(c *permohonanController, ctx *gin.Context) { c.SubmitEnergize(ctx) }, wantCode: http.StatusOK,
 		},
 		{
 			name: "blank energize result", path: "/api/permohonan/id/energize-jaringan",
-			body:   `{"operation_result":"   ","document_ids":["%s"]}`,
+			body:   `{"energize_status":"permanent","operation_result":"   ","document_ids":["%s"]}`,
 			submit: func(c *permohonanController, ctx *gin.Context) { c.SubmitEnergize(ctx) }, wantCode: http.StatusBadRequest,
 		},
 		{

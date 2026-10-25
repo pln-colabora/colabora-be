@@ -159,12 +159,12 @@ func submitActivityRequest[T any](
 func writeActivityError(ctx *gin.Context, err error) {
 	status := http.StatusBadRequest
 	switch {
-	case errors.Is(err, rbac.ErrWorkflowForbidden):
+	case errors.Is(err, rbac.ErrWorkflowForbidden), errors.Is(err, dto.ErrScheduleLocked):
 		status = http.StatusForbidden
-	case errors.Is(err, dto.ErrPermohonanNotFound), errors.Is(err, documentDTO.ErrDocumentNotFound):
+	case errors.Is(err, dto.ErrPermohonanNotFound), errors.Is(err, documentDTO.ErrDocumentNotFound), errors.Is(err, gorm.ErrRecordNotFound):
 		status = http.StatusNotFound
 	case errors.Is(err, workflow.ErrNotActionable), errors.Is(err, workflow.ErrInvalidState),
-		errors.Is(err, documentDTO.ErrDocumentAlreadyAttached):
+		errors.Is(err, documentDTO.ErrDocumentAlreadyAttached), errors.Is(err, dto.ErrRevisionConflict), errors.Is(err, dto.ErrScheduleConflict):
 		status = http.StatusConflict
 	case errors.Is(err, dto.ErrSubmitActivity):
 		status = http.StatusInternalServerError

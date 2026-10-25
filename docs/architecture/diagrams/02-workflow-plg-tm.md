@@ -25,6 +25,7 @@ flowchart TD
   subgraph S3["Stage 3 · Perencanaan"]
     rab_kko_kkf["#3 rab_kko_kkf<br/>Perencanaan · UP3"]
     kebutuhan_tiang{"kebutuhan_tiang<br/>Tiang diperlukan?"}
+    verifikasi_prioritas["verifikasi_prioritas<br/>Perencanaan UP3"]
     permohonan_perluasan["#4 permohonan_perluasan<br/>NPS · UP3"]
     nps_delegation{"#5 nps_delegation<br/>NPS · UP3"}
   end
@@ -32,7 +33,6 @@ flowchart TD
     wo_tiang["#6 wo_tiang<br/>Perencanaan"]
     wo_konstruksi["#7 wo_konstruksi<br/>Konstruksi"]
     wo_pdkb["wo_pdkb<br/>Konstruksi"]
-    wo_app["#8 wo_app<br/>Transaksi Energi"]
     reservasi_material["#9 reservasi_material<br/>Vendor Konstruksi"]
     tera_app["#10 tera_app<br/>Transaksi Energi"]
   end
@@ -43,7 +43,7 @@ flowchart TD
   end
   subgraph S6["Stage 6 · Penyalaan paralel"]
     energize_jaringan["#13 energize_jaringan<br/>Jaringan · UP3"]
-    pemasangan_sr_app["#14 pemasangan_sr_app<br/>Vendor Konstruksi"]
+    pemasangan_sr_app["#14 pemasangan_sr_app<br/>Transaksi Energi"]
   end
   subgraph S7["Stage 7 · Closing atomik"]
     entri_mutasi_pdl["#15 entri_mutasi_pdl<br/>Pelayanan Pelanggan · ULP"]
@@ -52,32 +52,30 @@ flowchart TD
   end
   returned(["returned · terminal"])
 
-  permohonan --> survei --> rab_kko_kkf --> kebutuhan_tiang --> permohonan_perluasan --> nps_delegation
+  permohonan --> survei --> rab_kko_kkf --> kebutuhan_tiang --> verifikasi_prioritas --> permohonan_perluasan --> nps_delegation
   nps_delegation -->|returned| returned
   nps_delegation -->|delegated + tiang=true| wo_tiang
   nps_delegation -->|delegated| wo_konstruksi
-  nps_delegation -->|delegated| wo_app
+  nps_delegation -->|delegated| tera_app
   wo_tiang --> pemasangan_tiang
   wo_konstruksi -->|perlu_pdkb=true| wo_pdkb --> pelaksanaan_konstruksi
   wo_konstruksi -->|perlu_pdkb=false; wo_pdkb skipped| pelaksanaan_konstruksi
   wo_pdkb --> pelaksanaan_konstruksi
   wo_konstruksi --> reservasi_material --> pelaksanaan_konstruksi
-  wo_app --> tera_app
   pemasangan_tiang --> energize_jaringan
   pelaksanaan_konstruksi -->|perlu_pdkb=true| pdkb_documentation
   pelaksanaan_konstruksi -->|perlu_pdkb=false; documentation skipped| energize_jaringan
   pdkb_documentation --> energize_jaringan
-  pelaksanaan_konstruksi --> pemasangan_sr_app
   tera_app --> pemasangan_sr_app
   energize_jaringan --> entri_mutasi_pdl
   pemasangan_sr_app --> entri_mutasi_pdl
   entri_mutasi_pdl --> arsip_ail --> selesai
 
   class energize_jaringan,entri_mutasi_pdl,arsip_ail,selesai ulp
-  class survei,rab_kko_kkf,wo_tiang,wo_konstruksi,wo_pdkb,wo_app,tera_app up3
+  class survei,rab_kko_kkf,wo_tiang,wo_konstruksi,wo_pdkb,tera_app,verifikasi_prioritas,pemasangan_sr_app up3
   class reservasi_material vendor
   class permohonan,permohonan_perluasan,nps_delegation nps
-  class pemasangan_tiang,pelaksanaan_konstruksi,pemasangan_sr_app vendor
+  class pemasangan_tiang,pelaksanaan_konstruksi vendor
   class pdkb_documentation pdkb
   class kebutuhan_tiang decision
   class returned terminal

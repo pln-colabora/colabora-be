@@ -95,11 +95,13 @@ func (r *documentRepository) ListByPermohonan(ctx context.Context, tx *gorm.DB, 
 	query := r.database(tx).WithContext(ctx).Model(&entities.Document{}).Where("documents.permohonan_id = ?", permohonanID)
 	if workflowNode != nil {
 		query = query.Joins("JOIN document_evidence de ON de.document_id = documents.id AND de.permohonan_id = documents.permohonan_id").
-			Where("de.workflow_node = ?", *workflowNode)
+			Where("de.workflow_node = ? AND de.is_current = ?", *workflowNode, true)
+	} else {
+		query = query.Where("NOT EXISTS (SELECT 1 FROM document_evidence de WHERE de.document_id = documents.id) OR EXISTS (SELECT 1 FROM document_evidence de WHERE de.document_id = documents.id AND de.is_current = ?)", true)
 	}
 
 	var documents []entities.Document
-	if err := query.Distinct("documents.*").Preload("Evidence").Preload("Uploader").Order("documents.created_at desc").Find(&documents).Error; err != nil {
+	if err := query.Distinct("documents.*").Preload("Evidence", "is_current = ?", true).Preload("Uploader").Order("documents.created_at desc").Find(&documents).Error; err != nil {
 		return nil, err
 	}
 	return documents, nil
@@ -108,7 +110,7 @@ func (r *documentRepository) ListByPermohonan(ctx context.Context, tx *gorm.DB, 
 func (r *documentRepository) ExistsForWorkflowNode(ctx context.Context, tx *gorm.DB, permohonanID, workflowNode string) (bool, error) {
 	var count int64
 	err := r.database(tx).WithContext(ctx).Model(&entities.DocumentEvidence{}).
-		Where("permohonan_id = ? AND workflow_node = ?", permohonanID, workflowNode).Count(&count).Error
+		Where("permohonan_id = ? AND workflow_node = ? AND is_current = ?", permohonanID, workflowNode, true).Count(&count).Error
 	return count > 0, err
 }
 

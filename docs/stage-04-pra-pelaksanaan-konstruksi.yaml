@@ -8,7 +8,7 @@ servers:
   - { url: http://localhost:8888, description: Local (default GOLANG_PORT) }
 tags:
   - name: "Tahap 4 — Pra Pelaksanaan Konstruksi"
-    description: "WO Vendor Tiang, WO Vendor Konstruksi, WO PDKB, WO Vendor APP, Reservasi material, dan Perakitan & Tera APP"
+    description: "WO Vendor Tiang, WO Vendor Konstruksi, WO PDKB, kalender PDKB, Reservasi material, dan Perakitan & Tera APP"
 paths:
   /api/permohonan/{id}/wo-vendor/tiang:
     post:
@@ -88,44 +88,6 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
-  /api/permohonan/{id}/wo-vendor/app:
-    post:
-      tags: ["Tahap 4 — Pra Pelaksanaan Konstruksi"]
-      operationId: submitWOAPP
-      summary: WO Vendor APP (Activity #8)
-      description: Owner UP3 — Transaksi Energi; evidence wajib dan detail produksi dapat berkembang kemudian.
-      security: [{ bearerAuth: [] }]
-      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/VendorEvidenceSubmitRequest" }
-            example:
-              notes: "WO APP siap dilaksanakan."
-              document_ids: ["550e8400-e29b-41d4-a716-446655440006"]
-              location_coordinates:
-                latitude: -6.200000
-                longitude: 106.816666
-      responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
-  /api/permohonan/{id}/wo-vendor/app/export:
-    post:
-      tags: ["Tahap 4 — Pra Pelaksanaan Konstruksi"]
-      operationId: exportWOAPP
-      summary: Unduh PDF WO Vendor APP
-      description: Owner Transaksi Energi; node WO APP harus selesai dan vendor tujuan harus sudah ditugaskan sesuai owner pemasangan SR/APP untuk jenis sambungan. PDF privat dibuat sekali, ditautkan ke node WO APP, dan dikembalikan sebagai file PDF tanpa lampiran atau tanda tangan digital.
-      security: [{ bearerAuth: [] }]
-      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
-      responses:
-        "200":
-          description: PDF WO Vendor APP
-          content:
-            application/pdf:
-              schema: { type: string, format: binary }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/Conflict" }
   /api/permohonan/{id}/reservasi-material:
     post:
       tags: ["Tahap 4 — Pra Pelaksanaan Konstruksi"]
@@ -151,7 +113,7 @@ paths:
       tags: ["Tahap 4 — Pra Pelaksanaan Konstruksi"]
       operationId: submitTera
       summary: Perakitan & Tera APP (Activity #10)
-      description: Owner UP3 — Transaksi Energi; tersedia setelah WO Vendor APP selesai dan berjalan pada branch APP terpisah dari reservasi material.
+      description: Owner UP3 — Transaksi Energi; tersedia langsung setelah delegasi NPS dan berjalan independen dari reservasi material.
       security: [{ bearerAuth: [] }]
       parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
       requestBody:
@@ -180,6 +142,202 @@ paths:
               notes: "WO PDKB diterbitkan karena pekerjaan memerlukan metode PDKB."
               document_ids: ["550e8400-e29b-41d4-a716-446655440009"]
       responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
+  /api/permohonan/{id}/wo-vendor/konstruksi/documents:
+    put:
+      tags:
+        - Tahap 4 — Pra Pelaksanaan Konstruksi
+      operationId: reviseConstructionDocuments
+      summary: Revisi lampiran WO Konstruksi
+      description: >-
+        Konstruksi UP3 dapat merevisi kapan saja setelah WO selesai. PDF generate, payload, completion dan SLA
+        tetap. Riwayat dan file lama disimpan.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PermohonanID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - expected_revision
+                - document_ids
+              properties:
+                expected_revision:
+                  type: integer
+                  minimum: 1
+                document_ids:
+                  type: array
+                  minItems: 1
+                  uniqueItems: true
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        '200':
+          description: Berhasil
+        '400':
+          description: Input tidak valid
+        '403':
+          description: Tidak berwenang
+        '404':
+          description: Data tidak ditemukan
+        '409':
+          description: Versi data sudah berubah atau tanggal PDKB terisi
+  /api/pdkb/schedules:
+    get:
+      tags:
+        - Tahap 4 — Pra Pelaksanaan Konstruksi
+      operationId: listPdkbSchedules
+      summary: Daftar jadwal PDKB
+      description: >-
+        GET tersedia bagi PDKB dan Konstruksi, maksimal rentang 366 hari. Mutasi hanya PDKB untuk kegiatan
+        manual. Response memiliki id, date, title, permohonan_id dan locked. Booking WO locked=true tidak dapat
+        diedit/dihapus melalui kalender; satu kegiatan per tanggal.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Berhasil
+        '400':
+          description: Input tidak valid
+        '403':
+          description: Tidak berwenang
+        '404':
+          description: Data tidak ditemukan
+        '409':
+          description: Versi data sudah berubah atau tanggal PDKB terisi
+    post:
+      tags:
+        - Tahap 4 — Pra Pelaksanaan Konstruksi
+      operationId: createPdkbSchedule
+      summary: Buat kegiatan PDKB
+      description: >-
+        GET tersedia bagi PDKB dan Konstruksi, maksimal rentang 366 hari. Mutasi hanya PDKB untuk kegiatan
+        manual. Response memiliki id, date, title, permohonan_id dan locked. Booking WO locked=true tidak dapat
+        diedit/dihapus melalui kalender; satu kegiatan per tanggal.
+      security:
+        - bearerAuth: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - date
+                - title
+              properties:
+                date:
+                  type: string
+                  format: date
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+      responses:
+        '200':
+          description: Berhasil
+        '400':
+          description: Input tidak valid
+        '403':
+          description: Tidak berwenang
+        '404':
+          description: Data tidak ditemukan
+        '409':
+          description: Versi data sudah berubah atau tanggal PDKB terisi
+  /api/pdkb/schedules/{schedule_id}:
+    put:
+      tags:
+        - Tahap 4 — Pra Pelaksanaan Konstruksi
+      operationId: updatePdkbSchedule
+      summary: Edit kegiatan manual PDKB
+      description: >-
+        GET tersedia bagi PDKB dan Konstruksi, maksimal rentang 366 hari. Mutasi hanya PDKB untuk kegiatan
+        manual. Response memiliki id, date, title, permohonan_id dan locked. Booking WO locked=true tidak dapat
+        diedit/dihapus melalui kalender; satu kegiatan per tanggal.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: schedule_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - date
+                - title
+              properties:
+                date:
+                  type: string
+                  format: date
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+      responses:
+        '200':
+          description: Berhasil
+        '400':
+          description: Input tidak valid
+        '403':
+          description: Tidak berwenang
+        '404':
+          description: Data tidak ditemukan
+        '409':
+          description: Versi data sudah berubah atau tanggal PDKB terisi
+    delete:
+      tags:
+        - Tahap 4 — Pra Pelaksanaan Konstruksi
+      operationId: deletePdkbSchedule
+      summary: Hapus kegiatan manual PDKB
+      description: >-
+        GET tersedia bagi PDKB dan Konstruksi, maksimal rentang 366 hari. Mutasi hanya PDKB untuk kegiatan
+        manual. Response memiliki id, date, title, permohonan_id dan locked. Booking WO locked=true tidak dapat
+        diedit/dihapus melalui kalender; satu kegiatan per tanggal.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: schedule_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Berhasil
+        '400':
+          description: Input tidak valid
+        '403':
+          description: Tidak berwenang
+        '404':
+          description: Data tidak ditemukan
+        '409':
+          description: Versi data sudah berubah atau tanggal PDKB terisi
 components:
   securitySchemes: { bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT } }
   responses:
@@ -205,17 +363,21 @@ components:
         pelanggan_alamat: { type: string }
         pelanggan_no_hp: { type: string }
         request_date: { type: string, format: date }
+        energize_status: { type: string, nullable: true, enum: [temporary, permanent] }
+        sla_basis: { type: string, enum: [calendar, payment_workdays_v1] }
+        sla_remaining_days: { type: integer, nullable: true }
+        sla_calendar_error: { type: string }
         current_stage: { type: integer, minimum: 1, maximum: 7 }
         status: { type: string, enum: [in_progress, completed, returned] }
         sla_deadline: { type: string, format: date, nullable: true }
-        sla_status: { type: string, enum: [none, on_time, due_soon, overdue] }
+        sla_status: { type: string, enum: [none, on_time, due_soon, overdue, unavailable] }
         kebutuhan_tiang: { type: boolean, nullable: true }
         nps_delegation_status: { type: string, nullable: true, enum: [delegated, returned] }
         perlu_pdkb: { type: boolean, nullable: true }
         created_by: { type: string, format: uuid }
         workflow_nodes: { type: array, description: "Vendor callers receive their issued WO plus workflow nodes owned by their role for the connection type; internal callers receive the full projection.", items: { $ref: "#/components/schemas/WorkflowNode" } }
         available_actions: { type: array, items: { $ref: "#/components/schemas/AvailableAction" } }
-    WorkflowNode: { type: object, properties: { workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, status: { type: string, enum: [locked, available, in_progress, completed, skipped] }, sla_deadline: { type: string, format: date, nullable: true }, sla_status: { type: string, enum: [none, on_time, due_soon, overdue] }, payload: { type: object, additionalProperties: true }, completed_by: { type: string, format: uuid, nullable: true }, completed_at: { type: string, format: date-time, nullable: true } } }
+    WorkflowNode: { type: object, properties: { revision: { type: integer, minimum: 1 }, sla_basis: { type: string }, sla_remaining_days: { type: integer, nullable: true }, sla_calendar_error: { type: string }, workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, status: { type: string, enum: [locked, available, in_progress, completed, skipped] }, sla_deadline: { type: string, format: date, nullable: true }, sla_status: { type: string, enum: [none, on_time, due_soon, overdue, unavailable] }, payload: { type: object, additionalProperties: true }, completed_by: { type: string, format: uuid, nullable: true }, completed_at: { type: string, format: date-time, nullable: true } } }
     AvailableAction: { type: object, properties: { workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, method: { type: string }, path: { type: string } } }
     EvidenceSubmitRequest:
       type: object
@@ -243,6 +405,7 @@ components:
       type: object
       required: [estimasi_tanggal_selesai, perlu_pdkb, document_ids]
       properties:
+        tanggal_pdkb: { type: string, format: date, description: Wajib saat perlu_pdkb=true; booking satu hari penuh dibuat atomik bersama WO. }
         estimasi_tanggal_selesai: { type: string, format: date, description: Tanggal estimasi selesai pengerjaan WO; digunakan sebagai source of truth untuk perhitungan durasi hari kalender. }
         perlu_pdkb: { type: boolean, description: Keputusan apakah cabang PDKB berlaku; false tetap valid }
         notes: { type: string, maxLength: 2000 }

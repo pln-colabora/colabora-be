@@ -24,8 +24,8 @@ func TestSequenceFourUsesExactConnectionOwners(t *testing.T) {
 	}{
 		{name: "JTR energize", connection: rbac.JenisSambunganJTR, code: workflow.Energize, role: rbac.RoleTeknik},
 		{name: "PLG TM energize", connection: rbac.JenisSambunganPlgTmLebih5, code: workflow.Energize, role: rbac.RoleJaringan},
-		{name: "JTM SR APP", connection: rbac.JenisSambunganJTMGardu, code: workflow.SRAPP, role: rbac.RoleVendorSrApp},
-		{name: "PLG TM SR APP", connection: rbac.JenisSambunganPlgTmKurang5, code: workflow.SRAPP, role: rbac.RoleVendorKonstruksi},
+		{name: "JTM SR APP", connection: rbac.JenisSambunganJTMGardu, code: workflow.SRAPP, role: rbac.RoleTransaksiEnergi},
+		{name: "PLG TM SR APP", connection: rbac.JenisSambunganPlgTmKurang5, code: workflow.SRAPP, role: rbac.RoleTransaksiEnergi},
 	}
 
 	for _, test := range tests {
@@ -125,16 +125,16 @@ func TestSequenceFourIndependentGates(t *testing.T) {
 		require.Equal(t, string(workflow.Available), persistedNode(t, repo.byID, workflow.SRAPP).Status)
 	})
 
-	t.Run("SR APP waits for construction even when tera is complete", func(t *testing.T) {
+	t.Run("SR APP proceeds after tera before construction", func(t *testing.T) {
 		p := stage5Request(t, rbac.JenisSambunganJTMGardu, false, false)
 		repo := &phase3PermohonanRepository{byID: p}
 		docRepo := &phase4DocumentRepository{}
-		user := entities.User{ID: uuid.New(), Role: rbac.RoleVendorSrApp, Unit: "vendor"}
+		user := entities.User{ID: uuid.New(), Role: rbac.RoleTransaksiEnergi, Unit: "UP3"}
 		s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: user}, documentRepository: docRepo, db: phase3DB(t)}
 
 		_, err := s.SubmitSRAPP(context.Background(), p.ID.String(), user.ID.String(), evidenceRequest())
-		require.ErrorIs(t, err, workflow.ErrNotActionable)
-		require.Empty(t, docRepo.attachCalls)
+		require.NoError(t, err)
+		require.Equal(t, []workflow.Code{workflow.SRAPP}, docRepo.attachCalls)
 	})
 
 	t.Run("SR APP waits for tera even when construction is complete", func(t *testing.T) {
@@ -144,7 +144,7 @@ func TestSequenceFourIndependentGates(t *testing.T) {
 			workflow.WOKonstruksi, workflow.Reservasi, workflow.Konstruksi)
 		repo := &phase3PermohonanRepository{byID: p}
 		docRepo := &phase4DocumentRepository{}
-		user := entities.User{ID: uuid.New(), Role: rbac.RoleVendorSrApp, Unit: "vendor"}
+		user := entities.User{ID: uuid.New(), Role: rbac.RoleTransaksiEnergi, Unit: "UP3"}
 		s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: user}, documentRepository: docRepo, db: phase3DB(t)}
 
 		_, err := s.SubmitSRAPP(context.Background(), p.ID.String(), user.ID.String(), evidenceRequest())
@@ -273,6 +273,6 @@ func sequence4Owner(p entities.Permohonan, code workflow.Code) entities.User {
 
 func energizeRequest() dto.EnergizeSubmitRequest {
 	return dto.EnergizeSubmitRequest{
-		OperationResult: "operasi jaringan selesai", Notes: "synthetic operation evidence", DocumentIDs: []string{uuid.NewString()},
+		EnergizeStatus: "permanent", OperationResult: "operasi jaringan selesai", Notes: "synthetic operation evidence", DocumentIDs: []string{uuid.NewString()},
 	}
 }

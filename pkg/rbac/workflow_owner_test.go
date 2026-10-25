@@ -13,10 +13,10 @@ func TestWorkflowOwnershipMatrix(t *testing.T) {
 		workflow.RAB: {RoleTeknik, RolePerencanaan}, workflow.KebutuhanTiang: {RoleTeknik, RolePerencanaan},
 		workflow.Perluasan: {RoleNps, RoleNps}, workflow.NPS: {RoleNps, RoleNps},
 		workflow.WOTiang: {RolePerencanaan, RolePerencanaan}, workflow.WOKonstruksi: {RoleKonstruksi, RoleKonstruksi},
-		workflow.WOAPP: {RoleTransaksiEnergi, RoleTransaksiEnergi}, workflow.Reservasi: {RoleVendorKonstruksi, RoleVendorKonstruksi}, workflow.Tera: {RoleTransaksiEnergi, RoleTransaksiEnergi},
+		workflow.Prioritas: {RolePerencanaan, RolePerencanaan}, workflow.Reservasi: {RoleVendorKonstruksi, RoleVendorKonstruksi}, workflow.Tera: {RoleTransaksiEnergi, RoleTransaksiEnergi},
 		workflow.WOPDKB:          {RoleKonstruksi, RoleKonstruksi},
 		workflow.PemasanganTiang: {RoleVendorTiang, RoleVendorTiang}, workflow.Konstruksi: {RoleVendorKonstruksi, RoleVendorKonstruksi},
-		workflow.DokumentasiPDKB: {RolePdkb, RolePdkb}, workflow.Energize: {RoleTeknik, RoleJaringan}, workflow.SRAPP: {RoleVendorSrApp, RoleVendorKonstruksi},
+		workflow.DokumentasiPDKB: {RolePdkb, RolePdkb}, workflow.Energize: {RoleTeknik, RoleJaringan}, workflow.SRAPP: {RoleTransaksiEnergi, RoleTransaksiEnergi},
 		workflow.PDL: {RolePelayananPelanggan, RolePelayananPelanggan}, workflow.AIL: {RolePelayananPelanggan, RolePelayananPelanggan}, workflow.Selesai: {RolePelayananPelanggan, RolePelayananPelanggan},
 	}
 	require.Len(t, owners, len(workflow.Definitions()))
@@ -67,16 +67,12 @@ func TestVendorVisibleNodesUsesConnectionOwners(t *testing.T) {
 		workflow.WOKonstruksi,
 		workflow.Reservasi,
 		workflow.Konstruksi,
-		workflow.SRAPP,
 	}, VendorVisibleNodes(RoleVendorKonstruksi, JenisSambunganPlgTmKurang5))
 	require.Equal(t, []workflow.Code{
 		workflow.WOTiang,
 		workflow.PemasanganTiang,
 	}, VendorVisibleNodes(RoleVendorTiang, JenisSambunganJTR))
-	require.Equal(t, []workflow.Code{
-		workflow.WOAPP,
-		workflow.SRAPP,
-	}, VendorVisibleNodes(RoleVendorSrApp, JenisSambunganJTMGardu))
+	require.Empty(t, VendorVisibleNodes(RoleVendorSrApp, JenisSambunganJTMGardu))
 	require.Empty(t, VendorVisibleNodes(RoleVendorSrApp, JenisSambunganPlgTmKurang5))
 	require.Empty(t, VendorVisibleNodes(RoleVendorKonstruksi, "bad"))
 }
@@ -107,7 +103,7 @@ func TestWorkflowAuthorizationAndActions(t *testing.T) {
 	require.NoError(t, AuthorizeWorkflowNode(RolePelayananPelanggan, "ULP Taman", "ULP Taman", s, workflow.Permohonan))
 	require.ErrorIs(t, AuthorizeWorkflowNode(RoleNps, "UP3", "ULP Taman", s, workflow.Permohonan), ErrWorkflowForbidden)
 	require.ErrorIs(t, AuthorizeWorkflowNode(RoleTeknik, "ULP Taman", "ULP Taman", s, workflow.Survei), workflow.ErrNotActionable)
-	for _, code := range []workflow.Code{workflow.Permohonan, workflow.Survei, workflow.RAB, workflow.KebutuhanTiang, workflow.Perluasan, workflow.NPS, workflow.WOKonstruksi} {
+	for _, code := range []workflow.Code{workflow.Permohonan, workflow.Survei, workflow.RAB, workflow.KebutuhanTiang, workflow.Prioritas, workflow.Perluasan, workflow.NPS, workflow.WOKonstruksi} {
 		next, _, err := workflow.Transition(s, code, workflow.Completed)
 		require.NoError(t, err)
 		s = next

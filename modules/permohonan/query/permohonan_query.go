@@ -12,37 +12,38 @@ import (
 // separate from dto.PermohonanResponse, matching how modules/user/query/user_query.go
 // keeps its list projection separate from dto.UserResponse.
 type Permohonan struct {
-	ID                  string                        `json:"id"`
-	NoPermohonan        string                        `json:"no_permohonan"`
-	JenisPermohonan     string                        `json:"jenis_permohonan"`
-	JenisSambungan      string                        `json:"jenis_sambungan"`
-	Tarif               *string                       `json:"tarif"`
-	DayaLama            *int64                        `json:"daya_lama"`
-	DayaBaru            *int64                        `json:"daya_baru"`
-	UlpUnit             string                        `json:"ulp_unit"`
-	PelangganNama       string                        `json:"pelanggan_nama"`
-	PelangganAlamat     string                        `json:"pelanggan_alamat"`
-	PelangganNoHp       string                        `json:"pelanggan_no_hp"`
-	RequestDate         string                        `json:"request_date"`
-	TanggalPembayaran   *string                       `json:"tanggal_pembayaran"`
-	NominalPembayaran   *int64                        `json:"nominal_pembayaran"`
-	CurrentStage        int16                         `json:"current_stage"`
-	Status              string                        `json:"status"`
-	SlaDeadline         *string                       `json:"sla_deadline"`
-	SlaStatus           string                        `json:"sla_status"`
-	KebutuhanTiang      *bool                         `json:"kebutuhan_tiang"`
-	NpsDelegationStatus *string                       `json:"nps_delegation_status"`
-	PerluPdkb           *bool                         `json:"perlu_pdkb"`
-	CreatedBy           string                        `json:"created_by"`
-	CreatedAt           string                        `json:"created_at"`
-	UpdatedAt           string                        `json:"updated_at"`
-	WorkflowNodes       []entities.PermohonanActivity `gorm:"-" json:"-"`
-	AvailableActions    []dto.AvailableAction         `gorm:"-" json:"available_actions"`
+	SlaBasis             string                        `json:"sla_basis"`
+	SlaRemainingDays     *int                          `gorm:"-" json:"sla_remaining_days"`
+	SlaCalendarError     string                        `gorm:"-" json:"sla_calendar_error,omitempty"`
+	LegacyPriorityExempt bool                          `json:"-"`
+	EnergizeStatus       *string                       `json:"energize_status"`
+	ID                   string                        `json:"id"`
+	NoPermohonan         string                        `json:"no_permohonan"`
+	JenisPermohonan      string                        `json:"jenis_permohonan"`
+	JenisSambungan       string                        `json:"jenis_sambungan"`
+	Tarif                *string                       `json:"tarif"`
+	DayaLama             *int64                        `json:"daya_lama"`
+	DayaBaru             *int64                        `json:"daya_baru"`
+	UlpUnit              string                        `json:"ulp_unit"`
+	PelangganNama        string                        `json:"pelanggan_nama"`
+	PelangganAlamat      string                        `json:"pelanggan_alamat"`
+	PelangganNoHp        string                        `json:"pelanggan_no_hp"`
+	RequestDate          string                        `json:"request_date"`
+	TanggalPembayaran    *string                       `json:"tanggal_pembayaran"`
+	NominalPembayaran    *int64                        `json:"nominal_pembayaran"`
+	CurrentStage         int16                         `json:"current_stage"`
+	Status               string                        `json:"status"`
+	SlaDeadline          *string                       `json:"sla_deadline"`
+	SlaStatus            string                        `json:"sla_status"`
+	KebutuhanTiang       *bool                         `json:"kebutuhan_tiang"`
+	NpsDelegationStatus  *string                       `json:"nps_delegation_status"`
+	PerluPdkb            *bool                         `json:"perlu_pdkb"`
+	CreatedBy            string                        `json:"created_by"`
+	CreatedAt            string                        `json:"created_at"`
+	UpdatedAt            string                        `json:"updated_at"`
+	WorkflowNodes        []entities.PermohonanActivity `gorm:"-" json:"-"`
+	AvailableActions     []dto.AvailableAction         `gorm:"-" json:"available_actions"`
 }
-
-// sla bucket thresholds — "due soon" isn't specified anywhere in the source docs, 2 days
-// is a reasonable default and easy to change here if it turns out to be wrong.
-const slaDueSoonDays = 2
 
 type PermohonanFilter struct {
 	pagination.BaseFilter
@@ -76,16 +77,15 @@ func (f *PermohonanFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
 	}
 
 	if f.Sla != "" {
+		remaining := "colabora_sla_remaining(sla_node.sla_deadline,sla_node.sla_basis,(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date)"
+		active := "SELECT 1 FROM permohonan_activities sla_node WHERE sla_node.permohonan_id = permohonan.id AND sla_node.status IN ('available','in_progress') AND "
 		switch f.Sla {
 		case "overdue":
-			query = query.Where("EXISTS (SELECT 1 FROM permohonan_activities sla_node WHERE sla_node.permohonan_id = permohonan.id AND sla_node.status IN ('available', 'in_progress') AND sla_node.sla_deadline < CURRENT_DATE)")
+			query = query.Where("EXISTS (" + active + remaining + " < 0)")
 		case "duesoon":
-			query = query.Where(
-				"EXISTS (SELECT 1 FROM permohonan_activities sla_node WHERE sla_node.permohonan_id = permohonan.id AND sla_node.status IN ('available', 'in_progress') AND sla_node.sla_deadline >= CURRENT_DATE AND sla_node.sla_deadline <= CURRENT_DATE + CAST(? AS integer))",
-				slaDueSoonDays,
-			)
+			query = query.Where("NOT EXISTS (" + active + remaining + " < 0) AND EXISTS (" + active + remaining + " BETWEEN 0 AND 2)")
 		case "ontime":
-			query = query.Where("EXISTS (SELECT 1 FROM permohonan_activities sla_node WHERE sla_node.permohonan_id = permohonan.id AND sla_node.status IN ('available', 'in_progress') AND sla_node.sla_deadline > CURRENT_DATE + CAST(? AS integer))", slaDueSoonDays)
+			query = query.Where("NOT EXISTS (" + active + remaining + " <= 2) AND EXISTS (" + active + remaining + " > 2)")
 		}
 	}
 
