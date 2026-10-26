@@ -1,10 +1,12 @@
 # Workflow PLG TM
 
-**Status:** Implemented state, 9 September 2026  
+**Status:** Implementasi branch dev, 26 Oktober 2026
 **Perspektif:** PLG TM &lt;5 GWNG dan PLG TM &gt;5 GWNG
 
 Dependency sama untuk kedua varian PLG TM; SLA-nya berbeda. Ownership awal, survei,
-energize, dan SR/APP berbeda dari JTR/JTM.
+dan energize berbeda dari JTR/JTM. SR/APP ditangani Transaksi Energi pada semua jenis.
+Semua prerequisite harus selesai atau sah berstatus `skipped`; panah masuk bukan
+pilihan salah satu.
 
 ```mermaid
 flowchart TD
@@ -17,7 +19,7 @@ flowchart TD
   classDef terminal fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
 
   subgraph S1["Stage 1 · Permohonan"]
-    permohonan["#1 permohonan<br/>NPS · pilih ULP tujuan"]
+    permohonan["#1 permohonan<br/>Tanggal dan nominal pembayaran<br/>NPS · pilih ULP tujuan"]
   end
   subgraph S2["Stage 2 · Survei"]
     survei["#2 survei<br/>Perencanaan · UP3"]
@@ -31,7 +33,7 @@ flowchart TD
   end
   subgraph S4["Stage 4 · Pra-konstruksi paralel"]
     wo_tiang["#6 wo_tiang<br/>Perencanaan"]
-    wo_konstruksi["#7 wo_konstruksi<br/>Konstruksi"]
+    wo_konstruksi["#7 wo_konstruksi<br/>Konstruksi · booking tanggal jika perlu PDKB"]
     wo_pdkb["wo_pdkb<br/>Konstruksi"]
     reservasi_material["#9 reservasi_material<br/>Vendor Konstruksi"]
     tera_app["#10 tera_app<br/>Transaksi Energi"]
@@ -42,7 +44,7 @@ flowchart TD
     pdkb_documentation["pdkb_documentation<br/>PDKB"]
   end
   subgraph S6["Stage 6 · Penyalaan paralel"]
-    energize_jaringan["#13 energize_jaringan<br/>Jaringan · UP3"]
+    energize_jaringan["#13 energize_jaringan<br/>Nyala sementara / tetap<br/>Jaringan · UP3"]
     pemasangan_sr_app["#14 pemasangan_sr_app<br/>Transaksi Energi"]
   end
   subgraph S7["Stage 7 · Closing atomik"]
@@ -60,7 +62,6 @@ flowchart TD
   wo_tiang --> pemasangan_tiang
   wo_konstruksi -->|perlu_pdkb=true| wo_pdkb --> pelaksanaan_konstruksi
   wo_konstruksi -->|perlu_pdkb=false; wo_pdkb skipped| pelaksanaan_konstruksi
-  wo_pdkb --> pelaksanaan_konstruksi
   wo_konstruksi --> reservasi_material --> pelaksanaan_konstruksi
   pemasangan_tiang --> energize_jaringan
   pelaksanaan_konstruksi -->|perlu_pdkb=true| pdkb_documentation
@@ -71,8 +72,8 @@ flowchart TD
   pemasangan_sr_app --> entri_mutasi_pdl
   entri_mutasi_pdl --> arsip_ail --> selesai
 
-  class energize_jaringan,entri_mutasi_pdl,arsip_ail,selesai ulp
-  class survei,rab_kko_kkf,wo_tiang,wo_konstruksi,wo_pdkb,tera_app,verifikasi_prioritas,pemasangan_sr_app up3
+  class entri_mutasi_pdl,arsip_ail,selesai ulp
+  class energize_jaringan,survei,rab_kko_kkf,wo_tiang,wo_konstruksi,wo_pdkb,tera_app,verifikasi_prioritas,pemasangan_sr_app up3
   class reservasi_material vendor
   class permohonan,permohonan_perluasan,nps_delegation nps
   class pemasangan_tiang,pelaksanaan_konstruksi vendor
@@ -83,3 +84,24 @@ flowchart TD
 
 Legenda warna: biru = ULP, ungu = fungsi UP3, kuning = NPS, hijau = vendor,
 merah muda = PDKB, abu-abu = keputusan, merah = terminal.
+
+## Aturan yang menyertai alur
+
+- Verifikasi prioritas oleh Perencanaan berlaku untuk semua jenis, setelah RAB dan
+  keputusan tiang, sebelum NPS. Ini konfirmasi dengan catatan opsional, tanpa cabang
+  penolakan baru. `returned` dari NPS tetap terminal, bukan loop revisi perencanaan.
+- Setelah delegasi NPS, WO Tiang (jika perlu), WO Konstruksi, dan Tera APP dapat
+  berjalan paralel. WO APP tidak ada di alur aktif; riwayat lama tetap terbaca.
+- SR/APP hanya menunggu Tera APP. Energize menunggu konstruksi, pemasangan tiang,
+  dan dokumentasi PDKB yang applicable. Closing menunggu energize dan SR/APP;
+  nyala sementara maupun tetap dapat dilanjutkan ke closing.
+- Bila perlu PDKB, Konstruksi wajib memilih `tanggal_pdkb` kosong dari kalender
+  satu tim/satu hari. Backend membooking tanggal dalam transaksi WO; bentrok
+  menghasilkan 409 dan rollback. Booking WO terkunci dari edit/hapus kalender.
+- Survei selesai dapat direvisi oleh role/unit pemilik. Lampiran upload WO Konstruksi
+  dapat direvisi Konstruksi tanpa batas waktu, termasuk setelah closing/returned.
+  Riwayat, completion, dan SLA tetap; keputusan dan PDF WO generated tidak diubah.
+- SLA permohonan baru memakai tanggal pembayaran dan hari kerja WIB. Deadline
+  historis tetap. Rincian kalender dan offset ada pada [diagram SLA](10-sla-critical-path.md).
+- Migrasi mengecualikan verifikasi prioritas hanya bagi permohonan lama yang sudah
+  melewati NPS (`skipped` yang sah); tidak mengulang progres historis.

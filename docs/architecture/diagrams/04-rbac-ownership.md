@@ -1,6 +1,6 @@
 # RBAC Ownership Map
 
-**Status:** Implemented state, 9 September 2026  
+**Status:** Implementasi branch dev, 26 Oktober 2026
 **Perspektif:** JTR/JTM dan PLG TM
 
 Write ownership diselesaikan per workflow node. Tabel setelah diagram merangkum
@@ -33,18 +33,28 @@ flowchart LR
 |---|---|---|---|
 | `permohonan` | pelayanan-pelanggan | nps | JTR/JTM caller ULP; PLG TM memilih target ULP |
 | `survei`, `rab_kko_kkf`, `kebutuhan_tiang` | teknik | perencanaan | teknik harus matching ULP |
+| `verifikasi_prioritas` | perencanaan | perencanaan | Semua jenis, setelah RAB/keputusan tiang |
 | `permohonan_perluasan`, `nps_delegation` | nps | nps | UP3 operational |
 | `wo_tiang` | perencanaan | perencanaan | branch tiang applicable |
 | `wo_konstruksi`, `wo_pdkb` | konstruksi | konstruksi | branch PDKB diperiksa per node |
-| `wo_app`, `tera_app` | transaksi-energi | transaksi-energi | UP3 operational |
+| `tera_app` | transaksi-energi | transaksi-energi | UP3 operational |
 | `reservasi_material` | vendor-konstruksi | vendor-konstruksi | Explicit vendor assignment |
 | `pemasangan_tiang` | vendor-tiang | vendor-tiang | explicit vendor assignment |
 | `pelaksanaan_konstruksi` | vendor-konstruksi | vendor-konstruksi | explicit vendor assignment |
 | `pdkb_documentation` | pdkb | pdkb | branch PDKB applicable |
 | `energize_jaringan` | teknik | jaringan | teknik harus matching ULP |
-| `pemasangan_sr_app` | vendor-sr-app | vendor-konstruksi | explicit vendor assignment |
+| `pemasangan_sr_app` | transaksi-energi | transaksi-energi | Tera APP selesai; tanpa assignment vendor SR/APP |
 | `entri_mutasi_pdl`, `arsip_ail`, `selesai` | pelayanan-pelanggan | pelayanan-pelanggan | matching ULP |
 
 Read scope: pelayanan-pelanggan dan teknik terbatas ULP; vendor hanya permohonan yang
 ditugaskan; peran operasional UP3 dan super-user dapat membaca lintas ULP. Super-user
 tidak memiliki workflow write action.
+
+Endpoint revisi memeriksa ownership role/unit dan node completed, bukan gate aksi
+workflow available/in_progress di diagram. Survei: Teknik ULP untuk JTR/JTM atau
+Perencanaan untuk PLG TM. Lampiran WO Konstruksi: Konstruksi UP3. Revisi tetap boleh
+setelah aggregate completed/returned; `expected_revision` usang menghasilkan 409.
+
+Kalender PDKB: PDKB dan Konstruksi dapat membaca; hanya PDKB boleh membuat,
+mengubah, atau menghapus kegiatan manual. Booking dari WO tidak boleh diubah/hapus
+melalui kalender. Akun `vendor-sr-app` hanya untuk riwayat, tanpa pekerjaan baru.
