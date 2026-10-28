@@ -20,6 +20,7 @@ import (
 	"github.com/pln-colabora/colabora-be/modules/permohonan/query"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/repository"
 	userRepository "github.com/pln-colabora/colabora-be/modules/user/repository"
+	"github.com/pln-colabora/colabora-be/pkg/businessday"
 	"github.com/pln-colabora/colabora-be/pkg/rbac"
 	"github.com/pln-colabora/colabora-be/pkg/workflow"
 	"gorm.io/gorm"
@@ -169,13 +170,21 @@ func (s *permohonanService) SubmitWOConstruction(ctx context.Context, id, userID
 	if _, err := time.Parse("2006-01-02", req.EstimasiTanggalSelesai); err != nil || req.PerluPdkb == nil || !notesWithinLimit(req.Notes) || !validLocationCoordinates(req.LocationCoordinates) {
 		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
 	}
+	if *req.PerluPdkb {
+		if _, err := validScheduleDate(req.TanggalPDKB); err != nil {
+			return dto.PermohonanResponse{}, err
+		}
+	} else if req.TanggalPDKB != "" {
+		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
+	}
 	payloads := map[workflow.Code]any{
 		workflow.WOKonstruksi: struct {
+			TanggalPDKB            string                   `json:"tanggal_pdkb,omitempty"`
 			EstimasiTanggalSelesai string                   `json:"estimasi_tanggal_selesai"`
 			PerluPDKB              bool                     `json:"perlu_pdkb"`
 			Notes                  string                   `json:"notes,omitempty"`
 			LocationCoordinates    *dto.LocationCoordinates `json:"location_coordinates,omitempty"`
-		}{EstimasiTanggalSelesai: req.EstimasiTanggalSelesai, PerluPDKB: *req.PerluPdkb, Notes: req.Notes, LocationCoordinates: req.LocationCoordinates},
+		}{TanggalPDKB: req.TanggalPDKB, EstimasiTanggalSelesai: req.EstimasiTanggalSelesai, PerluPDKB: *req.PerluPdkb, Notes: req.Notes, LocationCoordinates: req.LocationCoordinates},
 	}
 	applyDecision := func(snapshot *workflow.Snapshot) {
 		value := *req.PerluPdkb
@@ -221,6 +230,9 @@ func (s *permohonanService) SubmitPDKBDocumentation(ctx context.Context, id, use
 }
 
 func (s *permohonanService) SubmitEnergize(ctx context.Context, id, userID string, req dto.EnergizeSubmitRequest) (dto.PermohonanResponse, error) {
+	if req.EnergizeStatus != "temporary" && req.EnergizeStatus != "permanent" {
+		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
+	}
 	operationResult := strings.TrimSpace(req.OperationResult)
 	if operationResult == "" || utf8.RuneCountInString(operationResult) > 500 || !notesWithinLimit(req.Notes) {
 		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
@@ -229,7 +241,8 @@ func (s *permohonanService) SubmitEnergize(ctx context.Context, id, userID strin
 		workflow.Energize: struct {
 			OperationResult string `json:"operation_result"`
 			Notes           string `json:"notes,omitempty"`
-		}{OperationResult: operationResult, Notes: req.Notes},
+			EnergizeStatus  string `json:"energize_status"`
+		}{OperationResult: operationResult, Notes: req.Notes, EnergizeStatus: req.EnergizeStatus},
 	}
 	return s.completeWorkflowNodes(ctx, id, userID, req.DocumentIDs,
 		[]workflow.Code{workflow.Energize}, payloads, nil, nil)
@@ -303,7 +316,7 @@ func (s *permohonanService) completeWorkflowNodes(
 	applyDecision func(*workflow.Snapshot),
 	actions map[workflow.Code]string,
 ) (dto.PermohonanResponse, error) {
-	if err := validateEvidenceIDs(documentIDs); err != nil {
+	if err := validateEvidenceIDs(documentIDs); err != nil && !(len(codes) == 1 && codes[0] == workflow.Prioritas && len(documentIDs) == 0) {
 		return dto.PermohonanResponse{}, err
 	}
 
@@ -348,6 +361,22 @@ func (s *permohonanService) completeWorkflowNodes(
 			if err := rbac.AuthorizeWorkflowNode(actor.Role, actor.Unit, permohonan.UlpUnit, snapshot, code); err != nil {
 				return err
 			}
+			if code == workflow.WOKonstruksi && snapshot.Decisions.PerluPDKB != nil && *snapshot.Decisions.PerluPDKB {
+				var booking struct {
+					Date string `json:"tanggal_pdkb"`
+				}
+				if err := json.Unmarshal([]byte(encodedPayloads[code]), &booking); err != nil {
+					return err
+				}
+				date, err := validScheduleDate(booking.Date)
+				if err != nil {
+					return err
+				}
+				item := entities.PDKBSchedule{ID: uuid.New(), ScheduleDate: date, Title: "WO Konstruksi " + permohonan.NoPermohonan, PermohonanID: &permohonan.ID, CreatedBy: actor.ID, UpdatedBy: actor.ID}
+				if err := (repository.WorkflowChangesRepository{}).SaveSchedule(ctx, tx, &item, true); err != nil {
+					return err
+				}
+			}
 			var transitionErr error
 			snapshot, result, transitionErr = workflow.Transition(snapshot, code, workflow.Completed)
 			if transitionErr != nil {
@@ -375,6 +404,16 @@ func (s *permohonanService) completeWorkflowNodes(
 
 		permohonan.CurrentStage = result.CurrentStage
 		permohonan.Status = string(result.Status)
+		if payload, ok := payloads[workflow.Energize]; ok {
+			encoded, _ := json.Marshal(payload)
+			var status struct {
+				EnergizeStatus string `json:"energize_status"`
+			}
+			if err := json.Unmarshal(encoded, &status); err != nil {
+				return err
+			}
+			permohonan.EnergizeStatus = &status.EnergizeStatus
+		}
 		permohonan.KebutuhanTiang = cloneBool(snapshot.Decisions.KebutuhanTiang)
 		permohonan.PerluPdkb = cloneBool(snapshot.Decisions.PerluPDKB)
 		if snapshot.Decisions.NPS == "" {
@@ -492,6 +531,9 @@ func (s *permohonanService) Create(ctx context.Context, req dto.PermohonanCreate
 	if err != nil || req.NominalPembayaran == nil || *req.NominalPembayaran <= 0 {
 		return dto.PermohonanResponse{}, dto.ErrCreatePermohonan
 	}
+	if err := businessday.Supported(paymentDate); err != nil {
+		return dto.PermohonanResponse{}, err
+	}
 	creator, err := s.userRepository.GetUserById(ctx, s.db, userId)
 	if err != nil {
 		return dto.PermohonanResponse{}, dto.ErrCreatePermohonan
@@ -511,6 +553,11 @@ func (s *permohonanService) Create(ctx context.Context, req dto.PermohonanCreate
 	rules, err := s.slaRuleRepository.ListByJenis(ctx, s.db, req.JenisSambungan)
 	if err != nil {
 		return dto.PermohonanResponse{}, dto.ErrCreatePermohonan
+	}
+	for _, rule := range rules {
+		if _, err := businessday.Deadline(paymentDate, int(rule.OffsetDays)); err != nil {
+			return dto.PermohonanResponse{}, err
+		}
 	}
 
 	log := entities.ActivityLog{
@@ -542,6 +589,7 @@ func (s *permohonanService) Create(ctx context.Context, req dto.PermohonanCreate
 			RequestDate:       requestDate,
 			TanggalPembayaran: &paymentDate,
 			NominalPembayaran: req.NominalPembayaran,
+			SlaBasis:          businessday.PaymentBasis,
 			CurrentStage:      2,
 			Status:            string(workflow.Active),
 			CreatedBy:         creator.ID,
@@ -643,7 +691,7 @@ func (s *permohonanService) GetById(ctx context.Context, id string, userId strin
 		return dto.PermohonanResponse{}, dto.ErrGetPermohonanById
 	}
 	if rbac.IsVendor(requester.Role) {
-		response.WorkflowNodes = vendorWorkflowNodes(response.WorkflowNodes, requester.Role, permohonan.JenisSambungan)
+		response.WorkflowNodes = vendorWorkflowNodes(response.WorkflowNodes, requester.Role, permohonan.JenisSambungan, permohonan.LegacyPriorityExempt)
 	}
 	return response, nil
 }
@@ -668,12 +716,13 @@ func (s *permohonanService) List(ctx context.Context, filter *query.PermohonanFi
 			results[i].TanggalPembayaran = &date
 		}
 		p := entities.Permohonan{
-			JenisSambungan:      results[i].JenisSambungan,
-			UlpUnit:             results[i].UlpUnit,
-			KebutuhanTiang:      results[i].KebutuhanTiang,
-			NpsDelegationStatus: results[i].NpsDelegationStatus,
-			PerluPdkb:           results[i].PerluPdkb,
-			WorkflowNodes:       results[i].WorkflowNodes,
+			LegacyPriorityExempt: results[i].LegacyPriorityExempt,
+			JenisSambungan:       results[i].JenisSambungan,
+			UlpUnit:              results[i].UlpUnit,
+			KebutuhanTiang:       results[i].KebutuhanTiang,
+			NpsDelegationStatus:  results[i].NpsDelegationStatus,
+			PerluPdkb:            results[i].PerluPdkb,
+			WorkflowNodes:        results[i].WorkflowNodes,
 		}
 		evaluated, evaluateErr := workflow.Evaluate(p.WorkflowSnapshot())
 		if evaluateErr != nil {
@@ -682,6 +731,15 @@ func (s *permohonanService) List(ctx context.Context, filter *query.PermohonanFi
 		results[i].CurrentStage = evaluated.CurrentStage
 		results[i].Status = string(evaluated.Status)
 		results[i].SlaDeadline, results[i].SlaStatus = aggregateSLA(results[i].WorkflowNodes, evaluated, time.Now())
+		if results[i].SlaDeadline != nil {
+			for _, node := range results[i].WorkflowNodes {
+				state := evaluated.Nodes[workflow.Code(node.WorkflowNode)]
+				if (state == workflow.Available || state == workflow.InProgress) && node.SlaDeadline != nil && node.SlaDeadline.Format("2006-01-02") == *results[i].SlaDeadline {
+					results[i].SlaRemainingDays, results[i].SlaCalendarError = nodeRemaining(node, time.Now())
+					break
+				}
+			}
+		}
 		results[i].AvailableActions, err = availableActions(requester.Role, requester.Unit, p)
 		if err != nil {
 			return nil, 0, err
@@ -738,7 +796,7 @@ func (s *permohonanService) GetActivities(ctx context.Context, id, userID string
 		return nil, dto.ErrPermohonanNotFound
 	}
 	if rbac.IsVendor(requester.Role) {
-		responses = vendorWorkflowNodes(responses, requester.Role, p.JenisSambungan)
+		responses = vendorWorkflowNodes(responses, requester.Role, p.JenisSambungan, p.LegacyPriorityExempt)
 	}
 	return responses, nil
 }
@@ -759,7 +817,14 @@ func (s *permohonanService) GetActivity(ctx context.Context, id, workflowNode, u
 		return dto.WorkflowNodeDetailResponse{}, dto.ErrWorkflowNodeNotFound
 	}
 	if rbac.IsVendor(requester.Role) {
-		if !containsWorkflowCode(rbac.VendorVisibleNodes(requester.Role, p.JenisSambungan), code) {
+		historical := false
+		for _, node := range p.WorkflowNodes {
+			if node.WorkflowNode == workflowNode {
+				historical = historicalVendorNode(requester.Role, p.JenisSambungan, node.WorkflowNode, node.Status, p.LegacyPriorityExempt)
+				break
+			}
+		}
+		if !containsWorkflowCode(rbac.VendorVisibleNodes(requester.Role, p.JenisSambungan), code) && !historical {
 			return dto.WorkflowNodeDetailResponse{}, dto.ErrWorkflowNodeNotFound
 		}
 	}
@@ -859,14 +924,22 @@ func (s *permohonanService) GetLogs(ctx context.Context, id, userID string) ([]d
 	return responses, nil
 }
 
-func vendorWorkflowNodes(nodes []dto.WorkflowNodeResponse, role, connection string) []dto.WorkflowNodeResponse {
-	visibleCodes := rbac.VendorVisibleNodes(role, connection)
-	if len(visibleCodes) == 0 {
-		return []dto.WorkflowNodeResponse{}
+func historicalVendorNode(role, connection, code, status string, legacy bool) bool {
+	if status != "completed" || (code != string(workflow.WOAPP) && !(legacy && code == string(workflow.SRAPP))) {
+		return false
 	}
+	oldOwner := rbac.RoleVendorKonstruksi
+	if connection == "JTR" || connection == "JTM/Gardu" {
+		oldOwner = rbac.RoleVendorSrApp
+	}
+	return role == oldOwner
+}
+
+func vendorWorkflowNodes(nodes []dto.WorkflowNodeResponse, role, connection string, legacy ...bool) []dto.WorkflowNodeResponse {
+	visibleCodes := rbac.VendorVisibleNodes(role, connection)
 	filtered := make([]dto.WorkflowNodeResponse, 0, len(visibleCodes))
 	for _, node := range nodes {
-		if containsWorkflowCode(visibleCodes, workflow.Code(node.WorkflowNode)) {
+		if containsWorkflowCode(visibleCodes, workflow.Code(node.WorkflowNode)) || historicalVendorNode(role, connection, node.WorkflowNode, node.Status, len(legacy) > 0 && legacy[0]) {
 			filtered = append(filtered, node)
 		}
 	}
@@ -994,6 +1067,7 @@ func toPermohonanResponse(p entities.Permohonan, role, unit string, now time.Tim
 		KebutuhanTiang:      p.KebutuhanTiang,
 		NpsDelegationStatus: p.NpsDelegationStatus,
 		PerluPdkb:           p.PerluPdkb,
+		EnergizeStatus:      p.EnergizeStatus,
 		CreatedBy:           p.CreatedBy.String(),
 		WorkflowNodes:       workflowNodeResponses(p.WorkflowNodes, evaluated, now),
 		AvailableActions:    actions,
@@ -1029,10 +1103,12 @@ func workflowNodeResponses(nodes []entities.PermohonanActivity, evaluated workfl
 		if !json.Valid(payload) {
 			payload = json.RawMessage(`{}`)
 		}
+		remaining, calendarError := nodeRemaining(node, now)
 		responses = append(responses, dto.WorkflowNodeResponse{
+			SlaBasis: node.SlaBasis, SlaRemainingDays: remaining, SlaCalendarError: calendarError,
 			WorkflowNode: node.WorkflowNode, ActivityNumber: node.ActivityNumber, StageNumber: node.StageNumber,
 			Status: string(status), SlaDeadline: deadline, SlaStatus: slaStatus(node, status, now), Payload: payload,
-			CompletedBy: completedBy, CompletedAt: completedAt,
+			CompletedBy: completedBy, CompletedAt: completedAt, Revision: max(1, node.Revision),
 		})
 	}
 	for _, node := range nodes {
@@ -1055,7 +1131,7 @@ func workflowNodeResponses(nodes []entities.PermohonanActivity, evaluated workfl
 		responses = append(responses, dto.WorkflowNodeResponse{
 			WorkflowNode: node.WorkflowNode, ActivityNumber: node.ActivityNumber, StageNumber: node.StageNumber,
 			Status: node.Status, SlaDeadline: nil, SlaStatus: "none", Payload: payload,
-			CompletedBy: completedBy, CompletedAt: completedAt,
+			CompletedBy: completedBy, CompletedAt: completedAt, Revision: max(1, node.Revision),
 		})
 	}
 	return responses
@@ -1068,6 +1144,22 @@ func slaStatus(node entities.PermohonanActivity, status workflow.Status, now tim
 	reference := now
 	if node.CompletedAt != nil {
 		reference = *node.CompletedAt
+	}
+	if node.SlaBasis == businessday.PaymentBasis {
+		days, err := businessday.Remaining(*node.SlaDeadline, reference)
+		if err != nil {
+			return "unavailable"
+		}
+		if days < 0 {
+			return "overdue"
+		}
+		if status == workflow.Completed {
+			return "on_time"
+		}
+		if days <= 2 {
+			return "due_soon"
+		}
+		return "on_time"
 	}
 	deadlineDate := time.Date(node.SlaDeadline.Year(), node.SlaDeadline.Month(), node.SlaDeadline.Day(), 0, 0, 0, 0, node.SlaDeadline.Location())
 	referenceDate := time.Date(reference.Year(), reference.Month(), reference.Day(), 0, 0, 0, 0, node.SlaDeadline.Location())
@@ -1104,7 +1196,8 @@ func actionPath(code workflow.Code) string {
 		workflow.Permohonan: "/api/permohonan", workflow.Survei: "/api/permohonan/{id}/survei",
 		workflow.RAB: "/api/permohonan/{id}/rab-kko-kkf", workflow.KebutuhanTiang: "/api/permohonan/{id}/rab-kko-kkf",
 		workflow.Perluasan: "/api/permohonan/{id}/permohonan-perluasan", workflow.NPS: "/api/permohonan/{id}/permohonan-perluasan",
-		workflow.WOTiang: "/api/permohonan/{id}/wo-vendor/tiang", workflow.WOKonstruksi: "/api/permohonan/{id}/wo-vendor/konstruksi",
+		workflow.Prioritas: "/api/permohonan/{id}/verifikasi-prioritas",
+		workflow.WOTiang:   "/api/permohonan/{id}/wo-vendor/tiang", workflow.WOKonstruksi: "/api/permohonan/{id}/wo-vendor/konstruksi",
 		workflow.WOAPP: "/api/permohonan/{id}/wo-vendor/app", workflow.Reservasi: "/api/permohonan/{id}/reservasi-material",
 		workflow.Tera:   "/api/permohonan/{id}/tera-app",
 		workflow.WOPDKB: "/api/permohonan/{id}/wo-pdkb", workflow.PemasanganTiang: "/api/permohonan/{id}/pelaksanaan-konstruksi",

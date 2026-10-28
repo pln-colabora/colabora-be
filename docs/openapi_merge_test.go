@@ -30,7 +30,9 @@ func TestMergedOpenAPIContainsOnlyResolvableLocalComponentReferences(t *testing.
 	for _, path := range []string{
 		"/api/permohonan/{id}/wo-vendor/tiang",
 		"/api/permohonan/{id}/wo-vendor/konstruksi",
-		"/api/permohonan/{id}/wo-vendor/app",
+		"/api/permohonan/{id}/verifikasi-prioritas",
+		"/api/permohonan/{id}/wo-vendor/konstruksi/documents",
+		"/api/pdkb/schedules",
 		"/api/permohonan/{id}/reservasi-material",
 		"/api/permohonan/{id}/wo-pdkb",
 		"/api/permohonan/{id}/pelaksanaan-konstruksi",
@@ -42,6 +44,8 @@ func TestMergedOpenAPIContainsOnlyResolvableLocalComponentReferences(t *testing.
 	} {
 		require.Contains(t, paths, path)
 	}
+	require.NotContains(t, paths, "/api/permohonan/{id}/wo-vendor/app")
+	require.NotContains(t, paths, "/api/permohonan/{id}/wo-vendor/app/export")
 	assertResolvableReferences(t, document, document)
 }
 
@@ -70,11 +74,11 @@ func TestPermohonanStageDocumentsKeepBusinessGrouping(t *testing.T) {
 		},
 		"./docs/stage-02-survei.yaml": {
 			tag:   "Tahap 2 — Survei Perluasan Jaringan",
-			paths: []string{"/api/permohonan/{id}/survei"},
+			paths: []string{"/api/permohonan/{id}/survei", "/api/permohonan/{id}/activities/{workflow_node}/revisions"},
 		},
 		"./docs/stage-03-perencanaan-perluasan.yaml": {
 			tag:   "Tahap 3 — Perencanaan Perluasan",
-			paths: []string{"/api/permohonan/{id}/rab-kko-kkf", "/api/permohonan/{id}/permohonan-perluasan"},
+			paths: []string{"/api/permohonan/{id}/rab-kko-kkf", "/api/permohonan/{id}/verifikasi-prioritas", "/api/permohonan/{id}/permohonan-perluasan"},
 		},
 		"./docs/stage-04-pra-pelaksanaan-konstruksi.yaml": {
 			tag: "Tahap 4 — Pra Pelaksanaan Konstruksi",
@@ -83,8 +87,9 @@ func TestPermohonanStageDocumentsKeepBusinessGrouping(t *testing.T) {
 				"/api/permohonan/{id}/wo-vendor/tiang/export",
 				"/api/permohonan/{id}/wo-vendor/konstruksi",
 				"/api/permohonan/{id}/wo-vendor/konstruksi/export",
-				"/api/permohonan/{id}/wo-vendor/app",
-				"/api/permohonan/{id}/wo-vendor/app/export",
+				"/api/permohonan/{id}/wo-vendor/konstruksi/documents",
+				"/api/pdkb/schedules",
+				"/api/pdkb/schedules/{schedule_id}",
 				"/api/permohonan/{id}/reservasi-material",
 				"/api/permohonan/{id}/tera-app",
 				"/api/permohonan/{id}/wo-pdkb",

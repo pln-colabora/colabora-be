@@ -10,6 +10,7 @@ import (
 
 	"github.com/pln-colabora/colabora-be/database/entities"
 	"github.com/pln-colabora/colabora-be/modules/notification/repository"
+	"github.com/pln-colabora/colabora-be/pkg/businessday"
 	"github.com/pln-colabora/colabora-be/pkg/rbac"
 	"github.com/pln-colabora/colabora-be/pkg/utils"
 	"github.com/pln-colabora/colabora-be/pkg/workflow"
@@ -148,7 +149,24 @@ func (s *emailService) QueueDueSLA(ctx context.Context) error {
 			}
 			deadline := dateOnly(*node.SlaDeadline, location)
 			kind := ""
-			if today.Equal(deadline.AddDate(0, 0, -1)) {
+			if node.SlaBasis == businessday.PaymentBasis {
+				working, err := businessday.IsWorking(today)
+				if err != nil {
+					return err
+				}
+				if !working {
+					continue
+				}
+				days, err := businessday.Remaining(deadline, today)
+				if err != nil {
+					return err
+				}
+				if days == 1 {
+					kind = "sla_reminder"
+				} else if days < 0 {
+					kind = "sla_overdue"
+				}
+			} else if today.Equal(deadline.AddDate(0, 0, -1)) {
 				kind = "sla_reminder"
 			} else if !today.Before(deadline.AddDate(0, 0, 1)) {
 				kind = "sla_overdue"
@@ -189,7 +207,11 @@ func (s *emailService) queueNodeForUsers(ctx context.Context, tx *gorm.DB, reque
 	switch kind {
 	case "sla_reminder":
 		subject = fmt.Sprintf("COLABORA: Reminder SLA - %s", label)
-		body = fmt.Sprintf("<p>Pengingat: SLA untuk %s pada permohonan <strong>%s</strong> berakhir besok.</p>", html.EscapeString(label), html.EscapeString(request.NoPermohonan))
+		when := "besok"
+		if node.SlaBasis == businessday.PaymentBasis {
+			when = "pada hari kerja berikutnya"
+		}
+		body = fmt.Sprintf("<p>Pengingat: SLA untuk %s pada permohonan <strong>%s</strong> berakhir %s.</p>", html.EscapeString(label), html.EscapeString(request.NoPermohonan), when)
 	case "sla_overdue":
 		subject = fmt.Sprintf("COLABORA: SLA terlewati - %s", label)
 		body = fmt.Sprintf("<p>SLA untuk %s pada permohonan <strong>%s</strong> telah terlewati.</p>", html.EscapeString(label), html.EscapeString(request.NoPermohonan))

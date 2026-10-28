@@ -1,6 +1,6 @@
 # Evidence Lifecycle
 
-**Status:** Implemented state, 25 September 2026
+**Status:** Implementasi branch dev, 26 Oktober 2026
 **Perspektif:** Dokumen private dan association ke workflow node
 
 ```mermaid
@@ -31,7 +31,13 @@ flowchart TD
   unattached -->|activity submission| attach{"Atomic attachment checks"}
   attach -->|missing / wrong uploader /<br/>superseded / other request / duplicate| rollback["Rollback activity + evidence"]
   attach -->|valid| bound["Bind document to permohonan<br/>create DocumentEvidence per node"]
-  bound --> immutable["Attached evidence immutable<br/>one file may evidence multiple nodes"]
+  bound --> immutable["File terlampir tetap tersimpan<br/>satu file dapat menjadi evidence beberapa node"]
+  immutable --> revise{"Revisi survei atau lampiran<br/>upload WO Konstruksi?"}
+  revise -->|owner, completed, revision dan evidence valid| snapshot["Simpan payload dan pilihan lama<br/>ActivityRevision"]
+  snapshot --> select["Pilih evidence terbaru<br/>ubah is_current + revision + audit secara atomik"]
+  select --> current["Pilihan evidence terbaru<br/>completion dan SLA tetap"]
+  revise -->|revision usang / evidence tidak valid| rollback
+  current --> download
   immutable --> download["Authorized read guard<br/>backend-streamed document"]
   unattached -->|older than configured TTL| cleanup["cleanup-orphan-documents"]
   cleanup --> deleteobject["Delete private object"] --> deleterow["Delete row if still unattached"]
@@ -46,3 +52,12 @@ flowchart TD
 Object key, original filename, customer data, dan storage credential tidak ditulis ke
 activity log. Jika persistence upload gagal setelah object dibuat, service mencoba
 menghapus object sebagai kompensasi.
+
+Revisi attachment berlaku hanya pada survei dan lampiran upload WO Konstruksi,
+termasuk setelah aggregate completed/returned. File dan evidence historis tidak
+dihapus. PDF WO generated serta association node lain tidak berubah; superseding
+upload unattached berbeda dari memilih ulang evidence melalui endpoint revisi.
+
+Survei tetap memerlukan minimal satu evidence. Kategori izin pemilik tanah,
+perangkat desa, atau gabungan keduanya tersedia dan opsional. Batas per file
+30 MiB; XLSX diterima dengan pemeriksaan isi/MIME, termasuk untuk RAB/KKO/KKF.

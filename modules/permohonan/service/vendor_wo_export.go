@@ -24,6 +24,9 @@ type VendorWOExporter interface {
 }
 
 func (s *permohonanService) ExportVendorWOPDF(ctx context.Context, id, workflowNode, userID string) ([]byte, string, error) {
+	if workflowNode == string(workflow.WOAPP) {
+		return nil, "", workflow.ErrNotActionable
+	}
 	store, ok := s.workflowDocumentUploader.(generatedWODocumentStore)
 	if !ok {
 		return nil, "", errors.New("generated document storage is unavailable")
@@ -198,8 +201,12 @@ func (s *permohonanService) ExportVendorWOPDF(ctx context.Context, id, workflowN
 }
 
 func vendorRoleForWO(code workflow.Code, connection string) (string, bool) {
-	if code == workflow.WOAPP {
-		return workflow.Owner(workflow.SRAPP, connection)
+	if code == workflow.WOAPP && workflow.ValidConnection(connection) {
+		// Historical WO APP recipients retain their original vendor identity.
+		if connection == "JTR" || connection == "JTM/Gardu" {
+			return rbac.RoleVendorSrApp, true
+		}
+		return rbac.RoleVendorKonstruksi, true
 	}
 	return "", false
 }

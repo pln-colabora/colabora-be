@@ -68,7 +68,7 @@ paths:
                 pelanggan_no_hp: { type: string, minLength: 8, maxLength: 20 }
                 tanggal_pembayaran: { type: string, format: date }
                 nominal_pembayaran: { type: integer, format: int64, minimum: 1, description: Nominal pembayaran dalam rupiah }
-                evidence_files: { type: array, minItems: 1, items: { type: string, format: binary }, description: One or more PDF/JPEG/PNG evidence files }
+                evidence_files: { type: array, minItems: 1, items: { type: string, format: binary }, description: One or more PDF/JPEG/PNG/XLS/XLSX evidence files, maximum 30 MiB per file }
               example:
                 jenis_permohonan: "Pasang Baru (PB)"
                 jenis_sambungan: "JTR"
@@ -294,19 +294,23 @@ components:
         pelanggan_alamat: { type: string }
         pelanggan_no_hp: { type: string }
         request_date: { type: string, format: date }
+        energize_status: { type: string, nullable: true, enum: [temporary, permanent] }
+        sla_basis: { type: string, enum: [calendar, payment_workdays_v1] }
+        sla_remaining_days: { type: integer, nullable: true }
+        sla_calendar_error: { type: string }
         tanggal_pembayaran: { type: string, format: date, nullable: true }
         nominal_pembayaran: { type: integer, format: int64, nullable: true, description: Nominal pembayaran dalam rupiah }
         current_stage: { type: integer, minimum: 1, maximum: 7 }
         status: { type: string, enum: [in_progress, completed, returned] }
         sla_deadline: { type: string, format: date, nullable: true }
-        sla_status: { type: string, enum: [none, on_time, due_soon, overdue] }
+        sla_status: { type: string, enum: [none, on_time, due_soon, overdue, unavailable] }
         kebutuhan_tiang: { type: boolean, nullable: true }
         nps_delegation_status: { type: string, nullable: true, enum: [delegated, returned] }
         perlu_pdkb: { type: boolean, nullable: true }
         created_by: { type: string, format: uuid }
         workflow_nodes: { type: array, description: "Vendor callers receive their issued WO plus workflow nodes owned by their role for the connection type; internal callers receive the full projection.", items: { $ref: "#/components/schemas/WorkflowNode" } }
         available_actions: { type: array, items: { $ref: "#/components/schemas/AvailableAction" } }
-    WorkflowNode: { type: object, properties: { workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, status: { type: string, enum: [locked, available, in_progress, completed, skipped] }, sla_deadline: { type: string, format: date, nullable: true }, sla_status: { type: string, enum: [none, on_time, due_soon, overdue] }, payload: { type: object, additionalProperties: true }, completed_by: { type: string, format: uuid, nullable: true }, completed_at: { type: string, format: date-time, nullable: true } } }
+    WorkflowNode: { type: object, properties: { revision: { type: integer, minimum: 1 }, sla_basis: { type: string }, sla_remaining_days: { type: integer, nullable: true }, sla_calendar_error: { type: string }, workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, status: { type: string, enum: [locked, available, in_progress, completed, skipped] }, sla_deadline: { type: string, format: date, nullable: true }, sla_status: { type: string, enum: [none, on_time, due_soon, overdue, unavailable] }, payload: { type: object, additionalProperties: true }, completed_by: { type: string, format: uuid, nullable: true }, completed_at: { type: string, format: date-time, nullable: true } } }
     TariffPowerOption: { type: object, properties: { tarif: { type: string }, golongan_tarif: { type: string }, jenis_sambungan: { type: string }, daya_min: { type: integer, format: int64 }, daya_max: { type: integer, format: int64, nullable: true }, label: { type: string } } }
     TariffPowerOptionsEnvelope:
       allOf:

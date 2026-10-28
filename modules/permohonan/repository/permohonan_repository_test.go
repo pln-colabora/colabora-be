@@ -89,9 +89,9 @@ func workflowRepositoryDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open("file:"+uuid.NewString()+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 	statements := []string{
-		`CREATE TABLE permohonan (id TEXT PRIMARY KEY, no_permohonan TEXT, jenis_permohonan TEXT, jenis_sambungan TEXT, tarif TEXT, daya_lama INTEGER, daya_baru INTEGER, ulp_unit TEXT, pelanggan_nama TEXT, pelanggan_alamat TEXT, pelanggan_no_hp TEXT, request_date DATETIME, tanggal_pembayaran DATE, nominal_pembayaran INTEGER, current_stage INTEGER, status TEXT, kebutuhan_tiang NUMERIC, nps_delegation_status TEXT, perlu_pdkb NUMERIC, created_by TEXT, created_at DATETIME, updated_at DATETIME)`,
+		`CREATE TABLE permohonan (id TEXT PRIMARY KEY, no_permohonan TEXT, jenis_permohonan TEXT, jenis_sambungan TEXT, tarif TEXT, daya_lama INTEGER, daya_baru INTEGER, ulp_unit TEXT, pelanggan_nama TEXT, pelanggan_alamat TEXT, pelanggan_no_hp TEXT, request_date DATETIME, tanggal_pembayaran DATE, nominal_pembayaran INTEGER, sla_basis TEXT DEFAULT calendar, current_stage INTEGER, status TEXT, kebutuhan_tiang NUMERIC, nps_delegation_status TEXT, perlu_pdkb NUMERIC, legacy_priority_exempt BOOLEAN DEFAULT false, energize_status TEXT, created_by TEXT, created_at DATETIME, updated_at DATETIME)`,
 		`CREATE TABLE permohonan_number_counters (request_year INTEGER PRIMARY KEY, last_number INTEGER NOT NULL)`,
-		`CREATE TABLE permohonan_activities (id TEXT PRIMARY KEY, permohonan_id TEXT, workflow_node TEXT, activity_number INTEGER, stage_number INTEGER, status TEXT, sla_deadline DATETIME, payload TEXT, completed_by TEXT, completed_at DATETIME, created_at DATETIME, updated_at DATETIME, UNIQUE(permohonan_id, workflow_node))`,
+		`CREATE TABLE permohonan_activities (id TEXT PRIMARY KEY, permohonan_id TEXT, workflow_node TEXT, activity_number INTEGER, stage_number INTEGER, status TEXT, sla_deadline DATETIME, sla_basis TEXT DEFAULT calendar, payload TEXT, revision INTEGER DEFAULT 1, completed_by TEXT, completed_at DATETIME, created_at DATETIME, updated_at DATETIME, UNIQUE(permohonan_id, workflow_node))`,
 		`CREATE TABLE activity_logs (id TEXT PRIMARY KEY, permohonan_id TEXT, activity_number INTEGER, actor TEXT, action TEXT, detail TEXT, workflow_node TEXT, created_at DATETIME, updated_at DATETIME)`,
 	}
 	for _, statement := range statements {

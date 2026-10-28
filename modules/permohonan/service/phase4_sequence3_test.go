@@ -202,7 +202,7 @@ func stage5Request(t *testing.T, connection string, poleRequired, pdkbRequired b
 		NPS:            workflow.Delegated,
 	}
 	codes := []workflow.Code{
-		workflow.Survei, workflow.RAB, workflow.KebutuhanTiang, workflow.Perluasan, workflow.NPS,
+		workflow.Survei, workflow.RAB, workflow.KebutuhanTiang, workflow.Prioritas, workflow.Perluasan, workflow.NPS,
 	}
 	if poleRequired {
 		codes = append(codes, workflow.WOTiang)
@@ -211,7 +211,7 @@ func stage5Request(t *testing.T, connection string, poleRequired, pdkbRequired b
 	if pdkbRequired {
 		codes = append(codes, workflow.WOPDKB)
 	}
-	codes = append(codes, workflow.WOAPP, workflow.Reservasi, workflow.Tera)
+	codes = append(codes, workflow.Reservasi, workflow.Tera)
 	advancePhase4(t, &p, &decisions, codes...)
 	return p
 }

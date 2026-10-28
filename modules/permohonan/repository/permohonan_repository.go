@@ -51,6 +51,7 @@ func (r *permohonanRepository) SaveWorkflow(ctx context.Context, tx *gorm.DB, pe
 		"kebutuhan_tiang":       permohonan.KebutuhanTiang,
 		"nps_delegation_status": permohonan.NpsDelegationStatus,
 		"perlu_pdkb":            permohonan.PerluPdkb,
+		"energize_status":       permohonan.EnergizeStatus,
 	}).Error; err != nil {
 		return err
 	}

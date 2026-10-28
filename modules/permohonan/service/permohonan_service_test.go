@@ -153,6 +153,7 @@ func phase3DB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&entities.PDKBSchedule{}))
 	return db
 }
 
@@ -259,7 +260,7 @@ func TestListProjectsOnlyCallerOwnedParallelAction(t *testing.T) {
 	require.NoError(t, err)
 	completed := map[string]bool{
 		string(workflow.Permohonan): true, string(workflow.Survei): true, string(workflow.RAB): true,
-		string(workflow.KebutuhanTiang): true, string(workflow.Perluasan): true, string(workflow.NPS): true,
+		string(workflow.Prioritas): true, string(workflow.KebutuhanTiang): true, string(workflow.Perluasan): true, string(workflow.NPS): true,
 	}
 	for i := range nodes {
 		if completed[nodes[i].WorkflowNode] {
@@ -275,7 +276,7 @@ func TestListProjectsOnlyCallerOwnedParallelAction(t *testing.T) {
 	}{
 		{role: rbac.RolePerencanaan, node: workflow.WOTiang},
 		{role: rbac.RoleKonstruksi, node: workflow.WOKonstruksi},
-		{role: rbac.RoleTransaksiEnergi, node: workflow.WOAPP},
+		{role: rbac.RoleTransaksiEnergi, node: workflow.Tera},
 	}
 	for _, test := range tests {
 		t.Run(test.role, func(t *testing.T) {
@@ -447,7 +448,7 @@ func TestSubmitRABRejectsOutOfOrderAndCompletesPoleDecision(t *testing.T) {
 	require.True(t, *response.KebutuhanTiang)
 	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.RAB).Status)
 	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.KebutuhanTiang).Status)
-	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.Perluasan).Status)
+	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.Prioritas).Status)
 	require.Equal(t, []workflow.Code{workflow.RAB, workflow.KebutuhanTiang}, docRepo.attachCalls)
 	require.Len(t, repo.logs, 2)
 }
@@ -457,7 +458,7 @@ func TestSubmitExpansionDelegatesOrReturns(t *testing.T) {
 		t.Run(outcome, func(t *testing.T) {
 			p := phase4Request(t, rbac.JenisSambunganPlgTmLebih5)
 			poleRequired := true
-			advancePhase4(t, &p, &workflow.Decisions{KebutuhanTiang: &poleRequired}, workflow.Survei, workflow.RAB, workflow.KebutuhanTiang)
+			advancePhase4(t, &p, &workflow.Decisions{KebutuhanTiang: &poleRequired}, workflow.Survei, workflow.RAB, workflow.KebutuhanTiang, workflow.Prioritas)
 			repo := &phase3PermohonanRepository{byID: p}
 			docRepo := &phase4DocumentRepository{}
 			user := entities.User{ID: uuid.New(), Role: rbac.RoleNps, Unit: "UP3"}
@@ -477,7 +478,7 @@ func TestSubmitExpansionDelegatesOrReturns(t *testing.T) {
 			} else {
 				require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.WOTiang).Status)
 				require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.WOKonstruksi).Status)
-				require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.WOAPP).Status)
+				require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.Tera).Status)
 			}
 		})
 	}
@@ -486,7 +487,7 @@ func TestSubmitExpansionDelegatesOrReturns(t *testing.T) {
 func TestDelegationSkipsPoleBranchWhenRABSaysNoPole(t *testing.T) {
 	p := phase4Request(t, rbac.JenisSambunganJTMGardu)
 	poleRequired := false
-	advancePhase4(t, &p, &workflow.Decisions{KebutuhanTiang: &poleRequired}, workflow.Survei, workflow.RAB, workflow.KebutuhanTiang)
+	advancePhase4(t, &p, &workflow.Decisions{KebutuhanTiang: &poleRequired}, workflow.Survei, workflow.RAB, workflow.KebutuhanTiang, workflow.Prioritas)
 	repo := &phase3PermohonanRepository{byID: p}
 	docRepo := &phase4DocumentRepository{}
 	user := entities.User{ID: uuid.New(), Role: rbac.RoleNps, Unit: "UP3"}
@@ -498,7 +499,7 @@ func TestDelegationSkipsPoleBranchWhenRABSaysNoPole(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, string(workflow.Skipped), responseNode(t, response, workflow.WOTiang).Status)
 	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.WOKonstruksi).Status)
-	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.WOAPP).Status)
+	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.Tera).Status)
 }
 
 func TestSubmitRABForPLGTMUsesPlanningOwner(t *testing.T) {
@@ -840,10 +841,10 @@ func phase4IntegrationDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 	statements := []string{
 		`CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, email TEXT, telp_number TEXT, password TEXT, role TEXT, unit TEXT, image_url TEXT, is_verified NUMERIC, created_at DATETIME, updated_at DATETIME)`,
-		`CREATE TABLE permohonan (id TEXT PRIMARY KEY, no_permohonan TEXT, jenis_permohonan TEXT, jenis_sambungan TEXT, tarif TEXT, daya_lama INTEGER, daya_baru INTEGER, ulp_unit TEXT, pelanggan_nama TEXT, pelanggan_alamat TEXT, pelanggan_no_hp TEXT, request_date DATETIME, tanggal_pembayaran DATE, nominal_pembayaran INTEGER, current_stage INTEGER, status TEXT, kebutuhan_tiang NUMERIC, nps_delegation_status TEXT, perlu_pdkb NUMERIC, created_by TEXT, created_at DATETIME, updated_at DATETIME)`,
-		`CREATE TABLE permohonan_activities (id TEXT PRIMARY KEY, permohonan_id TEXT, workflow_node TEXT, activity_number INTEGER, stage_number INTEGER, status TEXT, sla_deadline DATETIME, payload TEXT, completed_by TEXT, completed_at DATETIME, created_at DATETIME, updated_at DATETIME, UNIQUE(permohonan_id, workflow_node))`,
+		`CREATE TABLE permohonan (id TEXT PRIMARY KEY, no_permohonan TEXT, jenis_permohonan TEXT, jenis_sambungan TEXT, tarif TEXT, daya_lama INTEGER, daya_baru INTEGER, ulp_unit TEXT, pelanggan_nama TEXT, pelanggan_alamat TEXT, pelanggan_no_hp TEXT, request_date DATETIME, tanggal_pembayaran DATE, nominal_pembayaran INTEGER, sla_basis TEXT DEFAULT calendar, current_stage INTEGER, status TEXT, kebutuhan_tiang NUMERIC, nps_delegation_status TEXT, perlu_pdkb NUMERIC, legacy_priority_exempt BOOLEAN DEFAULT false, energize_status TEXT, created_by TEXT, created_at DATETIME, updated_at DATETIME)`,
+		`CREATE TABLE permohonan_activities (id TEXT PRIMARY KEY, permohonan_id TEXT, workflow_node TEXT, activity_number INTEGER, stage_number INTEGER, status TEXT, sla_deadline DATETIME, sla_basis TEXT DEFAULT calendar, payload TEXT, revision INTEGER DEFAULT 1, completed_by TEXT, completed_at DATETIME, created_at DATETIME, updated_at DATETIME, UNIQUE(permohonan_id, workflow_node))`,
 		`CREATE TABLE documents (id TEXT PRIMARY KEY, type TEXT, file_path TEXT, original_filename TEXT, mime_type TEXT, size_bytes INTEGER, checksum_sha256 TEXT, source TEXT, classification TEXT, scan_status TEXT, scan_checked_at DATETIME, revision INTEGER, supersedes_id TEXT, superseded_by_id TEXT, uploaded_by TEXT, permohonan_id TEXT, created_at DATETIME, updated_at DATETIME)`,
-		`CREATE TABLE document_evidence (id TEXT PRIMARY KEY, document_id TEXT, permohonan_id TEXT, workflow_node TEXT, attached_by TEXT, created_at DATETIME, updated_at DATETIME, UNIQUE(document_id, workflow_node))`,
+		`CREATE TABLE document_evidence (id TEXT PRIMARY KEY, document_id TEXT, permohonan_id TEXT, workflow_node TEXT, attached_by TEXT, is_current BOOLEAN DEFAULT true, created_at DATETIME, updated_at DATETIME, UNIQUE(document_id, workflow_node))`,
 		`CREATE TABLE account_documents (id TEXT PRIMARY KEY, user_id TEXT, document_id TEXT, document_type TEXT, created_at DATETIME, updated_at DATETIME)`,
 		`CREATE TABLE activity_logs (id TEXT PRIMARY KEY, permohonan_id TEXT, activity_number INTEGER, actor TEXT, action TEXT, detail TEXT, workflow_node TEXT, created_at DATETIME, updated_at DATETIME)`,
 	}

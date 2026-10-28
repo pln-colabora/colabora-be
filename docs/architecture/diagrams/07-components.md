@@ -1,6 +1,6 @@
 # Component Diagram
 
-**Status:** Implemented state, 25 September 2026
+**Status:** Implementasi branch dev, 26 Oktober 2026
 **Perspektif:** Runtime backend dan layanan eksternal
 
 ```mermaid
@@ -21,6 +21,7 @@ flowchart LR
     end
 
     workflow["pkg/workflow<br/>Pure dependency evaluator"]
+    businessday["pkg/businessday<br/>Kalender SLA WIB 2026–2027"]
     rbac["pkg/rbac<br/>Node ownership + read scope"]
     di["samber/do<br/>providers/core.go"]
     migrations["Migrations + Seeders"]
@@ -44,6 +45,7 @@ flowchart LR
   di -. constructs .-> user
   di -. constructs .-> permohonan
   di -. constructs .-> document
+  permohonan --> businessday
   permohonan --> workflow
   permohonan --> rbac
   document --> rbac
@@ -59,7 +61,7 @@ flowchart LR
 
   classDef domain fill:#fef3c7,stroke:#b45309,color:#78350f
   classDef infra fill:#e2e8f0,stroke:#475569,color:#0f172a
-  class workflow,rbac domain
+  class workflow,rbac,businessday domain
   class postgres,garage,clamav,email infra
 ```
 

@@ -92,6 +92,7 @@ type (
 	}
 
 	WOConstructionSubmitRequest struct {
+		TanggalPDKB            string               `json:"tanggal_pdkb"`
 		EstimasiTanggalSelesai string               `json:"estimasi_tanggal_selesai" binding:"required" validate:"required"`
 		PerluPdkb              *bool                `json:"perlu_pdkb" binding:"required" validate:"required"`
 		Notes                  string               `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
@@ -107,12 +108,14 @@ type (
 	}
 
 	EnergizeSubmitRequest struct {
+		EnergizeStatus  string   `json:"energize_status" binding:"required,oneof=temporary permanent" validate:"required,oneof=temporary permanent"`
 		OperationResult string   `json:"operation_result" binding:"required,max=500" validate:"required,max=500"`
 		Notes           string   `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
 		DocumentIDs     []string `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
 	}
 
 	PermohonanResponse struct {
+		EnergizeStatus      *string                `json:"energize_status"`
 		ID                  string                 `json:"id"`
 		NoPermohonan        string                 `json:"no_permohonan"`
 		JenisPermohonan     string                 `json:"jenis_permohonan"`
@@ -147,15 +150,19 @@ type (
 	}
 
 	WorkflowNodeResponse struct {
-		WorkflowNode   string          `json:"workflow_node"`
-		ActivityNumber *int16          `json:"activity_number"`
-		StageNumber    int16           `json:"stage_number"`
-		Status         string          `json:"status"`
-		SlaDeadline    *string         `json:"sla_deadline"`
-		SlaStatus      string          `json:"sla_status"`
-		Payload        json.RawMessage `json:"payload"`
-		CompletedBy    *string         `json:"completed_by"`
-		CompletedAt    *string         `json:"completed_at"`
+		SlaBasis         string          `json:"sla_basis"`
+		SlaRemainingDays *int            `json:"sla_remaining_days"`
+		SlaCalendarError string          `json:"sla_calendar_error,omitempty"`
+		Revision         int             `json:"revision"`
+		WorkflowNode     string          `json:"workflow_node"`
+		ActivityNumber   *int16          `json:"activity_number"`
+		StageNumber      int16           `json:"stage_number"`
+		Status           string          `json:"status"`
+		SlaDeadline      *string         `json:"sla_deadline"`
+		SlaStatus        string          `json:"sla_status"`
+		Payload          json.RawMessage `json:"payload"`
+		CompletedBy      *string         `json:"completed_by"`
+		CompletedAt      *string         `json:"completed_at"`
 	}
 
 	WorkflowNodeDetailResponse struct {

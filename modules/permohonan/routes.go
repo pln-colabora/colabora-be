@@ -12,6 +12,7 @@ import (
 
 func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
 	permohonanController := do.MustInvoke[controller.PermohonanController](injector)
+	changes := permohonanController.(controller.WorkflowChangesController)
 	jwtService := do.MustInvokeNamed[service.JWTService](injector, constants.JWTService)
 
 	permohonanRoutes := server.Group("/api/permohonan")
@@ -20,12 +21,15 @@ func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
 	{
 		permohonanRoutes.POST("", permohonanController.Create)
 		permohonanRoutes.POST("/:id/survei", permohonanController.SubmitSurvey)
+		permohonanRoutes.POST("/:id/verifikasi-prioritas", changes.SubmitPriority)
+		permohonanRoutes.PUT("/:id/survei", changes.EditSurvey)
+		permohonanRoutes.PUT("/:id/wo-vendor/konstruksi/documents", changes.ReviseConstructionDocuments)
+		permohonanRoutes.GET("/:id/activities/:workflow_node/revisions", changes.GetRevisions)
 		permohonanRoutes.POST("/:id/rab-kko-kkf", permohonanController.SubmitRAB)
 		permohonanRoutes.POST("/:id/permohonan-perluasan", permohonanController.SubmitExpansion)
 		permohonanRoutes.POST("/:id/wo-vendor/tiang", permohonanController.SubmitWOTiang)
 		permohonanRoutes.POST("/:id/wo-vendor/:wo_type/export", permohonanController.ExportVendorWO)
 		permohonanRoutes.POST("/:id/wo-vendor/konstruksi", permohonanController.SubmitWOConstruction)
-		permohonanRoutes.POST("/:id/wo-vendor/app", permohonanController.SubmitWOAPP)
 		permohonanRoutes.POST("/:id/reservasi-material", permohonanController.SubmitReservation)
 		permohonanRoutes.POST("/:id/tera-app", permohonanController.SubmitTera)
 		permohonanRoutes.POST("/:id/wo-pdkb", permohonanController.SubmitWOPDKB)
@@ -46,4 +50,11 @@ func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
 	tariffRoutes := server.Group("/api/tariffs")
 	tariffRoutes.Use(middlewares.Authenticate(jwtService))
 	tariffRoutes.GET("", permohonanController.GetTariffOptions)
+
+	scheduleRoutes := server.Group("/api/pdkb/schedules")
+	scheduleRoutes.Use(middlewares.Authenticate(jwtService))
+	scheduleRoutes.GET("", changes.ListPDKBSchedules)
+	scheduleRoutes.POST("", changes.SavePDKBSchedule)
+	scheduleRoutes.PUT("/:schedule_id", changes.SavePDKBSchedule)
+	scheduleRoutes.DELETE("/:schedule_id", changes.DeletePDKBSchedule)
 }

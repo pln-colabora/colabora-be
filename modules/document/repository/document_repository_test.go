@@ -107,7 +107,7 @@ func documentRepositoryDB(t *testing.T) *gorm.DB {
 	statements := []string{
 		`CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, email TEXT, telp_number TEXT, password TEXT, role TEXT, unit TEXT, image_url TEXT, is_verified BOOLEAN, created_at DATETIME, updated_at DATETIME)`,
 		`CREATE TABLE documents (id TEXT PRIMARY KEY, type TEXT, file_path TEXT, original_filename TEXT, mime_type TEXT, size_bytes INTEGER, checksum_sha256 TEXT, source TEXT, classification TEXT, scan_status TEXT, scan_checked_at DATETIME, revision INTEGER, supersedes_id TEXT, superseded_by_id TEXT, uploaded_by TEXT, permohonan_id TEXT, created_at DATETIME, updated_at DATETIME)`,
-		`CREATE TABLE document_evidence (id TEXT PRIMARY KEY, document_id TEXT, permohonan_id TEXT, workflow_node TEXT, attached_by TEXT, created_at DATETIME, updated_at DATETIME, UNIQUE(document_id, workflow_node))`,
+		`CREATE TABLE document_evidence (id TEXT PRIMARY KEY, document_id TEXT, permohonan_id TEXT, workflow_node TEXT, attached_by TEXT, is_current BOOLEAN DEFAULT true, created_at DATETIME, updated_at DATETIME, UNIQUE(document_id, workflow_node))`,
 		`CREATE TABLE account_documents (id TEXT PRIMARY KEY, user_id TEXT, document_id TEXT, document_type TEXT, created_at DATETIME, updated_at DATETIME)`,
 	}
 	for _, statement := range statements {

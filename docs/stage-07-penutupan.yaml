@@ -55,17 +55,21 @@ components:
         pelanggan_alamat: { type: string }
         pelanggan_no_hp: { type: string }
         request_date: { type: string, format: date }
+        energize_status: { type: string, nullable: true, enum: [temporary, permanent] }
+        sla_basis: { type: string, enum: [calendar, payment_workdays_v1] }
+        sla_remaining_days: { type: integer, nullable: true }
+        sla_calendar_error: { type: string }
         current_stage: { type: integer, minimum: 1, maximum: 7 }
         status: { type: string, enum: [in_progress, completed, returned] }
         sla_deadline: { type: string, format: date, nullable: true }
-        sla_status: { type: string, enum: [none, on_time, due_soon, overdue] }
+        sla_status: { type: string, enum: [none, on_time, due_soon, overdue, unavailable] }
         kebutuhan_tiang: { type: boolean, nullable: true }
         nps_delegation_status: { type: string, nullable: true, enum: [delegated, returned] }
         perlu_pdkb: { type: boolean, nullable: true }
         created_by: { type: string, format: uuid }
         workflow_nodes: { type: array, description: "Vendor callers receive their issued WO plus workflow nodes owned by their role for the connection type; internal callers receive the full projection.", items: { $ref: "#/components/schemas/WorkflowNode" } }
         available_actions: { type: array, items: { $ref: "#/components/schemas/AvailableAction" } }
-    WorkflowNode: { type: object, properties: { workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, status: { type: string, enum: [locked, available, in_progress, completed, skipped] }, sla_deadline: { type: string, format: date, nullable: true }, sla_status: { type: string, enum: [none, on_time, due_soon, overdue] }, payload: { type: object, additionalProperties: true }, completed_by: { type: string, format: uuid, nullable: true }, completed_at: { type: string, format: date-time, nullable: true } } }
+    WorkflowNode: { type: object, properties: { revision: { type: integer, minimum: 1 }, sla_basis: { type: string }, sla_remaining_days: { type: integer, nullable: true }, sla_calendar_error: { type: string }, workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, status: { type: string, enum: [locked, available, in_progress, completed, skipped] }, sla_deadline: { type: string, format: date, nullable: true }, sla_status: { type: string, enum: [none, on_time, due_soon, overdue, unavailable] }, payload: { type: object, additionalProperties: true }, completed_by: { type: string, format: uuid, nullable: true }, completed_at: { type: string, format: date-time, nullable: true } } }
     AvailableAction: { type: object, properties: { workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, method: { type: string }, path: { type: string } } }
     EvidenceSubmitRequest:
       type: object
