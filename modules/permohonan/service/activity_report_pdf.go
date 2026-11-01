@@ -423,8 +423,6 @@ func writeActivityFooter(pdf *gofpdf.Fpdf, generatedAt time.Time) {
 	pdf.SetFont("Go", "", 7)
 	pdf.SetTextColor(90, 90, 90)
 	pdf.CellFormat(146, 3.6, "Dokumen ini dihasilkan otomatis oleh aplikasi Colabora pada "+formatIndonesianDateTime(generatedAt)+".", "", 0, "L", false, 0, "")
-	pdf.CellFormat(30, 3.6, fmt.Sprintf("Halaman %d dari {nb}", pdf.PageNo()), "", 1, "R", false, 0, "")
-	pdf.SetX(17)
-	pdf.CellFormat(146, 3.6, "Tidak memerlukan tanda tangan.", "", 0, "L", false, 0, "")
+	pdf.CellFormat(30, 3.6, fmt.Sprintf("Halaman %d dari {nb}", pdf.PageNo()), "", 0, "R", false, 0, "")
 	pdf.SetTextColor(0, 0, 0)
 }

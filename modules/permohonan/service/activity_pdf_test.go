@@ -60,11 +60,11 @@ func TestGenerateActivityPDFReportLayout(t *testing.T) {
 		"Tanggal survei", "5 November 2026", "Catatan", "Kondisi aman", "Koordinat lokasi", "-7.250000, 112.750000",
 		"1. foto-lokasi.jpg", "2. izin-pemilik-tanah.pdf",
 		"Dokumen ini dihasilkan otomatis oleh aplikasi Colabora pada 1 November 2026 14:32 WIB.",
-		"Tidak memerlukan tanda tangan.", "Halaman 1 dari 1",
+		"Halaman 1 dari 1",
 	} {
 		require.True(t, pdftext.Contains(content, text), "PDF should contain %q", text)
 	}
-	for _, text := range []string{"PEJABAT BERWENANG", "Paraf", "document_ids", documentID, "surveyed_at"} {
+	for _, text := range []string{"PEJABAT BERWENANG", "Paraf", "Tidak memerlukan tanda tangan", "document_ids", documentID, "surveyed_at"} {
 		require.False(t, pdftext.Contains(content, text), "PDF must not contain %q", text)
 	}
 }

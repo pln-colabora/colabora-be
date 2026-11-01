@@ -8,17 +8,24 @@ import (
 	"compress/zlib"
 	"io"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode/utf16"
 )
 
-var streamPattern = regexp.MustCompile(`(?s)stream\r?\n(.*?)\r?\nendstream`)
+// streamPattern locates each stream by its declared /Length so binary data
+// that happens to contain line breaks is never truncated.
+var streamPattern = regexp.MustCompile(`/Length (\d+)[^>]*>>\s*stream\r?\n`)
 
 // Contains reports whether text appears, unsplit, in any content stream of pdf.
 func Contains(pdf []byte, text string) bool {
 	needles := [][]byte{[]byte(escape(text)), []byte(escape(utf16BE(text)))}
-	for _, match := range streamPattern.FindAllSubmatch(pdf, -1) {
-		content := match[1]
+	for _, match := range streamPattern.FindAllSubmatchIndex(pdf, -1) {
+		length, err := strconv.Atoi(string(pdf[match[2]:match[3]]))
+		if err != nil || match[1]+length > len(pdf) {
+			continue
+		}
+		content := pdf[match[1] : match[1]+length]
 		if reader, err := zlib.NewReader(bytes.NewReader(content)); err == nil {
 			if inflated, err := io.ReadAll(reader); err == nil {
 				content = inflated

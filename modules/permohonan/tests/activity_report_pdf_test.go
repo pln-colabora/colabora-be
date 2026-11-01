@@ -34,11 +34,11 @@ func requireActivityReport(t *testing.T, content []byte, want ...string) {
 	t.Helper()
 	for _, text := range append([]string{
 		"LAPORAN AKTIVITAS", "UP3 SBY BARAT", "Nomor Permohonan", "Pelanggan Uji",
-		"Dokumen ini dihasilkan otomatis oleh aplikasi Colabora pada ", "Tidak memerlukan tanda tangan.", "Halaman 1 dari 1",
+		"Dokumen ini dihasilkan otomatis oleh aplikasi Colabora pada ", "Halaman 1 dari 1",
 	}, want...) {
 		require.True(t, pdftext.Contains(content, text), "PDF should contain %q", text)
 	}
-	for _, text := range []string{"PEJABAT BERWENANG", "Paraf", "document_ids", "Jawaban Activity"} {
+	for _, text := range []string{"PEJABAT BERWENANG", "Paraf", "Tidak memerlukan tanda tangan", "document_ids", "Jawaban Activity"} {
 		require.False(t, pdftext.Contains(content, text), "PDF must not contain %q", text)
 	}
 }
