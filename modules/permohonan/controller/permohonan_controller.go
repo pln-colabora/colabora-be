@@ -279,6 +279,8 @@ func (c *permohonanController) ExportActivity(ctx *gin.Context) {
 		status := http.StatusInternalServerError
 		if errors.Is(err, dto.ErrPermohonanNotFound) || errors.Is(err, dto.ErrWorkflowNodeNotFound) {
 			status = http.StatusNotFound
+		} else if errors.Is(err, workflow.ErrNotActionable) {
+			status = http.StatusConflict
 		}
 		ctx.JSON(status, utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_ACTIVITY, err.Error(), nil))
 		return

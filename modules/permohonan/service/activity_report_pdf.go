@@ -18,8 +18,9 @@ import (
 	"golang.org/x/image/font/gofont/goregular"
 )
 
-// woActivityNodes keep their own WO letters; the activity report layout below
-// applies to every other workflow node, including wo_pdkb.
+// woActivityNodes keep their legacy answer export; wo_pdkb is exported as its
+// own WO letter (see exportWOPDKBLetter). The activity report layout below
+// applies to every other workflow node.
 var woActivityNodes = map[workflow.Code]bool{
 	workflow.WOTiang: true, workflow.WOKonstruksi: true, workflow.WOAPP: true,
 }

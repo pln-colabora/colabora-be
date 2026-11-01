@@ -921,6 +921,9 @@ func (s *permohonanService) ExportActivityPDF(ctx context.Context, id, workflowN
 	if err != nil {
 		return nil, "", dto.ErrPermohonanNotFound
 	}
+	if workflow.Code(activity.WorkflowNode) == workflow.WOPDKB {
+		return exportWOPDKBLetter(p)
+	}
 
 	var activityNumber *int16
 	if activity.ActivityNumber != nil {
@@ -962,6 +965,30 @@ func (s *permohonanService) ExportActivityPDF(ctx context.Context, id, workflowN
 		return nil, "", err
 	}
 	return content, fmt.Sprintf("jawaban_%s_%s.pdf", safeFilenamePart(p.NoPermohonan), safeFilenamePart(workflowNode)), nil
+}
+
+// exportWOPDKBLetter renders the WO PDKB letter in the WO Konstruksi layout.
+// The letter is regenerated on each download and only exists once wo_pdkb is
+// completed.
+func exportWOPDKBLetter(p entities.Permohonan) ([]byte, string, error) {
+	for _, node := range p.WorkflowNodes {
+		if node.WorkflowNode != string(workflow.WOPDKB) {
+			continue
+		}
+		if node.Status != string(workflow.Completed) {
+			return nil, "", workflow.ErrNotActionable
+		}
+		data, err := woPDKBLetterData(p, node)
+		if err != nil {
+			return nil, "", err
+		}
+		content, err := generateVendorWOPDF(data)
+		if err != nil {
+			return nil, "", err
+		}
+		return content, fmt.Sprintf("WO_PDKB_%s.pdf", safeFilenamePart(p.NoPermohonan)), nil
+	}
+	return nil, "", dto.ErrWorkflowNodeNotFound
 }
 
 func (s *permohonanService) GetLogs(ctx context.Context, id, userID string) ([]dto.ActivityLogResponse, error) {

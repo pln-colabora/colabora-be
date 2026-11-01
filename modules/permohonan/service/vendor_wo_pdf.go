@@ -39,6 +39,10 @@ type vendorWOPDFData struct {
 	PerluPDKB       string
 	Notes           string
 	IssuerRole      string
+	// Attention and Instructions override the vendor wording; empty values
+	// keep the default WO vendor letter text.
+	Attention    string
+	Instructions []string
 }
 
 // generateVendorWOPDF creates a private, unsigned work-order letter. The
@@ -131,20 +135,32 @@ func writeWOBody(pdf *gofpdf.Fpdf, data vendorWOPDFData) {
 	pdf.SetY(83)
 	pdf.SetX(49)
 	pdf.SetFont("Go", "", 9)
-	pdf.CellFormat(0, 5, "u.p. Yth. Direktur", "", 1, "L", false, 0, "")
+	attention := data.Attention
+	if attention == "" {
+		attention = "u.p. Yth. Direktur"
+	}
+	pdf.CellFormat(0, 5, safePDFText(attention), "", 1, "L", false, 0, "")
 	pdf.Ln(5)
 
 	pdf.SetX(49)
 	pdf.MultiCell(140, 4.6, "Sehubungan dengan pelaksanaan pekerjaan, kami mohon agar Saudara melaksanakan pekerjaan dengan ketentuan sebagai berikut:", "", "L", false)
 	pdf.Ln(4)
 
-	scope := safePDFText(data.Scope)
-	if scope == "" {
-		scope = "____________________________"
+	instructions := data.Instructions
+	if len(instructions) == 0 {
+		scope := safePDFText(data.Scope)
+		if scope == "" {
+			scope = "____________________________"
+		}
+		instructions = []string{
+			"Melaksanakan " + scope + " sesuai data dan dokumen teknis terlampir.",
+			"Sebelum pelaksanaan pekerjaan, menyampaikan jadwal kepada PIC pengawas pekerjaan.",
+			"Mematuhi standar keselamatan dan ketentuan kerja yang berlaku.",
+		}
 	}
-	writeWONumberedInstruction(pdf, "1.", "Melaksanakan "+scope+" sesuai data dan dokumen teknis terlampir.")
-	writeWONumberedInstruction(pdf, "2.", "Sebelum pelaksanaan pekerjaan, menyampaikan jadwal kepada PIC pengawas pekerjaan.")
-	writeWONumberedInstruction(pdf, "3.", "Mematuhi standar keselamatan dan ketentuan kerja yang berlaku.")
+	for index, instruction := range instructions {
+		writeWONumberedInstruction(pdf, fmt.Sprintf("%d.", index+1), safePDFText(instruction))
+	}
 	pdf.Ln(6)
 
 	pdf.SetX(49)
@@ -205,6 +221,8 @@ func woSubject(title string) string {
 		return "Perintah Kerja / Work Order Konstruksi Jaringan"
 	case "SURAT PERINTAH KERJA VENDOR APP":
 		return "Perintah Kerja / Work Order APP"
+	case woPDKBTitle:
+		return "Perintah Kerja / Work Order Pekerjaan PDKB"
 	default:
 		return "Perintah Kerja / Work Order"
 	}
