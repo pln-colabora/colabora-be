@@ -928,7 +928,7 @@ func (s *permohonanService) ExportActivityPDF(ctx context.Context, id, workflowN
 	if activity.CompletedAt != nil {
 		completedAt = *activity.CompletedAt
 	}
-	content, err := generateActivityPDF(activityPDFData{
+	data := activityPDFData{
 		NoPermohonan:   p.NoPermohonan,
 		JenisSambungan: p.JenisSambungan,
 		WorkflowNode:   activity.WorkflowNode,
@@ -937,7 +937,25 @@ func (s *permohonanService) ExportActivityPDF(ctx context.Context, id, workflowN
 		Status:         activity.Status,
 		CompletedAt:    completedAt,
 		Payload:        activity.Payload,
-	})
+	}
+	generate := generateLegacyActivityPDF
+	if !woActivityNodes[workflow.Code(activity.WorkflowNode)] {
+		generate = generateActivityPDF
+		data.JenisPermohonan, data.UlpUnit = p.JenisPermohonan, p.UlpUnit
+		data.PelangganNama, data.PelangganAlamat = p.PelangganNama, p.PelangganAlamat
+		data.Tarif, data.GolonganTarif, data.GolonganTarifLama = p.Tarif, p.GolonganTarif, p.GolonganTarifLama
+		data.DayaLama, data.DayaBaru = p.DayaLama, p.DayaBaru
+		data.GeneratedAt = time.Now().In(wib)
+		if activity.CompletedBy != nil {
+			if user, userErr := s.userRepository.GetUserById(ctx, s.db, *activity.CompletedBy); userErr == nil {
+				data.CompletedBy = user.Name + " (" + humanizePayloadKey(user.Role) + ")"
+			}
+		}
+		for _, document := range activity.Documents {
+			data.Attachments = append(data.Attachments, document.OriginalFilename)
+		}
+	}
+	content, err := generate(data)
 	if err != nil {
 		return nil, "", err
 	}

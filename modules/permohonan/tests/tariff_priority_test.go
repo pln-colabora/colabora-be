@@ -118,8 +118,8 @@ func newTariffHarness(t *testing.T) tariffHarness {
 	db := tariffTestDB(t)
 	require.NoError(t, seeds.SyncTariffPowerCatalogue(db))
 
-	frontage := entities.User{ID: uuid.New(), Role: rbac.RolePelayananPelanggan, Unit: "ULP Taman"}
-	planner := entities.User{ID: uuid.New(), Role: rbac.RolePerencanaan}
+	frontage := entities.User{ID: uuid.New(), Name: "Petugas Pelayanan", Role: rbac.RolePelayananPelanggan, Unit: "ULP Taman"}
+	planner := entities.User{ID: uuid.New(), Name: "Petugas Perencanaan", Role: rbac.RolePerencanaan}
 	users := tariffTestUsers{frontage.ID.String(): frontage, planner.ID.String(): planner}
 	svc := service.NewPermohonanService(
 		repository.NewPermohonanRepository(db), tariffTestSLA{}, repository.NewTariffPowerRepository(db),
@@ -136,6 +136,7 @@ func newTariffHarness(t *testing.T) tariffHarness {
 	engine.GET("/api/permohonan", permohonan.GetAll)
 	engine.GET("/api/permohonan/:id", permohonan.GetById)
 	engine.GET("/api/permohonan/:id/activities/:workflow_node", permohonan.GetActivity)
+	engine.GET("/api/permohonan/:id/activities/:workflow_node/export", permohonan.ExportActivity)
 	engine.POST("/api/permohonan/:id/verifikasi-prioritas", changes.SubmitPriority)
 	engine.GET("/api/tariffs", permohonan.GetTariffOptions)
 	return tariffHarness{db: db, engine: engine, frontage: frontage, planner: planner}
