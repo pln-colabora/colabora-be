@@ -19,6 +19,7 @@ func TestValidatePermohonanPowerFields(t *testing.T) {
 		JenisPermohonan:   rbac.JenisPermohonanPasangBaru,
 		JenisSambungan:    rbac.JenisSambunganJTR,
 		Tarif:             stringPointer(rbac.TarifRumahTangga),
+		GolonganTarif:     stringPointer("R1"),
 		DayaBaru:          &newPower,
 		PelangganNama:     "Pelanggan Uji",
 		PelangganAlamat:   "Alamat Uji",
@@ -27,15 +28,35 @@ func TestValidatePermohonanPowerFields(t *testing.T) {
 		NominalPembayaran: &amount,
 	}
 	require.NoError(t, v.ValidatePermohonanCreateRequest(base))
-	legacyShape := base
-	legacyShape.Tarif = nil
-	legacyShape.DayaBaru = nil
-	require.NoError(t, v.ValidatePermohonanCreateRequest(legacyShape))
+	missingGolongan := base
+	missingGolongan.GolonganTarif = nil
+	require.ErrorContains(t, v.ValidatePermohonanCreateRequest(missingGolongan), "golongan_tarif is required")
+	blankGolongan := base
+	blankGolongan.GolonganTarif = stringPointer("  ")
+	require.Error(t, v.ValidatePermohonanCreateRequest(blankGolongan))
+	missingTarif := base
+	missingTarif.Tarif = nil
+	require.Error(t, v.ValidatePermohonanCreateRequest(missingTarif))
+	missingDaya := base
+	missingDaya.DayaBaru = nil
+	require.Error(t, v.ValidatePermohonanCreateRequest(missingDaya))
+	pbWithOldGolongan := base
+	pbWithOldGolongan.GolonganTarifLama = stringPointer("R1")
+	require.Error(t, v.ValidatePermohonanCreateRequest(pbWithOldGolongan))
 
 	pd := base
 	pd.JenisPermohonan = rbac.JenisPermohonanPerubahanDaya
 	pd.DayaLama = &oldPower
 	require.NoError(t, v.ValidatePermohonanCreateRequest(pd))
+	pdDetail := pd
+	pdDetail.GolonganTarifLama = stringPointer("R1")
+	pdDetail.PembatasLama = stringPointer("1x6")
+	pdDetail.PembatasBaru = stringPointer("1x10")
+	require.NoError(t, v.ValidatePermohonanCreateRequest(pdDetail))
+	pdOldWithoutPower := pdDetail
+	pdOldWithoutPower.DayaLama = nil
+	pdOldWithoutPower.DayaBaru = &newPower
+	require.Error(t, v.ValidatePermohonanCreateRequest(pdOldWithoutPower))
 
 	invalidPB := base
 	invalidPB.DayaLama = &oldPower
@@ -53,7 +74,8 @@ func TestValidatePermohonanPowerFields(t *testing.T) {
 func TestValidatePaymentFields(t *testing.T) {
 	v := NewPermohonanValidation()
 	amount := int64(150000)
-	req := dto.PermohonanCreateRequest{JenisPermohonan: rbac.JenisPermohonanPasangBaru, JenisSambungan: rbac.JenisSambunganJTR, PelangganNama: "Pelanggan", PelangganAlamat: "Alamat", PelangganNoHp: "0800000000", TanggalPembayaran: "2026-09-25", NominalPembayaran: &amount}
+	power := int64(900)
+	req := dto.PermohonanCreateRequest{JenisPermohonan: rbac.JenisPermohonanPasangBaru, JenisSambungan: rbac.JenisSambunganJTR, Tarif: stringPointer(rbac.TarifRumahTangga), GolonganTarif: stringPointer("R1"), DayaBaru: &power, PelangganNama: "Pelanggan", PelangganAlamat: "Alamat", PelangganNoHp: "0800000000", TanggalPembayaran: "2026-09-25", NominalPembayaran: &amount}
 	require.NoError(t, v.ValidatePermohonanCreateRequest(req))
 	req.TanggalPembayaran = "2026-02-30"
 	require.Error(t, v.ValidatePermohonanCreateRequest(req))

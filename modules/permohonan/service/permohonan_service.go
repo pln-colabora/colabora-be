@@ -414,6 +414,10 @@ func (s *permohonanService) completeWorkflowNodes(
 			}
 			permohonan.EnergizeStatus = &status.EnergizeStatus
 		}
+		if payload, ok := payloads[workflow.Prioritas].(dto.PrioritySubmitRequest); ok {
+			priority := payload.Priority
+			permohonan.Priority = &priority
+		}
 		permohonan.KebutuhanTiang = cloneBool(snapshot.Decisions.KebutuhanTiang)
 		permohonan.PerluPdkb = cloneBool(snapshot.Decisions.PerluPDKB)
 		if snapshot.Decisions.NPS == "" {
@@ -582,6 +586,10 @@ func (s *permohonanService) Create(ctx context.Context, req dto.PermohonanCreate
 			Tarif:             req.Tarif,
 			DayaLama:          req.DayaLama,
 			DayaBaru:          req.DayaBaru,
+			GolonganTarif:     trimmedOrNil(req.GolonganTarif),
+			GolonganTarifLama: trimmedOrNil(req.GolonganTarifLama),
+			PembatasBaru:      trimmedOrNil(req.PembatasBaru),
+			PembatasLama:      trimmedOrNil(req.PembatasLama),
 			UlpUnit:           ulpUnit,
 			PelangganNama:     req.PelangganNama,
 			PelangganAlamat:   req.PelangganAlamat,
@@ -641,23 +649,59 @@ func (s *permohonanService) Create(ctx context.Context, req dto.PermohonanCreate
 	return toPermohonanResponse(created, creator.Role, creator.Unit, time.Now())
 }
 
+// validateTariffPower checks the selected golongan/power against the active
+// catalogue: tarif + golongan_tarif + daya_baru must be one exact step, and
+// for PD golongan_tarif_lama + daya_lama must be one too. Without
+// golongan_tarif_lama, daya_lama keeps the older tarif-only check.
 func (s *permohonanService) validateTariffPower(ctx context.Context, req dto.PermohonanCreateRequest) error {
-	if s.tariffPowerRepository == nil || req.Tarif == nil {
+	if s.tariffPowerRepository == nil {
 		return nil
 	}
-	for _, daya := range []*int64{req.DayaLama, req.DayaBaru} {
-		if daya == nil {
-			continue
-		}
-		allowed, err := s.tariffPowerRepository.IsAllowed(ctx, s.db, *req.Tarif, req.JenisSambungan, *daya)
+	golongan := trimmedOrNil(req.GolonganTarif)
+	if golongan != nil && req.Tarif != nil && req.DayaBaru != nil {
+		allowed, err := s.tariffPowerRepository.IsGolonganAllowed(ctx, s.db, *req.Tarif, *golongan, req.JenisSambungan, *req.DayaBaru)
 		if err != nil {
 			return dto.ErrCreatePermohonan
 		}
 		if !allowed {
-			return dto.ErrInvalidTariffPower
+			return dto.ErrInvalidGolonganTarif
 		}
 	}
+	if req.DayaLama == nil {
+		return nil
+	}
+	if golonganLama := trimmedOrNil(req.GolonganTarifLama); golonganLama != nil {
+		allowed, err := s.tariffPowerRepository.IsGolonganAllowed(ctx, s.db, "", *golonganLama, req.JenisSambungan, *req.DayaLama)
+		if err != nil {
+			return dto.ErrCreatePermohonan
+		}
+		if !allowed {
+			return dto.ErrInvalidGolonganLama
+		}
+		return nil
+	}
+	if req.Tarif == nil {
+		return nil
+	}
+	allowed, err := s.tariffPowerRepository.IsAllowed(ctx, s.db, *req.Tarif, req.JenisSambungan, *req.DayaLama)
+	if err != nil {
+		return dto.ErrCreatePermohonan
+	}
+	if !allowed {
+		return dto.ErrInvalidTariffPower
+	}
 	return nil
+}
+
+func trimmedOrNil(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
 }
 
 func (s *permohonanService) ListTariffOptions(ctx context.Context, jenisSambungan string) ([]dto.TariffPowerOptionResponse, error) {
@@ -669,7 +713,8 @@ func (s *permohonanService) ListTariffOptions(ctx context.Context, jenisSambunga
 	for _, option := range options {
 		result = append(result, dto.TariffPowerOptionResponse{
 			Tarif: option.Tarif, GolonganTarif: option.GolonganTarif, JenisSambungan: option.JenisSambungan,
-			DayaMin: option.DayaMin, DayaMax: option.DayaMax, Label: option.Label,
+			Label: option.Label, DayaLabel: option.DayaLabel, DayaMin: option.DayaMin, DayaMax: option.DayaMax,
+			Pembatas: option.Pembatas,
 		})
 	}
 	return result, nil
@@ -1055,6 +1100,11 @@ func toPermohonanResponse(p entities.Permohonan, role, unit string, now time.Tim
 		Tarif:               p.Tarif,
 		DayaLama:            p.DayaLama,
 		DayaBaru:            p.DayaBaru,
+		GolonganTarif:       p.GolonganTarif,
+		GolonganTarifLama:   p.GolonganTarifLama,
+		PembatasBaru:        p.PembatasBaru,
+		PembatasLama:        p.PembatasLama,
+		Priority:            p.Priority,
 		UlpUnit:             p.UlpUnit,
 		PelangganNama:       p.PelangganNama,
 		PelangganAlamat:     p.PelangganAlamat,

@@ -22,7 +22,7 @@ func (c *permohonanController) changes() service.WorkflowChangesService {
 	return c.permohonanService.(service.WorkflowChangesService)
 }
 func (c *permohonanController) SubmitPriority(ctx *gin.Context) {
-	submitActivityRequest(ctx, func(dto.PrioritySubmitRequest) error { return nil }, c.changes().SubmitPriority)
+	submitActivityRequest(ctx, c.permohonanValidation.ValidatePrioritySubmitRequest, c.changes().SubmitPriority)
 }
 func (c *permohonanController) EditSurvey(ctx *gin.Context) {
 	submitActivityRequest(ctx, func(dto.SurveyRevisionRequest) error { return nil }, c.changes().EditSurvey)

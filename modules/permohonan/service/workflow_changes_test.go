@@ -110,10 +110,10 @@ func TestPriorityGatesNPSAndRequiresPlanningOwner(t *testing.T) {
 	s := &permohonanService{db: phase3DB(t), permohonanRepository: repo, userRepository: users, documentRepository: &phase4DocumentRepository{}}
 	_, err := s.SubmitExpansion(context.Background(), p.ID.String(), actor.ID.String(), dto.ExpansionSubmitRequest{NpsDelegationStatus: "delegated", DocumentIDs: []string{uuid.NewString()}})
 	require.ErrorIs(t, err, workflow.ErrNotActionable)
-	_, err = s.SubmitPriority(context.Background(), p.ID.String(), actor.ID.String(), dto.PrioritySubmitRequest{})
+	_, err = s.SubmitPriority(context.Background(), p.ID.String(), actor.ID.String(), dto.PrioritySubmitRequest{Priority: "High"})
 	require.ErrorIs(t, err, rbac.ErrWorkflowForbidden)
 	users.user.Role = rbac.RolePerencanaan
-	result, err := s.SubmitPriority(context.Background(), p.ID.String(), actor.ID.String(), dto.PrioritySubmitRequest{Notes: "Terverifikasi"})
+	result, err := s.SubmitPriority(context.Background(), p.ID.String(), actor.ID.String(), dto.PrioritySubmitRequest{Priority: "Medium", Notes: "Terverifikasi"})
 	require.NoError(t, err)
 	require.Equal(t, "available", responseNode(t, result, workflow.Perluasan).Status)
 }

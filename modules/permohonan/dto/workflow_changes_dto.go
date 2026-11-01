@@ -11,8 +11,14 @@ var ErrRevisionConflict = errors.New("data sudah berubah; muat ulang sebelum men
 var ErrScheduleConflict = errors.New("tanggal PDKB sudah terisi; pilih tanggal lain")
 var ErrScheduleLocked = errors.New("booking WO tidak dapat diubah melalui kalender")
 
+// Priority values are case-sensitive and stored verbatim on the node payload
+// and the permohonan projection.
+var PriorityValues = []string{"High", "Medium", "Low"}
+
 type PrioritySubmitRequest struct {
-	Notes string `json:"notes" binding:"omitempty,max=2000"`
+	Priority    string   `json:"priority"`
+	Notes       string   `json:"notes" binding:"omitempty,max=2000"`
+	DocumentIDs []string `json:"document_ids,omitempty" binding:"omitempty,dive,uuid"`
 }
 type SurveyRevisionRequest struct {
 	SurveyedAt       string   `json:"surveyed_at" binding:"required"`

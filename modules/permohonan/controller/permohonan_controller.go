@@ -203,7 +203,11 @@ func (c *permohonanController) Create(ctx *gin.Context) {
 		} else if errors.Is(err, documentDTO.ErrMalwareDetected) {
 			status = http.StatusUnprocessableEntity
 		}
-		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_CREATE_PERMOHONAN, err.Error(), nil)
+		message := dto.MESSAGE_FAILED_CREATE_PERMOHONAN
+		if errors.Is(err, dto.ErrInvalidGolonganTarif) || errors.Is(err, dto.ErrInvalidGolonganLama) || errors.Is(err, dto.ErrInvalidTariffPower) {
+			message = dto.MESSAGE_FAILED_INVALID_TARIFF
+		}
+		res := utils.BuildResponseFailed(message, err.Error(), nil)
 		ctx.JSON(status, res)
 		return
 	}

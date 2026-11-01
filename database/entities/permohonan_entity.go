@@ -15,6 +15,11 @@ type Permohonan struct {
 	Tarif                *string    `gorm:"type:varchar(30)" json:"tarif"`
 	DayaLama             *int64     `gorm:"type:bigint" json:"daya_lama"`
 	DayaBaru             *int64     `gorm:"type:bigint" json:"daya_baru"`
+	GolonganTarif        *string    `gorm:"type:varchar(30)" json:"golongan_tarif"`
+	GolonganTarifLama    *string    `gorm:"type:varchar(30)" json:"golongan_tarif_lama"`
+	PembatasBaru         *string    `gorm:"type:varchar(30)" json:"pembatas_baru"`
+	PembatasLama         *string    `gorm:"type:varchar(30)" json:"pembatas_lama"`
+	Priority             *string    `gorm:"type:varchar(10)" json:"priority"`
 	UlpUnit              string     `gorm:"type:varchar(50);not null" json:"ulp_unit"`
 	PelangganNama        string     `gorm:"type:varchar(150);not null" json:"pelanggan_nama"`
 	PelangganAlamat      string     `gorm:"type:varchar(255);not null" json:"pelanggan_alamat"`

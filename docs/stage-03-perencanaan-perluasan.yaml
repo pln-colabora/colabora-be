@@ -59,8 +59,11 @@ paths:
       operationId: submitPriority
       summary: Verifikasi prioritas sebelum NPS
       description: >-
-        Perencanaan UP3 untuk semua jenis sambungan setelah RAB/kebutuhan tiang. Konfirmasi dan catatan
-        opsional, tanpa lampiran wajib. Permohonan lama yang telah melewati NPS mendapat pengecualian migrasi.
+        Perencanaan UP3 untuk semua jenis sambungan setelah RAB/kebutuhan tiang. priority wajib dan
+        case-sensitive (High, Medium, Low); nilai lain atau kosong dibalas 400. Catatan dan lampiran opsional.
+        priority disimpan di payload node (GET /activities/verifikasi_prioritas -> payload.priority) dan di
+        field priority pada detail/list permohonan. Permohonan lama yang telah melewati NPS mendapat
+        pengecualian migrasi.
       security:
         - bearerAuth: []
       parameters:
@@ -71,10 +74,22 @@ paths:
           application/json:
             schema:
               type: object
+              required: [priority]
               properties:
+                priority:
+                  type: string
+                  enum: [High, Medium, Low]
                 notes:
                   type: string
                   maxLength: 2000
+                document_ids:
+                  type: array
+                  items: { type: string, format: uuid }
+                  description: Opsional; boleh kosong
+            example:
+              priority: High
+              notes: Pelanggan strategis
+              document_ids: []
       responses:
         '200':
           description: Berhasil
@@ -106,6 +121,14 @@ components:
         no_permohonan: { type: string }
         jenis_permohonan: { type: string }
         jenis_sambungan: { type: string }
+        tarif: { type: string, nullable: true, enum: [rumah_tangga, sosial, bisnis, industri, pemerintah] }
+        daya_lama: { type: integer, format: int64, nullable: true }
+        daya_baru: { type: integer, format: int64, nullable: true }
+        golongan_tarif: { type: string, nullable: true, description: "Kode golongan tanpa tanda hubung, mis. R1, B2, I4; null untuk data lama" }
+        golongan_tarif_lama: { type: string, nullable: true, description: Golongan lama untuk Perubahan Daya (PD) }
+        pembatas_baru: { type: string, nullable: true, description: "Pembatas daya baru seperti di Tangga Daya PLN, mis. 1x4 atau 6" }
+        pembatas_lama: { type: string, nullable: true, description: Pembatas lama untuk Perubahan Daya (PD) }
+        priority: { type: string, nullable: true, enum: [High, Medium, Low], description: Diisi oleh node verifikasi_prioritas }
         ulp_unit: { type: string }
         pelanggan_nama: { type: string }
         pelanggan_alamat: { type: string }

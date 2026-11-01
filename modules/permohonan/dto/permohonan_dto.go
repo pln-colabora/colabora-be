@@ -18,6 +18,7 @@ const (
 	MESSAGE_FAILED_GET_LOGS            = "failed get activity logs"
 	MESSAGE_FAILED_SUBMIT_ACTIVITY     = "failed submit workflow activity"
 	MESSAGE_FAILED_DENIED_ACCESS       = "denied access"
+	MESSAGE_FAILED_INVALID_TARIFF      = "invalid tariff selection"
 
 	MESSAGE_SUCCESS_CREATE_PERMOHONAN   = "success create permohonan"
 	MESSAGE_SUCCESS_GET_PERMOHONAN      = "success get permohonan"
@@ -36,6 +37,8 @@ var (
 	ErrCreateForbidden      = errors.New("caller cannot create this connection type")
 	ErrInvalidULPUnit       = errors.New("invalid ulp_unit for this connection type")
 	ErrInvalidTariffPower   = errors.New("daya is not available for the selected tariff and connection type")
+	ErrInvalidGolonganTarif = errors.New("kombinasi tarif, golongan_tarif, dan daya_baru tidak tersedia di tabel tarif untuk jenis_sambungan ini")
+	ErrInvalidGolonganLama  = errors.New("kombinasi golongan_tarif_lama dan daya_lama tidak tersedia di tabel tarif untuk jenis_sambungan ini")
 	ErrEvidenceRequired     = errors.New("at least one evidence document is required")
 	ErrInvalidEvidence      = errors.New("document_ids must contain unique UUIDs")
 	ErrInvalidActivity      = errors.New("invalid workflow activity payload")
@@ -58,6 +61,10 @@ type (
 		Tarif             *string                 `json:"tarif" form:"tarif"`
 		DayaLama          *int64                  `json:"daya_lama" form:"daya_lama"`
 		DayaBaru          *int64                  `json:"daya_baru" form:"daya_baru"`
+		GolonganTarif     *string                 `json:"golongan_tarif" form:"golongan_tarif"`
+		PembatasBaru      *string                 `json:"pembatas_baru" form:"pembatas_baru"`
+		GolonganTarifLama *string                 `json:"golongan_tarif_lama" form:"golongan_tarif_lama"`
+		PembatasLama      *string                 `json:"pembatas_lama" form:"pembatas_lama"`
 		UlpUnit           *string                 `json:"ulp_unit" form:"ulp_unit"`
 		PelangganNama     string                  `json:"pelanggan_nama" form:"pelanggan_nama" binding:"required,min=2,max=150"`
 		PelangganAlamat   string                  `json:"pelanggan_alamat" form:"pelanggan_alamat" binding:"required,min=2,max=255"`
@@ -123,6 +130,11 @@ type (
 		Tarif               *string                `json:"tarif"`
 		DayaLama            *int64                 `json:"daya_lama"`
 		DayaBaru            *int64                 `json:"daya_baru"`
+		GolonganTarif       *string                `json:"golongan_tarif"`
+		GolonganTarifLama   *string                `json:"golongan_tarif_lama"`
+		PembatasBaru        *string                `json:"pembatas_baru"`
+		PembatasLama        *string                `json:"pembatas_lama"`
+		Priority            *string                `json:"priority"`
 		UlpUnit             string                 `json:"ulp_unit"`
 		PelangganNama       string                 `json:"pelanggan_nama"`
 		PelangganAlamat     string                 `json:"pelanggan_alamat"`
@@ -141,12 +153,14 @@ type (
 	}
 
 	TariffPowerOptionResponse struct {
-		Tarif          string `json:"tarif"`
-		GolonganTarif  string `json:"golongan_tarif"`
-		JenisSambungan string `json:"jenis_sambungan"`
-		DayaMin        int64  `json:"daya_min"`
-		DayaMax        *int64 `json:"daya_max"`
-		Label          string `json:"label"`
+		Tarif          string  `json:"tarif"`
+		GolonganTarif  string  `json:"golongan_tarif"`
+		JenisSambungan string  `json:"jenis_sambungan"`
+		Label          string  `json:"label"`
+		DayaLabel      string  `json:"daya_label"`
+		DayaMin        int64   `json:"daya_min"`
+		DayaMax        *int64  `json:"daya_max"`
+		Pembatas       *string `json:"pembatas"`
 	}
 
 	WorkflowNodeResponse struct {

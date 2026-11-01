@@ -39,10 +39,19 @@ func validScheduleDate(value string) (time.Time, error) {
 }
 
 func (s *permohonanService) SubmitPriority(ctx context.Context, id, userID string, req dto.PrioritySubmitRequest) (dto.PermohonanResponse, error) {
-	if !notesWithinLimit(req.Notes) {
+	if !notesWithinLimit(req.Notes) || !validPriority(req.Priority) {
 		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
 	}
-	return s.completeWorkflowNodes(ctx, id, userID, nil, []workflow.Code{workflow.Prioritas}, map[workflow.Code]any{workflow.Prioritas: req}, nil, nil)
+	return s.completeWorkflowNodes(ctx, id, userID, req.DocumentIDs, []workflow.Code{workflow.Prioritas}, map[workflow.Code]any{workflow.Prioritas: req}, nil, nil)
+}
+
+func validPriority(value string) bool {
+	for _, allowed := range dto.PriorityValues {
+		if value == allowed {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *permohonanService) scheduleActor(ctx context.Context, userID string, write bool) (entities.User, error) {

@@ -24,6 +24,11 @@ type Permohonan struct {
 	Tarif                *string                       `json:"tarif"`
 	DayaLama             *int64                        `json:"daya_lama"`
 	DayaBaru             *int64                        `json:"daya_baru"`
+	GolonganTarif        *string                       `json:"golongan_tarif"`
+	GolonganTarifLama    *string                       `json:"golongan_tarif_lama"`
+	PembatasBaru         *string                       `json:"pembatas_baru"`
+	PembatasLama         *string                       `json:"pembatas_lama"`
+	Priority             *string                       `json:"priority"`
 	UlpUnit              string                        `json:"ulp_unit"`
 	PelangganNama        string                        `json:"pelanggan_nama"`
 	PelangganAlamat      string                        `json:"pelanggan_alamat"`
