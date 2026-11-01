@@ -167,7 +167,7 @@ func (s *permohonanService) SubmitWOTiang(ctx context.Context, id, userID string
 }
 
 func (s *permohonanService) SubmitWOConstruction(ctx context.Context, id, userID string, req dto.WOConstructionSubmitRequest) (dto.PermohonanResponse, error) {
-	if _, err := time.Parse("2006-01-02", req.EstimasiTanggalSelesai); err != nil || req.PerluPdkb == nil || !notesWithinLimit(req.Notes) || !validLocationCoordinates(req.LocationCoordinates) {
+	if _, err := time.Parse("2006-01-02", req.EstimasiTanggalSelesai); err != nil || req.PerluPdkb == nil || !notesWithinLimit(req.Notes) || !validLocationCoordinates(req.LocationCoordinates) || len(req.NomorSurat) > 100 {
 		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
 	}
 	if *req.PerluPdkb {
@@ -181,10 +181,11 @@ func (s *permohonanService) SubmitWOConstruction(ctx context.Context, id, userID
 		workflow.WOKonstruksi: struct {
 			TanggalPDKB            string                   `json:"tanggal_pdkb,omitempty"`
 			EstimasiTanggalSelesai string                   `json:"estimasi_tanggal_selesai"`
+			NomorSurat             string                   `json:"nomor_surat,omitempty"`
 			PerluPDKB              bool                     `json:"perlu_pdkb"`
 			Notes                  string                   `json:"notes,omitempty"`
 			LocationCoordinates    *dto.LocationCoordinates `json:"location_coordinates,omitempty"`
-		}{TanggalPDKB: req.TanggalPDKB, EstimasiTanggalSelesai: req.EstimasiTanggalSelesai, PerluPDKB: *req.PerluPdkb, Notes: req.Notes, LocationCoordinates: req.LocationCoordinates},
+		}{TanggalPDKB: req.TanggalPDKB, EstimasiTanggalSelesai: req.EstimasiTanggalSelesai, NomorSurat: req.NomorSurat, PerluPDKB: *req.PerluPdkb, Notes: req.Notes, LocationCoordinates: req.LocationCoordinates},
 	}
 	applyDecision := func(snapshot *workflow.Snapshot) {
 		value := *req.PerluPdkb
@@ -271,14 +272,15 @@ func (s *permohonanService) SubmitClosing(ctx context.Context, id, userID string
 func (s *permohonanService) completeEvidenceNode(
 	ctx context.Context, id, userID string, req dto.EvidenceSubmitRequest, code workflow.Code,
 ) (dto.PermohonanResponse, error) {
-	if !notesWithinLimit(req.Notes) || !validLocationCoordinates(req.LocationCoordinates) {
+	if !notesWithinLimit(req.Notes) || !validLocationCoordinates(req.LocationCoordinates) || len(req.NomorSurat) > 100 {
 		return dto.PermohonanResponse{}, dto.ErrInvalidActivity
 	}
 	payloads := map[workflow.Code]any{
 		code: struct {
 			Notes               string                   `json:"notes,omitempty"`
 			LocationCoordinates *dto.LocationCoordinates `json:"location_coordinates,omitempty"`
-		}{Notes: req.Notes, LocationCoordinates: vendorLocationCoordinates(code, req.LocationCoordinates)},
+			NomorSurat          string                   `json:"nomor_surat,omitempty"`
+		}{Notes: req.Notes, LocationCoordinates: vendorLocationCoordinates(code, req.LocationCoordinates), NomorSurat: req.NomorSurat},
 	}
 	return s.completeWorkflowNodes(ctx, id, userID, req.DocumentIDs, []workflow.Code{code}, payloads, nil, nil)
 }

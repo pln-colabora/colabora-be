@@ -141,6 +141,9 @@ func (s *permohonanService) ExportVendorWOPDF(ctx context.Context, id, workflowN
 			}
 		}
 		if payload != nil {
+			if number, ok := payload["nomor_surat"].(string); ok {
+				data.NomorSurat = number
+			}
 			if notes, ok := payload["notes"].(string); ok {
 				data.Notes = notes
 			}

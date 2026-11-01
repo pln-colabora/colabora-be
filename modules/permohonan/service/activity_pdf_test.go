@@ -98,9 +98,9 @@ func TestGenerateActivityPDFNumbersEveryPage(t *testing.T) {
 }
 
 func TestWOLettersKeepSignatureAndParaf(t *testing.T) {
-	content, err := generateVendorWOPDF(vendorWOPDFData{Title: "SURAT PERINTAH KERJA VENDOR TIANG", Scope: "Pekerjaan uji", IssuerRole: "PERENCANAAN"})
+	content, err := generateVendorWOPDF(vendorWOPDFData{Title: "SURAT PERINTAH KERJA VENDOR TIANG", Scope: "Pekerjaan uji", NomorSurat: "123/WO/2026"})
 	require.NoError(t, err)
-	for _, text := range []string{"PEJABAT BERWENANG", "Paraf", "UP3 SBY BARAT"} {
+	for _, text := range []string{"MANAGER PLN UP3 SURABAYA BARAT", "CYNTHIA DEWI ARIYANI", "123/WO/2026", "Paraf", "UP3 SBY BARAT"} {
 		require.True(t, pdftext.Contains(content, text), "WO PDF should still contain %q", text)
 	}
 	legacy, err := generateLegacyActivityPDF(activityPDFData{WorkflowNode: "wo_tiang", Payload: json.RawMessage(`{"notes":"WO"}`)})
