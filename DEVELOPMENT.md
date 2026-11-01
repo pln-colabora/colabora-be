@@ -205,7 +205,7 @@ Offsets are calendar days from the request date. `H` and `G` are retained as sou
 | 12 | Pelaksanaan Konstruksi | H+8 | H+12 | H+19 | H+49 |
 | 13 | Pengoperasian Jaringan Listrik | H+9 | H+13 | H+20 | H+50 |
 | 14 | Pemasangan SR/APP dan Penyalaan | H+10 | H+14 | H+20 | H+50 |
-| 15 | Entri dan Mutasi PDL | H+10 | H+10 | H+20 | H+50 |
+| 15 | Entri dan Mutasi PDL | H+10 | H+14 | H+20 | H+50 |
 | 16 | Arsip AIL / Updating DIJ | H+10 | H+14 | H+20 | H+50 |
 | 17 | Selesai | H+10 | H+14 | H+20 | H+50 |
 

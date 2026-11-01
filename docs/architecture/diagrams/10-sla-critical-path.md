@@ -29,7 +29,7 @@ flowchart TB
   tera --> srapp["#14 SR/APP · Transaksi Energi<br/>H+10 / H+14 / H+20 / H+50"]
   energize --> join{"Stage 6 join"}
   srapp --> join
-  join --> pdl["#15 PDL<br/>H+10 / H+10 / H+20 / H+50"] --> ail["#16 AIL/DIJ<br/>H+10 / H+14 / H+20 / H+50"] --> done["#17 Selesai<br/>H+10 / H+14 / H+20 / H+50"]
+  join --> pdl["#15 PDL<br/>H+10 / H+14 / H+20 / H+50"] --> ail["#16 AIL/DIJ<br/>H+10 / H+14 / H+20 / H+50"] --> done["#17 Selesai<br/>H+10 / H+14 / H+20 / H+50"]
 
   classDef noSla fill:#f1f5f9,stroke:#64748b,color:#334155
   classDef join fill:#fef3c7,stroke:#b45309,color:#78350f
@@ -56,5 +56,5 @@ Kalender statis mencakup 2026–2027. Perhitungan di luar cakupan mengembalikan 
 kalender tanpa fallback hari kalender. Tidak ada panggilan API libur saat runtime.
 
 Sumber: `pkg/businessday`, `database/entities/workflow.go`, dan
-`database/seeders/json/sla_rules.json`. PDL JTM/Gardu tetap H+10 sesuai seed;
-AIL/Selesai JTM/Gardu H+14. Closing ketiganya tetap dilakukan atomik.
+`database/seeders/json/sla_rules.json`. PDL, AIL, dan Selesai JTM/Gardu
+H+14. Closing ketiganya tetap dilakukan atomik.
