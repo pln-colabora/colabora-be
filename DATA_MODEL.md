@@ -31,6 +31,8 @@ verified.
 | `UlpUnit` | varchar(50) | Caller ULP for JTR/JTM; explicitly selected target ULP for NPS-created PLG TM |
 | Customer fields | varchar | Name, address, and phone captured at Activity #1 |
 | `RequestDate` | date | H/G SLA reference date |
+| `TanggalPembayaran` | nullable date | Payment date, required on new requests |
+| `NominalPembayaran` | nullable bigint | Positive whole rupiah, required on new requests |
 | `CurrentStage` | smallint | Derived lowest stage containing an applicable unfinished node |
 | `Status` | varchar(20) | `in_progress`, `completed`, or terminal `returned` |
 | `KebutuhanTiang` | nullable boolean | Activity #3b branch decision |
@@ -162,3 +164,5 @@ or historical completion actors.
 ## Migration strategy
 
 Breaking changes are allowed. `20260908120000_refactor_workflow_nodes` adds the workflow-node fields, maps retained numbered history, removes legacy ownership/NPS naming, and creates evidence associations. A development database reset is acceptable; do not edit already-shipped migration files in place.
+
+Izin pemilik tanah dan/atau perangkat desa dapat disimpan sebagai dokumen opsional pada node `survei`, menggunakan kategori `izin_pemilik_tanah`, `izin_perangkat_desa`, atau `izin_pemilik_tanah_dan_perangkat_desa` untuk dokumen gabungan. Asosiasi menggunakan `document_evidence` yang sudah ada.

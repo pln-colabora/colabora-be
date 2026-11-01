@@ -55,7 +55,10 @@ paths:
                 type:
                   type: string
                   maxLength: 50
-                  description: Business document category, e.g. "evidence"
+                  description: >-
+                    Business document category, e.g. "evidence". Optional survey
+                    permissions use izin_pemilik_tanah, izin_perangkat_desa, or
+                    izin_pemilik_tanah_dan_perangkat_desa for a combined document.
                 supersedes_document_id:
                   type: string
                   format: uuid

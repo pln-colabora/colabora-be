@@ -2,6 +2,7 @@ package entities
 
 import (
 	"fmt"
+	"github.com/pln-colabora/colabora-be/pkg/businessday"
 	"github.com/pln-colabora/colabora-be/pkg/workflow"
 	"time"
 )
@@ -10,6 +11,7 @@ import (
 func (p Permohonan) WorkflowSnapshot() workflow.Snapshot {
 	s := workflow.Snapshot{Connection: p.JenisSambungan, Nodes: map[workflow.Code]workflow.Status{},
 		Decisions: workflow.Decisions{KebutuhanTiang: p.KebutuhanTiang, PerluPDKB: p.PerluPdkb}}
+	s.Decisions.LegacyPriorityExempt = p.LegacyPriorityExempt
 	if p.NpsDelegationStatus != nil {
 		s.Decisions.NPS = workflow.Delegation(*p.NpsDelegationStatus)
 	}
@@ -40,13 +42,22 @@ func InitializeWorkflow(p Permohonan, rules []SLARule, now time.Time) ([]Permoho
 	nodes := make([]PermohonanActivity, 0, len(workflow.Definitions()))
 	for _, d := range workflow.Definitions() {
 		n := PermohonanActivity{PermohonanID: p.ID, WorkflowNode: string(d.Code), ActivityNumber: d.ActivityNumber,
-			StageNumber: d.Stage, Status: string(result.Nodes[d.Code]), Payload: "{}"}
+			StageNumber: d.Stage, Status: string(result.Nodes[d.Code]), Payload: "{}", SlaBasis: p.SlaBasis}
 		if d.SLAActivityNumber != nil {
 			offset, ok := offsets[*d.SLAActivityNumber]
 			if !ok {
 				return nil, workflow.Result{}, fmt.Errorf("missing SLA rule for activity %d", *d.SLAActivityNumber)
 			}
 			deadline := p.RequestDate.AddDate(0, 0, int(offset))
+			if p.SlaBasis == businessday.PaymentBasis {
+				if p.TanggalPembayaran == nil {
+					return nil, workflow.Result{}, fmt.Errorf("payment date required for SLA")
+				}
+				deadline, err = businessday.Deadline(*p.TanggalPembayaran, int(offset))
+				if err != nil {
+					return nil, workflow.Result{}, err
+				}
+			}
 			n.SlaDeadline = &deadline
 		}
 		if d.Code == workflow.Permohonan {

@@ -21,7 +21,23 @@ func complete(t *testing.T, s workflow.Snapshot, codes ...workflow.Code) workflo
 	return s
 }
 func delegated(t *testing.T, s workflow.Snapshot) workflow.Snapshot {
-	return complete(t, s, workflow.Permohonan, workflow.Survei, workflow.RAB, workflow.KebutuhanTiang, workflow.Perluasan, workflow.NPS)
+	return complete(t, s, workflow.Permohonan, workflow.Survei, workflow.RAB, workflow.KebutuhanTiang, workflow.Prioritas, workflow.Perluasan, workflow.NPS)
+}
+
+func TestNewPriorityAndLegacyExemption(t *testing.T) {
+	s := complete(t, base(false, false), workflow.Permohonan, workflow.Survei, workflow.RAB, workflow.KebutuhanTiang)
+	_, _, err := workflow.Transition(s, workflow.Perluasan, workflow.Completed)
+	require.ErrorIs(t, err, workflow.ErrNotActionable)
+	s.Decisions.LegacyPriorityExempt = true
+	_, _, err = workflow.Transition(s, workflow.Perluasan, workflow.Completed)
+	require.ErrorIs(t, err, workflow.ErrNotActionable)
+	s.Nodes[workflow.Perluasan] = workflow.Completed
+	s.Nodes[workflow.NPS] = workflow.Completed
+	result, err := workflow.Evaluate(s)
+	require.NoError(t, err)
+	require.Equal(t, workflow.Skipped, result.Nodes[workflow.Prioritas])
+	_, _, err = workflow.Transition(s, workflow.WOAPP, workflow.Completed)
+	require.ErrorIs(t, err, workflow.ErrNotActionable)
 }
 
 func TestLifecycle(t *testing.T) {
@@ -40,7 +56,7 @@ func TestLifecycle(t *testing.T) {
 								s = complete(t, s, workflow.WOTiang, workflow.PemasanganTiang)
 							}
 						}
-						app := func() { s = complete(t, s, workflow.WOAPP, workflow.Tera) }
+						app := func() { s = complete(t, s, workflow.Tera) }
 						construction := func() {
 							s = complete(t, s, workflow.WOKonstruksi)
 							if pdkb {
@@ -121,7 +137,7 @@ func TestJoinGatesAndStageProjection(t *testing.T) {
 	require.Contains(t, r.AvailableNodes, workflow.DokumentasiPDKB)
 	require.Equal(t, workflow.Locked, r.Nodes[workflow.Energize])
 	require.Equal(t, workflow.Locked, r.Nodes[workflow.SRAPP])
-	s = complete(t, s, workflow.WOAPP, workflow.Tera, workflow.SRAPP)
+	s = complete(t, s, workflow.Tera, workflow.SRAPP)
 	r, err = workflow.Evaluate(s)
 	require.NoError(t, err)
 	require.Equal(t, workflow.Locked, r.Nodes[workflow.PDL])
@@ -213,7 +229,7 @@ func TestDecisionsAndPersistedProjections(t *testing.T) {
 	require.ErrorIs(t, err, workflow.ErrInvalidState)
 	s = base(false, false)
 	s.Decisions.NPS = ""
-	s = complete(t, s, workflow.Permohonan, workflow.Survei, workflow.RAB, workflow.KebutuhanTiang, workflow.Perluasan)
+	s = complete(t, s, workflow.Permohonan, workflow.Survei, workflow.RAB, workflow.KebutuhanTiang, workflow.Prioritas, workflow.Perluasan)
 	_, _, err = workflow.Transition(s, workflow.NPS, workflow.Completed)
 	require.ErrorIs(t, err, workflow.ErrInvalidState)
 

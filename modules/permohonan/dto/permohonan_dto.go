@@ -18,6 +18,7 @@ const (
 	MESSAGE_FAILED_GET_LOGS            = "failed get activity logs"
 	MESSAGE_FAILED_SUBMIT_ACTIVITY     = "failed submit workflow activity"
 	MESSAGE_FAILED_DENIED_ACCESS       = "denied access"
+	MESSAGE_FAILED_INVALID_TARIFF      = "invalid tariff selection"
 
 	MESSAGE_SUCCESS_CREATE_PERMOHONAN   = "success create permohonan"
 	MESSAGE_SUCCESS_GET_PERMOHONAN      = "success get permohonan"
@@ -36,6 +37,8 @@ var (
 	ErrCreateForbidden      = errors.New("caller cannot create this connection type")
 	ErrInvalidULPUnit       = errors.New("invalid ulp_unit for this connection type")
 	ErrInvalidTariffPower   = errors.New("daya is not available for the selected tariff and connection type")
+	ErrInvalidGolonganTarif = errors.New("kombinasi tarif, golongan_tarif, dan daya_baru tidak tersedia di tabel tarif untuk jenis_sambungan ini")
+	ErrInvalidGolonganLama  = errors.New("kombinasi golongan_tarif_lama dan daya_lama tidak tersedia di tabel tarif untuk jenis_sambungan ini")
 	ErrEvidenceRequired     = errors.New("at least one evidence document is required")
 	ErrInvalidEvidence      = errors.New("document_ids must contain unique UUIDs")
 	ErrInvalidActivity      = errors.New("invalid workflow activity payload")
@@ -53,16 +56,22 @@ type (
 		VendorRole string `json:"vendor_role" binding:"required,oneof=vendor-tiang vendor-konstruksi vendor-sr-app" validate:"required,oneof=vendor-tiang vendor-konstruksi vendor-sr-app"`
 	}
 	PermohonanCreateRequest struct {
-		JenisPermohonan string                  `json:"jenis_permohonan" form:"jenis_permohonan" binding:"required"`
-		JenisSambungan  string                  `json:"jenis_sambungan" form:"jenis_sambungan" binding:"required"`
-		Tarif           *string                 `json:"tarif" form:"tarif"`
-		DayaLama        *int64                  `json:"daya_lama" form:"daya_lama"`
-		DayaBaru        *int64                  `json:"daya_baru" form:"daya_baru"`
-		UlpUnit         *string                 `json:"ulp_unit" form:"ulp_unit"`
-		PelangganNama   string                  `json:"pelanggan_nama" form:"pelanggan_nama" binding:"required,min=2,max=150"`
-		PelangganAlamat string                  `json:"pelanggan_alamat" form:"pelanggan_alamat" binding:"required,min=2,max=255"`
-		PelangganNoHp   string                  `json:"pelanggan_no_hp" form:"pelanggan_no_hp" binding:"required,min=8,max=20"`
-		EvidenceFiles   []*multipart.FileHeader `json:"-" form:"evidence_files"`
+		JenisPermohonan   string                  `json:"jenis_permohonan" form:"jenis_permohonan" binding:"required"`
+		JenisSambungan    string                  `json:"jenis_sambungan" form:"jenis_sambungan" binding:"required"`
+		Tarif             *string                 `json:"tarif" form:"tarif"`
+		DayaLama          *int64                  `json:"daya_lama" form:"daya_lama"`
+		DayaBaru          *int64                  `json:"daya_baru" form:"daya_baru"`
+		GolonganTarif     *string                 `json:"golongan_tarif" form:"golongan_tarif"`
+		PembatasBaru      *string                 `json:"pembatas_baru" form:"pembatas_baru"`
+		GolonganTarifLama *string                 `json:"golongan_tarif_lama" form:"golongan_tarif_lama"`
+		PembatasLama      *string                 `json:"pembatas_lama" form:"pembatas_lama"`
+		UlpUnit           *string                 `json:"ulp_unit" form:"ulp_unit"`
+		PelangganNama     string                  `json:"pelanggan_nama" form:"pelanggan_nama" binding:"required,min=2,max=150"`
+		PelangganAlamat   string                  `json:"pelanggan_alamat" form:"pelanggan_alamat" binding:"required,min=2,max=255"`
+		PelangganNoHp     string                  `json:"pelanggan_no_hp" form:"pelanggan_no_hp" binding:"required,min=8,max=20"`
+		TanggalPembayaran string                  `json:"tanggal_pembayaran" form:"tanggal_pembayaran" binding:"required" validate:"required"`
+		NominalPembayaran *int64                  `json:"nominal_pembayaran" form:"nominal_pembayaran" binding:"required" validate:"required"`
+		EvidenceFiles     []*multipart.FileHeader `json:"-" form:"evidence_files"`
 	}
 
 	SurveySubmitRequest struct {
@@ -84,12 +93,15 @@ type (
 	}
 
 	EvidenceSubmitRequest struct {
+		NomorSurat          string               `json:"nomor_surat" binding:"omitempty,max=100" validate:"omitempty,max=100"`
 		Notes               string               `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
 		DocumentIDs         []string             `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
 		LocationCoordinates *LocationCoordinates `json:"location_coordinates,omitempty"`
 	}
 
 	WOConstructionSubmitRequest struct {
+		NomorSurat             string               `json:"nomor_surat" binding:"omitempty,max=100" validate:"omitempty,max=100"`
+		TanggalPDKB            string               `json:"tanggal_pdkb"`
 		EstimasiTanggalSelesai string               `json:"estimasi_tanggal_selesai" binding:"required" validate:"required"`
 		PerluPdkb              *bool                `json:"perlu_pdkb" binding:"required" validate:"required"`
 		Notes                  string               `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
@@ -105,12 +117,14 @@ type (
 	}
 
 	EnergizeSubmitRequest struct {
+		EnergizeStatus  string   `json:"energize_status" binding:"required,oneof=temporary permanent" validate:"required,oneof=temporary permanent"`
 		OperationResult string   `json:"operation_result" binding:"required,max=500" validate:"required,max=500"`
 		Notes           string   `json:"notes" binding:"omitempty,max=2000" validate:"omitempty,max=2000"`
 		DocumentIDs     []string `json:"document_ids" binding:"required,min=1,dive,uuid" validate:"required,min=1,dive,uuid"`
 	}
 
 	PermohonanResponse struct {
+		EnergizeStatus      *string                `json:"energize_status"`
 		ID                  string                 `json:"id"`
 		NoPermohonan        string                 `json:"no_permohonan"`
 		JenisPermohonan     string                 `json:"jenis_permohonan"`
@@ -118,11 +132,18 @@ type (
 		Tarif               *string                `json:"tarif"`
 		DayaLama            *int64                 `json:"daya_lama"`
 		DayaBaru            *int64                 `json:"daya_baru"`
+		GolonganTarif       *string                `json:"golongan_tarif"`
+		GolonganTarifLama   *string                `json:"golongan_tarif_lama"`
+		PembatasBaru        *string                `json:"pembatas_baru"`
+		PembatasLama        *string                `json:"pembatas_lama"`
+		Priority            *string                `json:"priority"`
 		UlpUnit             string                 `json:"ulp_unit"`
 		PelangganNama       string                 `json:"pelanggan_nama"`
 		PelangganAlamat     string                 `json:"pelanggan_alamat"`
 		PelangganNoHp       string                 `json:"pelanggan_no_hp"`
 		RequestDate         string                 `json:"request_date"`
+		TanggalPembayaran   *string                `json:"tanggal_pembayaran"`
+		NominalPembayaran   *int64                 `json:"nominal_pembayaran"`
 		CurrentStage        int16                  `json:"current_stage"`
 		Status              string                 `json:"status"`
 		KebutuhanTiang      *bool                  `json:"kebutuhan_tiang"`
@@ -134,24 +155,30 @@ type (
 	}
 
 	TariffPowerOptionResponse struct {
-		Tarif          string `json:"tarif"`
-		GolonganTarif  string `json:"golongan_tarif"`
-		JenisSambungan string `json:"jenis_sambungan"`
-		DayaMin        int64  `json:"daya_min"`
-		DayaMax        *int64 `json:"daya_max"`
-		Label          string `json:"label"`
+		Tarif          string  `json:"tarif"`
+		GolonganTarif  string  `json:"golongan_tarif"`
+		JenisSambungan string  `json:"jenis_sambungan"`
+		Label          string  `json:"label"`
+		DayaLabel      string  `json:"daya_label"`
+		DayaMin        int64   `json:"daya_min"`
+		DayaMax        *int64  `json:"daya_max"`
+		Pembatas       *string `json:"pembatas"`
 	}
 
 	WorkflowNodeResponse struct {
-		WorkflowNode   string          `json:"workflow_node"`
-		ActivityNumber *int16          `json:"activity_number"`
-		StageNumber    int16           `json:"stage_number"`
-		Status         string          `json:"status"`
-		SlaDeadline    *string         `json:"sla_deadline"`
-		SlaStatus      string          `json:"sla_status"`
-		Payload        json.RawMessage `json:"payload"`
-		CompletedBy    *string         `json:"completed_by"`
-		CompletedAt    *string         `json:"completed_at"`
+		SlaBasis         string          `json:"sla_basis"`
+		SlaRemainingDays *int            `json:"sla_remaining_days"`
+		SlaCalendarError string          `json:"sla_calendar_error,omitempty"`
+		Revision         int             `json:"revision"`
+		WorkflowNode     string          `json:"workflow_node"`
+		ActivityNumber   *int16          `json:"activity_number"`
+		StageNumber      int16           `json:"stage_number"`
+		Status           string          `json:"status"`
+		SlaDeadline      *string         `json:"sla_deadline"`
+		SlaStatus        string          `json:"sla_status"`
+		Payload          json.RawMessage `json:"payload"`
+		CompletedBy      *string         `json:"completed_by"`
+		CompletedAt      *string         `json:"completed_at"`
 	}
 
 	WorkflowNodeDetailResponse struct {

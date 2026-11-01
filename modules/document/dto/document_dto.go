@@ -16,6 +16,13 @@ const (
 	MESSAGE_SUCCESS_GET_LIST_DOCUMENT = "success get list document"
 )
 
+// Survey permission categories use the existing document upload and evidence flow.
+const (
+	TypeIzinPemilikTanah                 = "izin_pemilik_tanah"
+	TypeIzinPerangkatDesa                = "izin_perangkat_desa"
+	TypeIzinPemilikTanahDanPerangkatDesa = "izin_pemilik_tanah_dan_perangkat_desa"
+)
+
 var (
 	ErrPermohonanNotFound         = errors.New("permohonan not found")
 	ErrDocumentNotFound           = errors.New("document not found")

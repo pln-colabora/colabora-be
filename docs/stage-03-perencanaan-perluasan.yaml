@@ -52,6 +52,55 @@ paths:
               notes: "Permohonan siap didelegasikan ke pekerjaan perluasan."
               document_ids: ["550e8400-e29b-41d4-a716-446655440003"]
       responses: { "200": { $ref: "#/components/responses/ActivitySubmitted" }, "400": { $ref: "#/components/responses/BadRequest" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } }
+  /api/permohonan/{id}/verifikasi-prioritas:
+    post:
+      tags:
+        - Tahap 3 — Perencanaan Perluasan
+      operationId: submitPriority
+      summary: Verifikasi prioritas sebelum NPS
+      description: >-
+        Perencanaan UP3 untuk semua jenis sambungan setelah RAB/kebutuhan tiang. priority wajib dan
+        case-sensitive (High, Medium, Low); nilai lain atau kosong dibalas 400. Catatan dan lampiran opsional.
+        priority disimpan di payload node (GET /activities/verifikasi_prioritas -> payload.priority) dan di
+        field priority pada detail/list permohonan. Permohonan lama yang telah melewati NPS mendapat
+        pengecualian migrasi.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PermohonanID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [priority]
+              properties:
+                priority:
+                  type: string
+                  enum: [High, Medium, Low]
+                notes:
+                  type: string
+                  maxLength: 2000
+                document_ids:
+                  type: array
+                  items: { type: string, format: uuid }
+                  description: Opsional; boleh kosong
+            example:
+              priority: High
+              notes: Pelanggan strategis
+              document_ids: []
+      responses:
+        '200':
+          description: Berhasil
+        '400':
+          description: Input tidak valid
+        '403':
+          description: Tidak berwenang
+        '404':
+          description: Data tidak ditemukan
+        '409':
+          description: Versi data sudah berubah atau tanggal PDKB terisi
 components:
   securitySchemes: { bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT } }
   responses:
@@ -72,22 +121,34 @@ components:
         no_permohonan: { type: string }
         jenis_permohonan: { type: string }
         jenis_sambungan: { type: string }
+        tarif: { type: string, nullable: true, enum: [rumah_tangga, sosial, bisnis, industri, pemerintah] }
+        daya_lama: { type: integer, format: int64, nullable: true }
+        daya_baru: { type: integer, format: int64, nullable: true }
+        golongan_tarif: { type: string, nullable: true, description: "Kode golongan tanpa tanda hubung, mis. R1, B2, I4; null untuk data lama" }
+        golongan_tarif_lama: { type: string, nullable: true, description: Golongan lama untuk Perubahan Daya (PD) }
+        pembatas_baru: { type: string, nullable: true, description: "Pembatas daya baru seperti di Tangga Daya PLN, mis. 1x4 atau 6" }
+        pembatas_lama: { type: string, nullable: true, description: Pembatas lama untuk Perubahan Daya (PD) }
+        priority: { type: string, nullable: true, enum: [High, Medium, Low], description: Diisi oleh node verifikasi_prioritas }
         ulp_unit: { type: string }
         pelanggan_nama: { type: string }
         pelanggan_alamat: { type: string }
         pelanggan_no_hp: { type: string }
         request_date: { type: string, format: date }
+        energize_status: { type: string, nullable: true, enum: [temporary, permanent] }
+        sla_basis: { type: string, enum: [calendar, payment_workdays_v1] }
+        sla_remaining_days: { type: integer, nullable: true }
+        sla_calendar_error: { type: string }
         current_stage: { type: integer, minimum: 1, maximum: 7 }
         status: { type: string, enum: [in_progress, completed, returned] }
         sla_deadline: { type: string, format: date, nullable: true }
-        sla_status: { type: string, enum: [none, on_time, due_soon, overdue] }
+        sla_status: { type: string, enum: [none, on_time, due_soon, overdue, unavailable] }
         kebutuhan_tiang: { type: boolean, nullable: true }
         nps_delegation_status: { type: string, nullable: true, enum: [delegated, returned] }
         perlu_pdkb: { type: boolean, nullable: true }
         created_by: { type: string, format: uuid }
         workflow_nodes: { type: array, description: "Vendor callers receive their issued WO plus workflow nodes owned by their role for the connection type; internal callers receive the full projection.", items: { $ref: "#/components/schemas/WorkflowNode" } }
         available_actions: { type: array, items: { $ref: "#/components/schemas/AvailableAction" } }
-    WorkflowNode: { type: object, properties: { workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, status: { type: string, enum: [locked, available, in_progress, completed, skipped] }, sla_deadline: { type: string, format: date, nullable: true }, sla_status: { type: string, enum: [none, on_time, due_soon, overdue] }, payload: { type: object, additionalProperties: true }, completed_by: { type: string, format: uuid, nullable: true }, completed_at: { type: string, format: date-time, nullable: true } } }
+    WorkflowNode: { type: object, properties: { revision: { type: integer, minimum: 1 }, sla_basis: { type: string }, sla_remaining_days: { type: integer, nullable: true }, sla_calendar_error: { type: string }, workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, status: { type: string, enum: [locked, available, in_progress, completed, skipped] }, sla_deadline: { type: string, format: date, nullable: true }, sla_status: { type: string, enum: [none, on_time, due_soon, overdue, unavailable] }, payload: { type: object, additionalProperties: true }, completed_by: { type: string, format: uuid, nullable: true }, completed_at: { type: string, format: date-time, nullable: true } } }
     AvailableAction: { type: object, properties: { workflow_node: { type: string }, activity_number: { type: integer, nullable: true }, stage_number: { type: integer }, method: { type: string }, path: { type: string } } }
     RABSubmitRequest:
       type: object

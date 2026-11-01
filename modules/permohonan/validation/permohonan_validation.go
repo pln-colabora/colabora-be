@@ -129,6 +129,12 @@ func (v *PermohonanValidation) ValidatePermohonanCreateRequest(req dto.Permohona
 	if err := v.validate.Struct(req); err != nil {
 		return err
 	}
+	if _, err := time.Parse("2006-01-02", req.TanggalPembayaran); err != nil {
+		return fmt.Errorf("tanggal_pembayaran must use YYYY-MM-DD format")
+	}
+	if req.NominalPembayaran == nil || *req.NominalPembayaran <= 0 {
+		return fmt.Errorf("nominal_pembayaran must be greater than zero")
+	}
 
 	if !contains(rbac.AllJenisPermohonan, req.JenisPermohonan) {
 		return fmt.Errorf("jenis_permohonan must be one of: %s", strings.Join(rbac.AllJenisPermohonan, ", "))
@@ -151,12 +157,67 @@ func (v *PermohonanValidation) ValidatePermohonanCreateRequest(req dto.Permohona
 	if req.JenisPermohonan == rbac.JenisPermohonanPasangBaru && req.DayaLama != nil {
 		return fmt.Errorf("daya_lama must be empty for pasang baru")
 	}
+	if err := validateTariffDetail(req); err != nil {
+		return err
+	}
 	if req.JenisPermohonan == rbac.JenisPermohonanPerubahanDaya &&
 		((req.DayaLama == nil) != (req.DayaBaru == nil) || (req.DayaLama != nil && *req.DayaLama == *req.DayaBaru)) {
 		return fmt.Errorf("perubahan daya requires different daya_lama and daya_baru")
 	}
 
 	return nil
+}
+
+// validateTariffDetail checks the shape of the golongan/pembatas fields; the
+// service checks the combination against the active tariff catalogue.
+func validateTariffDetail(req dto.PermohonanCreateRequest) error {
+	if blank(req.GolonganTarif) {
+		return fmt.Errorf("golongan_tarif is required")
+	}
+	if req.Tarif == nil {
+		return fmt.Errorf("tarif is required when golongan_tarif is set")
+	}
+	if req.DayaBaru == nil {
+		return fmt.Errorf("daya_baru is required when golongan_tarif is set")
+	}
+	if req.JenisPermohonan == rbac.JenisPermohonanPasangBaru && (!blank(req.GolonganTarifLama) || !blank(req.PembatasLama)) {
+		return fmt.Errorf("golongan_tarif_lama and pembatas_lama must be empty for pasang baru")
+	}
+	if !blank(req.GolonganTarifLama) && req.DayaLama == nil {
+		return fmt.Errorf("daya_lama is required when golongan_tarif_lama is set")
+	}
+	fields := []struct {
+		name  string
+		value *string
+	}{
+		{"golongan_tarif", req.GolonganTarif}, {"golongan_tarif_lama", req.GolonganTarifLama},
+		{"pembatas_baru", req.PembatasBaru}, {"pembatas_lama", req.PembatasLama},
+	}
+	for _, field := range fields {
+		if field.value != nil && len([]rune(strings.TrimSpace(*field.value))) > 30 {
+			return fmt.Errorf("%s must be at most 30 characters", field.name)
+		}
+	}
+	return nil
+}
+
+func blank(value *string) bool {
+	return value == nil || strings.TrimSpace(*value) == ""
+}
+
+// ValidatePrioritySubmitRequest requires one of the case-sensitive priority
+// values; evidence documents are optional for verifikasi_prioritas.
+func (v *PermohonanValidation) ValidatePrioritySubmitRequest(req dto.PrioritySubmitRequest) error {
+	if req.Priority == "" {
+		return fmt.Errorf("priority is required and must be one of: %s", strings.Join(dto.PriorityValues, ", "))
+	}
+	if !contains(dto.PriorityValues, req.Priority) {
+		return fmt.Errorf("priority must be one of: %s (case-sensitive)", strings.Join(dto.PriorityValues, ", "))
+	}
+	if len([]rune(req.Notes)) > 2000 {
+		return fmt.Errorf("notes must be at most 2000 characters")
+	}
+	return validateDocumentIDs(req.DocumentIDs)
 }
 
 func contains(list []string, value string) bool {

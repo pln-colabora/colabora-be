@@ -8,6 +8,7 @@ const (
 	Survei         Code = "survei"
 	RAB            Code = "rab_kko_kkf"
 	KebutuhanTiang Code = "kebutuhan_tiang"
+	Prioritas      Code = "verifikasi_prioritas"
 	Perluasan      Code = "permohonan_perluasan"
 	NPS            Code = "nps_delegation"
 	WOTiang        Code = "wo_tiang"
@@ -69,7 +70,13 @@ func def(c Code, activity, stage int16, owner, tm string, condition Condition, d
 }
 
 // IsLegacy reports whether a workflow code is retained for historical data only.
-func IsLegacy(c Code) bool { return c == PKVendor }
+func IsLegacy(c Code) bool { return c == PKVendor || c == WOAPP }
+
+func priorityDefinition() Definition {
+	d := def(Prioritas, 0, 3, "perencanaan", "", Always, RAB, KebutuhanTiang)
+	d.SLAActivityNumber = number(3)
+	return d
+}
 
 // Topological order is deterministic, including within presentation stages.
 var definitions = []Definition{
@@ -77,19 +84,19 @@ var definitions = []Definition{
 	def(Survei, 2, 2, "teknik", "perencanaan", Always, Permohonan),
 	def(RAB, 3, 3, "teknik", "perencanaan", Always, Survei),
 	def(KebutuhanTiang, 0, 3, "teknik", "perencanaan", Always, RAB),
-	def(Perluasan, 4, 3, "nps", "", Always, RAB, KebutuhanTiang),
+	priorityDefinition(),
+	def(Perluasan, 4, 3, "nps", "", Always, Prioritas),
 	def(NPS, 5, 3, "nps", "", Always, Perluasan),
 	def(WOTiang, 6, 4, "perencanaan", "", PolesRequired, NPS),
 	def(WOKonstruksi, 7, 4, "konstruksi", "", Always, NPS),
-	def(WOAPP, 8, 4, "transaksi-energi", "", Always, NPS),
 	def(Reservasi, 9, 4, "vendor-konstruksi", "", Always, WOKonstruksi),
-	def(Tera, 10, 4, "transaksi-energi", "", Always, WOAPP),
+	def(Tera, 10, 4, "transaksi-energi", "", Always, NPS),
 	def(WOPDKB, 0, 4, "konstruksi", "", PDKBRequired, WOKonstruksi),
 	def(PemasanganTiang, 11, 5, "vendor-tiang", "", PolesRequired, WOTiang),
 	def(Konstruksi, 12, 5, "vendor-konstruksi", "", Always, WOKonstruksi, Reservasi, WOPDKB),
 	def(DokumentasiPDKB, 0, 5, "pdkb", "", PDKBRequired, Konstruksi),
 	def(Energize, 13, 6, "teknik", "jaringan", Always, Konstruksi, PemasanganTiang, DokumentasiPDKB),
-	def(SRAPP, 14, 6, "vendor-sr-app", "vendor-konstruksi", Always, Konstruksi, Tera),
+	def(SRAPP, 14, 6, "transaksi-energi", "", Always, Tera),
 	def(PDL, 15, 7, "pelayanan-pelanggan", "", Always, Energize, SRAPP),
 	def(AIL, 16, 7, "pelayanan-pelanggan", "", Always, PDL),
 	def(Selesai, 17, 7, "pelayanan-pelanggan", "", Always, AIL),
@@ -113,6 +120,9 @@ func Definitions() []Definition {
 	return out
 }
 func Lookup(code Code) (Definition, bool) {
+	if code == WOAPP {
+		return def(WOAPP, 8, 4, "transaksi-energi", "", Always, NPS), true
+	}
 	for _, d := range definitions {
 		if d.Code == code {
 			return clone(d), true

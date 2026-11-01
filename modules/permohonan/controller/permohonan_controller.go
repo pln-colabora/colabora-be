@@ -159,12 +159,12 @@ func submitActivityRequest[T any](
 func writeActivityError(ctx *gin.Context, err error) {
 	status := http.StatusBadRequest
 	switch {
-	case errors.Is(err, rbac.ErrWorkflowForbidden):
+	case errors.Is(err, rbac.ErrWorkflowForbidden), errors.Is(err, dto.ErrScheduleLocked):
 		status = http.StatusForbidden
-	case errors.Is(err, dto.ErrPermohonanNotFound), errors.Is(err, documentDTO.ErrDocumentNotFound):
+	case errors.Is(err, dto.ErrPermohonanNotFound), errors.Is(err, documentDTO.ErrDocumentNotFound), errors.Is(err, gorm.ErrRecordNotFound):
 		status = http.StatusNotFound
 	case errors.Is(err, workflow.ErrNotActionable), errors.Is(err, workflow.ErrInvalidState),
-		errors.Is(err, documentDTO.ErrDocumentAlreadyAttached):
+		errors.Is(err, documentDTO.ErrDocumentAlreadyAttached), errors.Is(err, dto.ErrRevisionConflict), errors.Is(err, dto.ErrScheduleConflict):
 		status = http.StatusConflict
 	case errors.Is(err, dto.ErrSubmitActivity):
 		status = http.StatusInternalServerError
@@ -203,7 +203,11 @@ func (c *permohonanController) Create(ctx *gin.Context) {
 		} else if errors.Is(err, documentDTO.ErrMalwareDetected) {
 			status = http.StatusUnprocessableEntity
 		}
-		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_CREATE_PERMOHONAN, err.Error(), nil)
+		message := dto.MESSAGE_FAILED_CREATE_PERMOHONAN
+		if errors.Is(err, dto.ErrInvalidGolonganTarif) || errors.Is(err, dto.ErrInvalidGolonganLama) || errors.Is(err, dto.ErrInvalidTariffPower) {
+			message = dto.MESSAGE_FAILED_INVALID_TARIFF
+		}
+		res := utils.BuildResponseFailed(message, err.Error(), nil)
 		ctx.JSON(status, res)
 		return
 	}

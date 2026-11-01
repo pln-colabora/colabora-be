@@ -97,3 +97,5 @@ Evidence storage is private. Upload provenance includes detected MIME, measured 
 ## 6. Hifi lifecycle
 
 The hifi forms and detail pages validate concepts and presentation only. They are not permanent backend contracts and can be retired when detailed production form specifications arrive. The two files under `hifi-colabora/workflow/` remain the continuously updated workflow reference and must be reviewed at the start of every workflow-related task.
+
+Survei dapat menyertakan lampiran izin pemilik tanah dan/atau izin perangkat desa secara opsional. Minimal satu dokumen survei tetap wajib; kategori dokumen belum diverifikasi.

@@ -1,6 +1,8 @@
 # COLABORA Architecture Diagrams
 
-These diagrams describe the implemented backend state verified on 9 September 2026.
+These diagrams describe the implemented `dev` backend state verified on 26 October 2026.
+They describe repository behavior; deployment of the matching backend and migrations
+is required before assuming that an online service supports this flow.
 Workflow-node codes are the canonical transition and authorization identities;
 activity numbers and stages are display metadata.
 
@@ -21,6 +23,14 @@ render each source file directly.
 | [Evidence lifecycle](diagrams/09-evidence-lifecycle.md) | Upload, scan, revision, attachment, and cleanup |
 | [SLA and critical path](diagrams/10-sla-critical-path.md) | Dependency path and independent SLA references |
 
-The two workflow diagrams must stay synchronized with the living diagrams under
-`hifi-colabora/workflow/` and with `pkg/workflow`. Runtime routes and entities take
-precedence for diagrams that describe API and persistence behavior.
+The current workflow includes Perencanaan priority verification before NPS,
+payment-based working-day SLA, survey/construction-WO evidence revisions, atomic
+PDKB date booking, Transaksi Energi ownership of SR/APP, and temporary/permanent
+network energize. WO APP is historical only. See
+[October workflow decisions](../WORKFLOW_UPDATES_2026-10.md) for agreed details.
+
+Keep the two workflow diagrams synchronized with `pkg/workflow/definition.go`,
+`pkg/rbac`, activity routes/services, and the frontend `colabora-flow-end-to-end.md`.
+The earlier `hifi-colabora/workflow/` prototype is absent from this checkout;
+it was not modified or treated as current evidence. Runtime routes and entities
+take precedence for API and persistence diagrams.

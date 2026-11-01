@@ -16,7 +16,9 @@ type PermohonanActivity struct {
 	StageNumber    int16      `gorm:"type:smallint;not null" json:"stage_number"`
 	Status         string     `gorm:"type:varchar(20);not null;default:'locked'" json:"status"`
 	SlaDeadline    *time.Time `gorm:"type:date" json:"sla_deadline"`
+	SlaBasis       string     `gorm:"type:varchar(30);not null;default:calendar" json:"sla_basis"`
 	Payload        string     `gorm:"type:jsonb;default:'{}'" json:"payload"`
+	Revision       int        `gorm:"not null;default:1" json:"revision"`
 	CompletedBy    *uuid.UUID `gorm:"type:uuid" json:"completed_by"`
 	CompletedAt    *time.Time `json:"completed_at"`
 

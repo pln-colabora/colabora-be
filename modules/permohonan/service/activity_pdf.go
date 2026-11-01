@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/phpdave11/gofpdf"
@@ -14,17 +15,31 @@ import (
 )
 
 type activityPDFData struct {
-	NoPermohonan   string
-	JenisSambungan string
-	WorkflowNode   string
-	ActivityNumber *int16
-	StageNumber    int16
-	Status         string
-	CompletedAt    string
-	Payload        json.RawMessage
+	NoPermohonan      string
+	JenisPermohonan   string
+	JenisSambungan    string
+	UlpUnit           string
+	PelangganNama     string
+	PelangganAlamat   string
+	Tarif             *string
+	GolonganTarif     *string
+	GolonganTarifLama *string
+	DayaLama          *int64
+	DayaBaru          *int64
+	WorkflowNode      string
+	ActivityNumber    *int16
+	StageNumber       int16
+	Status            string
+	CompletedAt       string
+	CompletedBy       string
+	Attachments       []string
+	GeneratedAt       time.Time
+	Payload           json.RawMessage
 }
 
-func generateActivityPDF(data activityPDFData) ([]byte, error) {
+// generateLegacyActivityPDF is the original answer export, kept for the WO
+// nodes whose letters are produced by their own WO generators.
+func generateLegacyActivityPDF(data activityPDFData) ([]byte, error) {
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.SetTitle("Export Jawaban Activity", false)
 	pdf.SetMargins(18, 18, 18)

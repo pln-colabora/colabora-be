@@ -1,9 +1,10 @@
 # Activity Submission Sequence
 
-**Status:** Implemented state, 9 September 2026  
+**Status:** Implementasi branch dev, 26 Oktober 2026
 **Perspektif:** Semua endpoint penyelesaian activity
 
-Dokumen sudah di-upload dan dipindai sebelum submission. Penyelesaian node, attachment
+Dokumen sudah di-upload dan divalidasi (serta dipindai jika ClamAV aktif) sebelum
+submission. Penyelesaian node, attachment
 evidence, aggregate projection, dan audit log berada dalam satu transaksi database.
 
 ```mermaid
@@ -39,9 +40,16 @@ sequenceDiagram
       S-->>C: state conflict
       C-->>Client: 409 Conflict
     else Actionable
+      opt WO Konstruksi dengan perlu_pdkb=true
+        S->>DB: INSERT booking tanggal_pdkb (unique date)
+        break Tanggal sudah terisi
+          S->>DB: ROLLBACK booking, node, dan evidence
+          S-->>Client: 409 jadwal bentrok
+        end
+      end
       S->>W: Transition node(s) to completed
       W-->>S: Recomputed nodes + aggregate projection
-      S->>E: Attach every document to every submitted node
+      S->>E: Attach document_ids ke node yang disubmit (jika ada)
       alt Missing, superseded, mismatched, or attached document
         E-->>S: attachment error
         S->>DB: ROLLBACK
@@ -61,3 +69,11 @@ sequenceDiagram
 Bundled endpoints yang memiliki owner sama menjalankan transisi node dalam dependency
 order dan hanya menyimpan hasil akhir setelah seluruh validasi berhasil. Reservasi
 material dan tera APP adalah dua submission terpisah karena owner-nya berbeda.
+Verifikasi prioritas tidak memerlukan evidence; catatan opsional. Penyelesaian WO
+Konstruksi dan booking kalender harus commit bersama.
+
+Revisi memakai endpoint PUT terpisah: lock aggregate, periksa role/unit pemilik,
+node completed, dan `expected_revision`; simpan payload/pilihan dokumen lama,
+perbarui pilihan evidence upload saat ini, naikkan revision, lalu commit audit.
+Konflik menghasilkan 409 dan rollback. Completion, SLA, keputusan, dan status
+aggregate tidak dihitung ulang oleh revisi.

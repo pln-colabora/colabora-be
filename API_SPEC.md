@@ -68,6 +68,7 @@ node. Decision/support nodes may have a null `activity_number`.
 ## Create contract
 
 `POST /api/permohonan` accepts customer/request fields plus `jenis_sambungan`.
+It also requires `tanggal_pembayaran` (YYYY-MM-DD) and `nominal_pembayaran` (positive whole rupiah). Both are returned in list and detail responses; historical requests may have null values. SLA remains based on `request_date` and calendar days.
 New clients may use `multipart/form-data` with one or more `evidence_files`; the
 files are scanned, stored, and attached to Activity #1 in the same database
 transaction. The legacy JSON shape remains accepted during the nullable-field
@@ -150,6 +151,14 @@ return 404. List totals and pages include only visible requests, even with
 | `POST` | `/api/permohonan/:id/energize-jaringan` | `energize_jaringan` | `teknik` JTR/JTM; `jaringan` PLG TM |
 | `POST` | `/api/permohonan/:id/pemasangan-sr-app` | `pemasangan_sr_app` | `vendor-sr-app` JTR/JTM; `vendor-konstruksi` PLG TM |
 | `POST` | `/api/permohonan/:id/closing` | `entri_mutasi_pdl`, `arsip_ail`, `selesai` | Matching ULP `pelayanan-pelanggan` |
+
+Survey requires at least one existing document in `document_ids`; its category is not validated. Landowner
+permission and/or village-official permission may also be attached, but are optional.
+Upload them through `POST /api/documents` using `type` values `izin_pemilik_tanah`,
+`izin_perangkat_desa`, or `izin_pemilik_tanah_dan_perangkat_desa` for a combined
+document, then include the returned IDs in the survey's `document_ids`. The existing
+attachment authorization, atomicity and document access rules apply; the type does
+not verify the contents of a permission document.
 
 The NPS request body uses `nps_delegation_status: delegated|returned`. `returned` terminally closes the workflow with aggregate status `returned`; it is not a draft/rework loop.
 

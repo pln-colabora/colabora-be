@@ -6,8 +6,9 @@ import (
 )
 
 // TariffPowerOption is the configurable tariff/power catalogue used by the
-// Activity #1 form. A row may represent one exact power or an official power
-// band; a nil maximum means the band is unbounded above.
+// Activity #1 form. Each row is one exact power step (daya_min = daya_max) from
+// the official "Tangga Daya PLN" table; a nil maximum is reserved for the
+// unbounded I4 row.
 type TariffPowerOption struct {
 	ID             uuid.UUID `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
 	Tarif          string    `gorm:"type:varchar(30);not null;uniqueIndex:idx_tariff_power_option" json:"tarif"`
@@ -16,6 +17,8 @@ type TariffPowerOption struct {
 	DayaMin        int64     `gorm:"type:bigint;not null;uniqueIndex:idx_tariff_power_option" json:"daya_min"`
 	DayaMax        *int64    `gorm:"type:bigint;uniqueIndex:idx_tariff_power_option" json:"daya_max"`
 	Label          string    `gorm:"type:varchar(80);not null" json:"label"`
+	DayaLabel      string    `gorm:"type:varchar(80)" json:"daya_label"`
+	Pembatas       *string   `gorm:"type:varchar(30)" json:"pembatas"`
 	Active         bool      `gorm:"not null;default:true" json:"active"`
 	Timestamp
 }

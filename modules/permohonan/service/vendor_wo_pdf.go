@@ -18,6 +18,7 @@ var plnWordmark []byte
 
 type vendorWOPDFData struct {
 	Title           string
+	NomorSurat      string
 	NoPermohonan    string
 	JenisPermohonan string
 	JenisSambungan  string
@@ -84,7 +85,7 @@ func writeWOLetterhead(pdf *gofpdf.Fpdf, data vendorWOPDFData) {
 func writeWOMetadata(pdf *gofpdf.Fpdf, data vendorWOPDFData) {
 	leftX, rightX := 28.0, 123.0
 	rows := [][2]string{
-		{"Nomor", ""},
+		{"Nomor", data.NomorSurat},
 		{"Lampiran", ""},
 		{"Sifat", ""},
 		{"Hal", woSubject(data.Title)},
@@ -166,17 +167,14 @@ func writeWOSignature(pdf *gofpdf.Fpdf, data vendorWOPDFData) {
 	}
 	pdf.SetX(108)
 	pdf.SetFont("Go", "B", 9)
-	pdf.MultiCell(79, 4.5, "PEJABAT BERWENANG", "", "C", false)
-	pdf.SetX(108)
-	pdf.SetFont("Go", "", 8)
-	pdf.CellFormat(79, 4.5, safePDFText(data.IssuerRole), "", 1, "C", false, 0, "")
+	pdf.MultiCell(79, 4.5, "MANAGER PLN UP3 SURABAYA BARAT", "", "C", false)
 	pdf.Ln(18)
 	pdf.SetDrawColor(50, 50, 50)
 	pdf.SetLineWidth(.3)
 	pdf.Line(120, pdf.GetY(), 175, pdf.GetY())
 	pdf.SetX(108)
 	pdf.SetFont("Go", "", 8)
-	pdf.CellFormat(79, 4.5, "Nama dan Jabatan", "", 1, "C", false, 0, "")
+	pdf.CellFormat(79, 4.5, "CYNTHIA DEWI ARIYANI", "", 1, "C", false, 0, "")
 }
 
 func writeWOFooter(pdf *gofpdf.Fpdf) {

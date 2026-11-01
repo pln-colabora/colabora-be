@@ -13,26 +13,50 @@ func TestValidatePermohonanPowerFields(t *testing.T) {
 	v := NewPermohonanValidation()
 	newPower := int64(2200)
 	oldPower := int64(1300)
+	amount := int64(150000)
 
 	base := dto.PermohonanCreateRequest{
-		JenisPermohonan: rbac.JenisPermohonanPasangBaru,
-		JenisSambungan:  rbac.JenisSambunganJTR,
-		Tarif:           stringPointer(rbac.TarifRumahTangga),
-		DayaBaru:        &newPower,
-		PelangganNama:   "Pelanggan Uji",
-		PelangganAlamat: "Alamat Uji",
-		PelangganNoHp:   "0800000000",
+		JenisPermohonan:   rbac.JenisPermohonanPasangBaru,
+		JenisSambungan:    rbac.JenisSambunganJTR,
+		Tarif:             stringPointer(rbac.TarifRumahTangga),
+		GolonganTarif:     stringPointer("R1"),
+		DayaBaru:          &newPower,
+		PelangganNama:     "Pelanggan Uji",
+		PelangganAlamat:   "Alamat Uji",
+		PelangganNoHp:     "0800000000",
+		TanggalPembayaran: "2026-09-25",
+		NominalPembayaran: &amount,
 	}
 	require.NoError(t, v.ValidatePermohonanCreateRequest(base))
-	legacyShape := base
-	legacyShape.Tarif = nil
-	legacyShape.DayaBaru = nil
-	require.NoError(t, v.ValidatePermohonanCreateRequest(legacyShape))
+	missingGolongan := base
+	missingGolongan.GolonganTarif = nil
+	require.ErrorContains(t, v.ValidatePermohonanCreateRequest(missingGolongan), "golongan_tarif is required")
+	blankGolongan := base
+	blankGolongan.GolonganTarif = stringPointer("  ")
+	require.Error(t, v.ValidatePermohonanCreateRequest(blankGolongan))
+	missingTarif := base
+	missingTarif.Tarif = nil
+	require.Error(t, v.ValidatePermohonanCreateRequest(missingTarif))
+	missingDaya := base
+	missingDaya.DayaBaru = nil
+	require.Error(t, v.ValidatePermohonanCreateRequest(missingDaya))
+	pbWithOldGolongan := base
+	pbWithOldGolongan.GolonganTarifLama = stringPointer("R1")
+	require.Error(t, v.ValidatePermohonanCreateRequest(pbWithOldGolongan))
 
 	pd := base
 	pd.JenisPermohonan = rbac.JenisPermohonanPerubahanDaya
 	pd.DayaLama = &oldPower
 	require.NoError(t, v.ValidatePermohonanCreateRequest(pd))
+	pdDetail := pd
+	pdDetail.GolonganTarifLama = stringPointer("R1")
+	pdDetail.PembatasLama = stringPointer("1x6")
+	pdDetail.PembatasBaru = stringPointer("1x10")
+	require.NoError(t, v.ValidatePermohonanCreateRequest(pdDetail))
+	pdOldWithoutPower := pdDetail
+	pdOldWithoutPower.DayaLama = nil
+	pdOldWithoutPower.DayaBaru = &newPower
+	require.Error(t, v.ValidatePermohonanCreateRequest(pdOldWithoutPower))
 
 	invalidPB := base
 	invalidPB.DayaLama = &oldPower
@@ -45,6 +69,22 @@ func TestValidatePermohonanPowerFields(t *testing.T) {
 	invalidTariff := base
 	invalidTariff.Tarif = stringPointer("lainnya")
 	require.Error(t, v.ValidatePermohonanCreateRequest(invalidTariff))
+}
+
+func TestValidatePaymentFields(t *testing.T) {
+	v := NewPermohonanValidation()
+	amount := int64(150000)
+	power := int64(900)
+	req := dto.PermohonanCreateRequest{JenisPermohonan: rbac.JenisPermohonanPasangBaru, JenisSambungan: rbac.JenisSambunganJTR, Tarif: stringPointer(rbac.TarifRumahTangga), GolonganTarif: stringPointer("R1"), DayaBaru: &power, PelangganNama: "Pelanggan", PelangganAlamat: "Alamat", PelangganNoHp: "0800000000", TanggalPembayaran: "2026-09-25", NominalPembayaran: &amount}
+	require.NoError(t, v.ValidatePermohonanCreateRequest(req))
+	req.TanggalPembayaran = "2026-02-30"
+	require.Error(t, v.ValidatePermohonanCreateRequest(req))
+	req.TanggalPembayaran = "2026-09-25"
+	zero := int64(0)
+	req.NominalPembayaran = &zero
+	require.Error(t, v.ValidatePermohonanCreateRequest(req))
+	req.NominalPembayaran = nil
+	require.Error(t, v.ValidatePermohonanCreateRequest(req))
 }
 
 func stringPointer(value string) *string { return &value }
@@ -151,13 +191,13 @@ func TestValidateSequenceFourRequests(t *testing.T) {
 	v := NewPermohonanValidation()
 	documentID := uuid.NewString()
 
-	require.NoError(t, v.ValidateEnergizeSubmitRequest(dto.EnergizeSubmitRequest{
+	require.NoError(t, v.ValidateEnergizeSubmitRequest(dto.EnergizeSubmitRequest{EnergizeStatus: "permanent",
 		OperationResult: "operasi jaringan selesai", DocumentIDs: []string{documentID},
 	}))
-	require.Error(t, v.ValidateEnergizeSubmitRequest(dto.EnergizeSubmitRequest{
+	require.Error(t, v.ValidateEnergizeSubmitRequest(dto.EnergizeSubmitRequest{EnergizeStatus: "permanent",
 		OperationResult: "   ", DocumentIDs: []string{documentID},
 	}))
-	require.Error(t, v.ValidateEnergizeSubmitRequest(dto.EnergizeSubmitRequest{
+	require.Error(t, v.ValidateEnergizeSubmitRequest(dto.EnergizeSubmitRequest{EnergizeStatus: "permanent",
 		OperationResult: "operasi jaringan selesai", DocumentIDs: []string{documentID, documentID},
 	}))
 }

@@ -337,12 +337,12 @@ func TestSubmitSequenceFourValidatesPayloads(t *testing.T) {
 	}{
 		{
 			name: "energize result", path: "/api/permohonan/id/energize-jaringan",
-			body:   `{"operation_result":"operasi jaringan selesai","document_ids":["%s"]}`,
+			body:   `{"energize_status":"permanent","operation_result":"operasi jaringan selesai","document_ids":["%s"]}`,
 			submit: func(c *permohonanController, ctx *gin.Context) { c.SubmitEnergize(ctx) }, wantCode: http.StatusOK,
 		},
 		{
 			name: "blank energize result", path: "/api/permohonan/id/energize-jaringan",
-			body:   `{"operation_result":"   ","document_ids":["%s"]}`,
+			body:   `{"energize_status":"permanent","operation_result":"   ","document_ids":["%s"]}`,
 			submit: func(c *permohonanController, ctx *gin.Context) { c.SubmitEnergize(ctx) }, wantCode: http.StatusBadRequest,
 		},
 		{
@@ -389,7 +389,7 @@ func TestCreateMapsEntryAuthorizationErrors(t *testing.T) {
 				permohonanService:    phase3ControllerService{createErr: test.err},
 				permohonanValidation: validation.NewPermohonanValidation(),
 			}
-			body := []byte(`{"jenis_permohonan":"Pasang Baru (PB)","jenis_sambungan":"JTR","pelanggan_nama":"Pelanggan Uji","pelanggan_alamat":"Alamat sintetis","pelanggan_no_hp":"0800000000"}`)
+			body := []byte(`{"jenis_permohonan":"Pasang Baru (PB)","jenis_sambungan":"JTR","pelanggan_nama":"Pelanggan Uji","pelanggan_alamat":"Alamat sintetis","pelanggan_no_hp":"0800000000","tanggal_pembayaran":"2026-09-25","nominal_pembayaran":150000,"tarif":"rumah_tangga","golongan_tarif":"R1","daya_baru":900}`)
 			request := httptest.NewRequest(http.MethodPost, "/api/permohonan", bytes.NewReader(body))
 			request.Header.Set("Content-Type", "application/json")
 			recorder := httptest.NewRecorder()

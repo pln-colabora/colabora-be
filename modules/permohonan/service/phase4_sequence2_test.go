@@ -22,8 +22,8 @@ func TestStage4ParallelWorkOrdersCanCompleteInEitherOrder(t *testing.T) {
 		name  string
 		nodes []workflow.Code
 	}{
-		{name: "pole construction app", nodes: []workflow.Code{workflow.WOTiang, workflow.WOKonstruksi, workflow.WOAPP}},
-		{name: "app construction pole", nodes: []workflow.Code{workflow.WOAPP, workflow.WOKonstruksi, workflow.WOTiang}},
+		{name: "pole construction app", nodes: []workflow.Code{workflow.WOTiang, workflow.WOKonstruksi, workflow.Tera}},
+		{name: "app construction pole", nodes: []workflow.Code{workflow.Tera, workflow.WOKonstruksi, workflow.WOTiang}},
 	}
 	for _, test := range orders {
 		t.Run(test.name, func(t *testing.T) {
@@ -33,7 +33,7 @@ func TestStage4ParallelWorkOrdersCanCompleteInEitherOrder(t *testing.T) {
 			users := map[workflow.Code]entities.User{
 				workflow.WOTiang:      {ID: uuid.New(), Role: rbac.RolePerencanaan, Unit: "UP3"},
 				workflow.WOKonstruksi: {ID: uuid.New(), Role: rbac.RoleKonstruksi, Unit: "UP3"},
-				workflow.WOAPP:        {ID: uuid.New(), Role: rbac.RoleTransaksiEnergi, Unit: "UP3"},
+				workflow.Tera:         {ID: uuid.New(), Role: rbac.RoleTransaksiEnergi, Unit: "UP3"},
 			}
 			s := &permohonanService{permohonanRepository: repo, documentRepository: docRepo, db: phase3DB(t)}
 			pdkbRequired := false
@@ -49,15 +49,15 @@ func TestStage4ParallelWorkOrdersCanCompleteInEitherOrder(t *testing.T) {
 					_, err = s.SubmitWOConstruction(context.Background(), p.ID.String(), user.ID.String(), dto.WOConstructionSubmitRequest{
 						EstimasiTanggalSelesai: "2026-09-30", PerluPdkb: &pdkbRequired, DocumentIDs: []string{uuid.NewString()},
 					})
-				case workflow.WOAPP:
-					_, err = s.SubmitWOAPP(context.Background(), p.ID.String(), user.ID.String(), evidenceRequest())
+				case workflow.Tera:
+					_, err = s.SubmitTera(context.Background(), p.ID.String(), user.ID.String(), evidenceRequest())
 				}
 				require.NoError(t, err)
 			}
 
 			require.Equal(t, string(workflow.Completed), persistedNode(t, repo.byID, workflow.WOTiang).Status)
 			require.Equal(t, string(workflow.Completed), persistedNode(t, repo.byID, workflow.WOKonstruksi).Status)
-			require.Equal(t, string(workflow.Completed), persistedNode(t, repo.byID, workflow.WOAPP).Status)
+			require.Equal(t, string(workflow.Completed), persistedNode(t, repo.byID, workflow.Tera).Status)
 			require.Equal(t, string(workflow.Available), persistedNode(t, repo.byID, workflow.PemasanganTiang).Status)
 			require.Equal(t, string(workflow.Locked), persistedNode(t, repo.byID, workflow.Konstruksi).Status)
 			require.Equal(t, string(workflow.Available), persistedNode(t, repo.byID, workflow.Reservasi).Status)
@@ -113,7 +113,12 @@ func TestWOConstructionControlsPDKBAndAuditsDerivedSkips(t *testing.T) {
 			s := &permohonanService{permohonanRepository: repo, userRepository: &phase3UserRepository{user: user}, documentRepository: docRepo, db: phase3DB(t)}
 
 			response, err := s.SubmitWOConstruction(context.Background(), p.ID.String(), user.ID.String(), dto.WOConstructionSubmitRequest{
-				EstimasiTanggalSelesai: "2026-09-30", PerluPdkb: &test.required, Notes: "synthetic work order", DocumentIDs: []string{uuid.NewString()}, LocationCoordinates: vendorCoordinates(),
+				TanggalPDKB: func() string {
+					if test.required {
+						return "2099-09-30"
+					}
+					return ""
+				}(), EstimasiTanggalSelesai: "2026-09-30", PerluPdkb: &test.required, Notes: "synthetic work order", DocumentIDs: []string{uuid.NewString()}, LocationCoordinates: vendorCoordinates(),
 			})
 			require.NoError(t, err)
 			require.NotNil(t, response.PerluPdkb)
@@ -138,7 +143,12 @@ func TestWOConstructionControlsPDKBAndAuditsDerivedSkips(t *testing.T) {
 			}
 
 			_, err = s.SubmitWOConstruction(context.Background(), p.ID.String(), user.ID.String(), dto.WOConstructionSubmitRequest{
-				EstimasiTanggalSelesai: "2026-09-30", PerluPdkb: &test.required, DocumentIDs: []string{uuid.NewString()},
+				TanggalPDKB: func() string {
+					if test.required {
+						return "2099-09-30"
+					}
+					return ""
+				}(), EstimasiTanggalSelesai: "2026-09-30", PerluPdkb: &test.required, DocumentIDs: []string{uuid.NewString()},
 			})
 			require.Error(t, err)
 			require.Len(t, docRepo.attachCalls, 1)
@@ -213,10 +223,9 @@ func TestConstructionReservationAndAPPTeraAreSeparateBranches(t *testing.T) {
 	require.ErrorIs(t, err, rbac.ErrWorkflowForbidden)
 	require.Empty(t, docRepo.attachCalls)
 
-	response, err := s.SubmitWOAPP(context.Background(), p.ID.String(), user.ID.String(), evidenceRequest())
-	require.NoError(t, err)
-	require.Equal(t, string(workflow.Available), responseNode(t, response, workflow.Tera).Status)
-	response, err = s.SubmitTera(context.Background(), p.ID.String(), user.ID.String(), reservation)
+	_, err = s.SubmitWOAPP(context.Background(), p.ID.String(), user.ID.String(), evidenceRequest())
+	require.ErrorIs(t, err, workflow.ErrNotActionable)
+	response, err := s.SubmitTera(context.Background(), p.ID.String(), user.ID.String(), reservation)
 	require.NoError(t, err)
 	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.Tera).Status)
 
@@ -233,20 +242,20 @@ func TestConstructionReservationAndAPPTeraAreSeparateBranches(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.Reservasi).Status)
 	require.Equal(t, string(workflow.Completed), responseNode(t, response, workflow.Tera).Status)
-	require.Equal(t, []workflow.Code{workflow.WOAPP, workflow.Tera, workflow.WOKonstruksi, workflow.Reservasi}, docRepo.attachCalls)
+	require.Equal(t, []workflow.Code{workflow.Tera, workflow.WOKonstruksi, workflow.Reservasi}, docRepo.attachCalls)
 
 	s.userRepository = &phase3UserRepository{user: vendor}
 	_, err = s.SubmitTera(context.Background(), p.ID.String(), vendor.ID.String(), reservation)
 	require.ErrorIs(t, err, rbac.ErrWorkflowForbidden)
 	_, err = s.SubmitReservation(context.Background(), p.ID.String(), vendor.ID.String(), reservation)
 	require.ErrorIs(t, err, workflow.ErrNotActionable)
-	require.Len(t, docRepo.attachCalls, 4)
+	require.Len(t, docRepo.attachCalls, 3)
 }
 
 func TestReservationEvidenceFailureRollsBackReservationOnly(t *testing.T) {
 	p := delegatedRequest(t, rbac.JenisSambunganJTR, false)
 	pdkbRequired := false
-	advancePhase4(t, &p, &workflow.Decisions{PerluPDKB: &pdkbRequired}, workflow.WOKonstruksi, workflow.WOAPP)
+	advancePhase4(t, &p, &workflow.Decisions{PerluPDKB: &pdkbRequired}, workflow.WOKonstruksi)
 	repo := &phase3PermohonanRepository{byID: p}
 	docRepo := &phase4DocumentRepository{failAt: 1}
 	user := entities.User{ID: uuid.New(), Role: rbac.RoleVendorKonstruksi, Unit: "vendor"}
@@ -267,7 +276,7 @@ func TestTeraAttachmentConflictDoesNotUndoReservation(t *testing.T) {
 	require.NoError(t, db.Create(&energy).Error)
 	p := delegatedRequest(t, rbac.JenisSambunganJTR, false)
 	pdkbRequired := false
-	advancePhase4(t, &p, &workflow.Decisions{PerluPDKB: &pdkbRequired}, workflow.WOKonstruksi, workflow.WOAPP)
+	advancePhase4(t, &p, &workflow.Decisions{PerluPDKB: &pdkbRequired}, workflow.WOKonstruksi)
 	require.NoError(t, db.Omit("WorkflowNodes").Create(&p).Error)
 	for i := range p.WorkflowNodes {
 		p.WorkflowNodes[i].PermohonanID = p.ID
@@ -319,7 +328,7 @@ func TestReturnedAggregateRejectsStage4Submission(t *testing.T) {
 	p := phase4Request(t, rbac.JenisSambunganJTR)
 	poleRequired := true
 	decisions := workflow.Decisions{KebutuhanTiang: &poleRequired, NPS: workflow.Return}
-	advancePhase4(t, &p, &decisions, workflow.Survei, workflow.RAB, workflow.KebutuhanTiang, workflow.Perluasan, workflow.NPS)
+	advancePhase4(t, &p, &decisions, workflow.Survei, workflow.RAB, workflow.KebutuhanTiang, workflow.Prioritas, workflow.Perluasan, workflow.NPS)
 	repo := &phase3PermohonanRepository{byID: p}
 	docRepo := &phase4DocumentRepository{}
 	user := entities.User{ID: uuid.New(), Role: rbac.RolePerencanaan, Unit: "UP3"}
@@ -358,7 +367,7 @@ func TestSequence2ExitUnlocksApplicableStage5Branches(t *testing.T) {
 	transactionEnergy := entities.User{ID: uuid.New(), Role: rbac.RoleTransaksiEnergi, Unit: "UP3"}
 	s.userRepository = &phase3UserRepository{user: transactionEnergy}
 	_, err = s.SubmitWOAPP(context.Background(), p.ID.String(), transactionEnergy.ID.String(), evidenceRequest())
-	require.NoError(t, err)
+	require.ErrorIs(t, err, workflow.ErrNotActionable)
 	response, err := s.SubmitTera(context.Background(), p.ID.String(), transactionEnergy.ID.String(), dto.EvidenceSubmitRequest{
 		DocumentIDs: []string{uuid.NewString()},
 	})
@@ -374,7 +383,7 @@ func delegatedRequest(t *testing.T, connection string, poleRequired bool) entiti
 	t.Helper()
 	p := phase4Request(t, connection)
 	decisions := workflow.Decisions{KebutuhanTiang: &poleRequired, NPS: workflow.Delegated}
-	advancePhase4(t, &p, &decisions, workflow.Survei, workflow.RAB, workflow.KebutuhanTiang, workflow.Perluasan, workflow.NPS)
+	advancePhase4(t, &p, &decisions, workflow.Survei, workflow.RAB, workflow.KebutuhanTiang, workflow.Prioritas, workflow.Perluasan, workflow.NPS)
 	return p
 }
 

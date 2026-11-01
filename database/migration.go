@@ -26,6 +26,8 @@ func Migrate(db *gorm.DB) error {
 		&entities.VendorAssignment{},
 		&entities.EmailNotification{},
 		&entities.PermohonanNumberCounter{},
+		&entities.ActivityRevision{},
+		&entities.PDKBSchedule{},
 	); err != nil {
 		return err
 	}

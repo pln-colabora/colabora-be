@@ -13,6 +13,7 @@ type DocumentEvidence struct {
 	PermohonanID uuid.UUID `gorm:"type:uuid;not null;index" json:"permohonan_id"`
 	WorkflowNode string    `gorm:"type:varchar(50);not null;uniqueIndex:idx_document_node" json:"workflow_node"`
 	AttachedBy   uuid.UUID `gorm:"type:uuid;not null" json:"attached_by"`
+	IsCurrent    bool      `gorm:"not null;default:true" json:"-"`
 	Timestamp
 }
 

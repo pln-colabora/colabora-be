@@ -103,15 +103,15 @@
         <div id="error" role="alert"></div>
         <pre id="diagram" class="mermaid" aria-label="Architecture diagram"></pre>
         <footer>
-          Sumber Mermaid: <a id="source-link" href="#">Markdown</a> · Diverifikasi 9 September 2026
+          Sumber Mermaid: <a id="source-link" href="#">Markdown</a> · Alur dev diverifikasi 26 Oktober 2026
         </footer>
       </section>
     </main>
   </div>
   <script>
     const diagrams = [
-      ["workflow-jtr-jtm", "Workflow JTR/JTM", "20 node aktif, cabang paralel, keputusan, join, dan ownership JTR/JTM", "01-workflow-jtr-jtm.md"],
-      ["workflow-plg-tm", "Workflow PLG TM", "20 node aktif dengan ownership khusus PLG TM", "02-workflow-plg-tm.md"],
+      ["workflow-jtr-jtm", "Workflow JTR/JTM", "20 node aktif, prioritas sebelum NPS, kalender PDKB, dan ownership JTR/JTM", "01-workflow-jtr-jtm.md"],
+      ["workflow-plg-tm", "Workflow PLG TM", "20 node aktif, prioritas sebelum NPS, dan SR/APP oleh Transaksi Energi", "02-workflow-plg-tm.md"],
       ["workflow-state", "Workflow State", "Lifecycle node dan aggregate permohonan", "03-workflow-state.md"],
       ["rbac", "RBAC Ownership", "Write ownership dan read scope", "04-rbac-ownership.md"],
       ["activity-submission", "Activity Submission", "Transaksi atomik, evidence, audit, dan rollback", "05-activity-submission.md"],
@@ -119,7 +119,7 @@
       ["components", "Components", "Batas modul dan layanan infrastruktur", "07-components.md"],
       ["api-actions", "API Action Map", "Endpoint write, node, owner, evidence, dan hasil", "08-api-action-map.md"],
       ["evidence", "Evidence Lifecycle", "Upload, scan, revision, attachment, dan cleanup", "09-evidence-lifecycle.md"],
-      ["sla", "SLA & Critical Path", "Dependency utama dan SLA independen", "10-sla-critical-path.md"]
+      ["sla", "SLA & Critical Path", "Dependency utama dan SLA hari kerja dari pembayaran", "10-sla-critical-path.md"]
     ];
 
     mermaid.initialize({ startOnLoad: false, theme: "base", securityLevel: "strict", flowchart: { curve: "basis", htmlLabels: true } });

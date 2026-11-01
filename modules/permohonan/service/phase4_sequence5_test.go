@@ -82,7 +82,7 @@ func TestClosingRejectsOwnersPrerequisitesAndReturnedRequests(t *testing.T) {
 				p = phase4Request(t, p.JenisSambungan)
 				poles := false
 				advancePhase4(t, &p, &workflow.Decisions{KebutuhanTiang: &poles, NPS: workflow.Return},
-					workflow.Survei, workflow.RAB, workflow.KebutuhanTiang, workflow.Perluasan, workflow.NPS)
+					workflow.Survei, workflow.RAB, workflow.KebutuhanTiang, workflow.Prioritas, workflow.Perluasan, workflow.NPS)
 			}
 			repo := &phase3PermohonanRepository{byID: p}
 			docs := &phase4DocumentRepository{}
