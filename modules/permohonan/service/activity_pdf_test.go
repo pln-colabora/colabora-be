@@ -106,5 +106,25 @@ func TestWOLettersKeepSignatureAndParaf(t *testing.T) {
 	legacy, err := generateLegacyActivityPDF(activityPDFData{WorkflowNode: "wo_tiang", Payload: json.RawMessage(`{"notes":"WO"}`)})
 	require.NoError(t, err)
 	require.True(t, pdftext.Contains(legacy, "Jawaban Activity"))
-	require.True(t, woActivityNodes["wo_pdkb"] && woActivityNodes["wo_tiang"] && woActivityNodes["wo_konstruksi"] && woActivityNodes["wo_app"])
+	require.True(t, woActivityNodes["wo_tiang"] && woActivityNodes["wo_konstruksi"] && woActivityNodes["wo_app"])
+}
+
+func TestWOPDKBUsesActivityReportLayout(t *testing.T) {
+	require.False(t, woActivityNodes["wo_pdkb"])
+	content, err := generateActivityPDF(activityPDFData{
+		NoPermohonan: "PBPD-2026-0044", WorkflowNode: "wo_pdkb", StageNumber: 4, Status: "completed",
+		GeneratedAt: time.Date(2026, 11, 1, 7, 32, 0, 0, time.UTC),
+		Payload:     json.RawMessage(`{"nomor_surat":"045/WO-PDKB/2026","notes":"Jadwal PDKB terkonfirmasi","tanggal_pdkb":"2026-11-12"}`),
+	})
+	require.NoError(t, err)
+	for _, text := range []string{
+		"LAPORAN AKTIVITAS", "WO PDKB", "PBPD-2026-0044", "4 - Pra Pelaksanaan Konstruksi",
+		"Nomor surat", "045/WO-PDKB/2026", "Tanggal PDKB", "12 November 2026", "Catatan", "Jadwal PDKB terkonfirmasi",
+		"Dokumen ini dihasilkan otomatis oleh aplikasi Colabora pada 1 November 2026 14:32 WIB.",
+	} {
+		require.True(t, pdftext.Contains(content, text), "PDF should contain %q", text)
+	}
+	for _, text := range []string{"Jawaban Activity", "PEJABAT BERWENANG", "Paraf", "nomor_surat"} {
+		require.False(t, pdftext.Contains(content, text), "PDF must not contain %q", text)
+	}
 }

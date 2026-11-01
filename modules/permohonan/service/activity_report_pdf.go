@@ -19,9 +19,9 @@ import (
 )
 
 // woActivityNodes keep their own WO letters; the activity report layout below
-// applies to every other workflow node.
+// applies to every other workflow node, including wo_pdkb.
 var woActivityNodes = map[workflow.Code]bool{
-	workflow.WOTiang: true, workflow.WOKonstruksi: true, workflow.WOAPP: true, workflow.WOPDKB: true,
+	workflow.WOTiang: true, workflow.WOKonstruksi: true, workflow.WOAPP: true,
 }
 
 var activityNames = map[workflow.Code]string{
@@ -67,6 +67,7 @@ var tarifNames = map[string]string{
 
 // payloadFields lists known payload keys in display order with their labels.
 var payloadFields = []struct{ key, label string }{
+	{"nomor_surat", "Nomor surat"},
 	{"surveyed_at", "Tanggal survei"},
 	{"kebutuhan_tiang", "Kebutuhan tiang"},
 	{"priority", "Prioritas"},

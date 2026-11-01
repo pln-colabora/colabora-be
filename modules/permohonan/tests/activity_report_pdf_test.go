@@ -6,11 +6,14 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/pln-colabora/colabora-be/database/entities"
 	"github.com/pln-colabora/colabora-be/pkg/pdftext"
 	"github.com/pln-colabora/colabora-be/pkg/rbac"
+	"github.com/pln-colabora/colabora-be/pkg/workflow"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func (h tariffHarness) exportActivity(t *testing.T, id, node string, user entities.User) []byte {
@@ -62,4 +65,34 @@ func TestExportActivityUsesReportLayout(t *testing.T) {
 	requireActivityReport(t, h.exportActivity(t, id, "verifikasi_prioritas", h.planner),
 		number, "Verifikasi Prioritas Pekerjaan", "Data Aktivitas", "Prioritas", "High", "Catatan", "Pelanggan prioritas",
 		"3 - Perencanaan Perluasan", "Petugas Perencanaan (Perencanaan)", "Tidak ada lampiran.")
+
+	// wo_pdkb has no WO letter of its own, so its export uses the report layout.
+	advanceToWOPDKB(t, h.db, id)
+	require.NoError(t, h.db.Exec(`UPDATE permohonan_activities SET completed_by = ?, completed_at = ?, payload = ? WHERE permohonan_id = ? AND workflow_node = 'wo_pdkb'`,
+		h.planner.ID, time.Date(2026, 11, 5, 3, 15, 0, 0, time.UTC), `{"nomor_surat":"045/WO-PDKB/2026","notes":"Jadwal PDKB terkonfirmasi"}`, id).Error)
+	requireActivityReport(t, h.exportActivity(t, id, "wo_pdkb", h.planner),
+		number, "WO PDKB", "Bisnis / B3 / 210.000 VA", "Selesai", "Petugas Perencanaan (Perencanaan)",
+		"Nomor surat", "045/WO-PDKB/2026", "Jadwal PDKB terkonfirmasi", "Tidak ada lampiran.")
+}
+
+// advanceToWOPDKB completes the delegation and construction WO with PDKB
+// required, then wo_pdkb itself, directly in storage.
+func advanceToWOPDKB(t *testing.T, db *gorm.DB, id string) {
+	t.Helper()
+	var p entities.Permohonan
+	require.NoError(t, db.Preload("WorkflowNodes").First(&p, "id = ?", id).Error)
+	snapshot := p.WorkflowSnapshot()
+	required := true
+	snapshot.Decisions.NPS = workflow.Delegated
+	snapshot.Decisions.PerluPDKB = &required
+	var result workflow.Result
+	var err error
+	for _, code := range []workflow.Code{workflow.Perluasan, workflow.NPS, workflow.WOKonstruksi, workflow.WOPDKB} {
+		snapshot, result, err = workflow.Transition(snapshot, code, workflow.Completed)
+		require.NoError(t, err)
+	}
+	for code, status := range result.Nodes {
+		require.NoError(t, db.Model(&entities.PermohonanActivity{}).Where("permohonan_id = ? AND workflow_node = ?", id, string(code)).Update("status", string(status)).Error)
+	}
+	require.NoError(t, db.Model(&entities.Permohonan{}).Where("id = ?", id).Updates(map[string]any{"nps_delegation_status": string(workflow.Delegated), "perlu_pdkb": true}).Error)
 }
