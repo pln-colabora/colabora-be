@@ -31,6 +31,8 @@ services:
     image: postgres:16-alpine
     container_name: ${APP_NAME:-colabora-be}-db
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:15434:5432"
     env_file:
       - .env
     environment:
