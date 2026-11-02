@@ -203,6 +203,56 @@ func (s *permohonanService) ExportVendorWOPDF(ctx context.Context, id, workflowN
 	return content, filename, nil
 }
 
+const woPDKBTitle = "SURAT PERINTAH KERJA PDKB"
+
+// woPDKBLetterData builds the WO PDKB letter from a completed wo_pdkb node.
+// PDKB is an internal team rather than an assigned vendor, so the recipient is
+// fixed; the PDKB date comes from the construction WO that booked it.
+func woPDKBLetterData(p entities.Permohonan, node entities.PermohonanActivity) (vendorWOPDFData, error) {
+	issuedAt := time.Now()
+	if node.CompletedAt != nil {
+		issuedAt = *node.CompletedAt
+	}
+	data := vendorWOPDFData{
+		Title: woPDKBTitle, NoPermohonan: p.NoPermohonan,
+		JenisPermohonan: p.JenisPermohonan, JenisSambungan: p.JenisSambungan, UlpUnit: p.UlpUnit,
+		PelangganNama: p.PelangganNama, PelangganAlamat: p.PelangganAlamat, PelangganNoHp: p.PelangganNoHp,
+		VendorNama: "Tim PDKB UP3 Surabaya Barat", Attention: "u.p. Yth. Koordinator PDKB",
+		IssuedAt: issuedAt, Scope: "pekerjaan PDKB", IssuerRole: "KONSTRUKSI",
+	}
+	var payload struct {
+		NomorSurat string `json:"nomor_surat"`
+		Notes      string `json:"notes"`
+	}
+	if node.Payload != "" {
+		if err := json.Unmarshal([]byte(node.Payload), &payload); err != nil {
+			return vendorWOPDFData{}, fmt.Errorf("decode WO PDKB payload: %w", err)
+		}
+	}
+	data.NomorSurat, data.Notes = payload.NomorSurat, payload.Notes
+
+	schedule := "Sebelum pelaksanaan pekerjaan, menyampaikan jadwal PDKB kepada PIC pengawas pekerjaan."
+	for _, other := range p.WorkflowNodes {
+		if other.WorkflowNode != string(workflow.WOKonstruksi) || other.Payload == "" {
+			continue
+		}
+		var construction struct {
+			TanggalPDKB string `json:"tanggal_pdkb"`
+		}
+		if err := json.Unmarshal([]byte(other.Payload), &construction); err == nil {
+			if date, err := time.Parse("2006-01-02", construction.TanggalPDKB); err == nil {
+				schedule = "Melaksanakan pekerjaan PDKB sesuai jadwal pada tanggal " + formatWODate(&date) + " dan berkoordinasi dengan PIC pengawas pekerjaan."
+			}
+		}
+	}
+	data.Instructions = []string{
+		"Melaksanakan pekerjaan dalam keadaan bertegangan (PDKB) sesuai data dan dokumen teknis terlampir.",
+		schedule,
+		"Mematuhi SOP PDKB, standar keselamatan, dan ketentuan kerja yang berlaku.",
+	}
+	return data, nil
+}
+
 func vendorRoleForWO(code workflow.Code, connection string) (string, bool) {
 	if code == workflow.WOAPP && workflow.ValidConnection(connection) {
 		// Historical WO APP recipients retain their original vendor identity.

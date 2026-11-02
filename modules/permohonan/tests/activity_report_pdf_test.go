@@ -66,13 +66,27 @@ func TestExportActivityUsesReportLayout(t *testing.T) {
 		number, "Verifikasi Prioritas Pekerjaan", "Data Aktivitas", "Prioritas", "High", "Catatan", "Pelanggan prioritas",
 		"3 - Perencanaan Perluasan", "Petugas Perencanaan (Perencanaan)", "Tidak ada lampiran.")
 
-	// wo_pdkb has no WO letter of its own, so its export uses the report layout.
+	// wo_pdkb is exported as a WO letter in the WO Konstruksi layout.
 	advanceToWOPDKB(t, h.db, id)
-	require.NoError(t, h.db.Exec(`UPDATE permohonan_activities SET completed_by = ?, completed_at = ?, payload = ? WHERE permohonan_id = ? AND workflow_node = 'wo_pdkb'`,
+	require.NoError(t, h.db.Exec(`UPDATE permohonan_activities SET payload = ? WHERE permohonan_id = ? AND workflow_node = 'wo_konstruksi'`,
+		`{"tanggal_pdkb":"2026-11-12","perlu_pdkb":true}`, id).Error)
+	require.NoError(t, h.db.Exec(`UPDATE permohonan_activities SET status = 'available' WHERE permohonan_id = ? AND workflow_node = 'wo_pdkb'`, id).Error)
+	request := httptest.NewRequest(http.MethodGet, "/api/permohonan/"+id+"/activities/wo_pdkb/export", nil)
+	request.Header.Set("X-Test-User", h.planner.ID.String())
+	recorder := httptest.NewRecorder()
+	h.engine.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusConflict, recorder.Code, recorder.Body.String())
+
+	require.NoError(t, h.db.Exec(`UPDATE permohonan_activities SET status = 'completed', completed_by = ?, completed_at = ?, payload = ? WHERE permohonan_id = ? AND workflow_node = 'wo_pdkb'`,
 		h.planner.ID, time.Date(2026, 11, 5, 3, 15, 0, 0, time.UTC), `{"nomor_surat":"045/WO-PDKB/2026","notes":"Jadwal PDKB terkonfirmasi"}`, id).Error)
-	requireActivityReport(t, h.exportActivity(t, id, "wo_pdkb", h.planner),
-		number, "WO PDKB", "Bisnis / B3 / 210.000 VA", "Selesai", "Petugas Perencanaan (Perencanaan)",
-		"Nomor surat", "045/WO-PDKB/2026", "Jadwal PDKB terkonfirmasi", "Tidak ada lampiran.")
+	letter := h.exportActivity(t, id, "wo_pdkb", h.planner)
+	for _, text := range []string{"045/WO-PDKB/2026", "Tim PDKB UP3 Surabaya Barat", "u.p. Yth. Koordinator PDKB",
+		"Melaksanakan pekerjaan PDKB sesuai jadwal pada tanggal 12 November 2026", "MANAGER PLN UP3 SURABAYA BARAT", "Paraf"} {
+		require.True(t, pdftext.Contains(letter, text), "WO PDKB should contain %q", text)
+	}
+	for _, text := range []string{"LAPORAN AKTIVITAS", "Jawaban Activity", "u.p. Yth. Direktur"} {
+		require.False(t, pdftext.Contains(letter, text), "WO PDKB must not contain %q", text)
+	}
 }
 
 // advanceToWOPDKB completes the delegation and construction WO with PDKB

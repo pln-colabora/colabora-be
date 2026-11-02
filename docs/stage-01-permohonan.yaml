@@ -195,9 +195,12 @@ paths:
       operationId: exportPermohonanActivityAnswers
       summary: Unduh jawaban satu workflow node sebagai PDF
       description: >-
-        Mengunduh jawaban payload beserta identitas permohonan dan metadata
-        workflow node. Mengikuti batas akses yang sama dengan detail activity;
-        dokumen evidence tidak disertakan.
+        Mengikuti batas akses yang sama dengan detail activity. Format per node:
+        wo_pdkb menghasilkan surat WO PDKB (layout WO Konstruksi, nomor_surat
+        dari payload, nama file WO_PDKB_<no_permohonan>.pdf) dan hanya tersedia
+        setelah node selesai (409 jika belum); wo_tiang, wo_konstruksi, dan
+        wo_app memakai export jawaban lama; node lain menghasilkan laporan
+        aktivitas berkop PLN beserta daftar nama file lampiran.
       security: [{ bearerAuth: [] }]
       parameters:
         - { $ref: "#/components/parameters/PermohonanID" }
@@ -216,6 +219,7 @@ paths:
               schema: { type: string, format: binary }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
         "500": { description: Gagal membuat file PDF }
   /api/permohonan/{id}/logs:
     get:

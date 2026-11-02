@@ -6,7 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pln-colabora/colabora-be/database/entities"
 	"github.com/pln-colabora/colabora-be/pkg/pdftext"
+	"github.com/pln-colabora/colabora-be/pkg/workflow"
 
 	"github.com/stretchr/testify/require"
 )
@@ -100,7 +102,7 @@ func TestGenerateActivityPDFNumbersEveryPage(t *testing.T) {
 func TestWOLettersKeepSignatureAndParaf(t *testing.T) {
 	content, err := generateVendorWOPDF(vendorWOPDFData{Title: "SURAT PERINTAH KERJA VENDOR TIANG", Scope: "Pekerjaan uji", NomorSurat: "123/WO/2026"})
 	require.NoError(t, err)
-	for _, text := range []string{"MANAGER PLN UP3 SURABAYA BARAT", "CYNTHIA DEWI ARIYANI", "123/WO/2026", "Paraf", "UP3 SBY BARAT"} {
+	for _, text := range []string{"MANAGER PLN UP3 SURABAYA BARAT", "CYNTHIA DEWI ARIYANI", "123/WO/2026", "Paraf", "UP3 SBY BARAT", "u.p. Yth. Direktur"} {
 		require.True(t, pdftext.Contains(content, text), "WO PDF should still contain %q", text)
 	}
 	legacy, err := generateLegacyActivityPDF(activityPDFData{WorkflowNode: "wo_tiang", Payload: json.RawMessage(`{"notes":"WO"}`)})
@@ -109,22 +111,28 @@ func TestWOLettersKeepSignatureAndParaf(t *testing.T) {
 	require.True(t, woActivityNodes["wo_tiang"] && woActivityNodes["wo_konstruksi"] && woActivityNodes["wo_app"])
 }
 
-func TestWOPDKBUsesActivityReportLayout(t *testing.T) {
-	require.False(t, woActivityNodes["wo_pdkb"])
-	content, err := generateActivityPDF(activityPDFData{
-		NoPermohonan: "PBPD-2026-0044", WorkflowNode: "wo_pdkb", StageNumber: 4, Status: "completed",
-		GeneratedAt: time.Date(2026, 11, 1, 7, 32, 0, 0, time.UTC),
-		Payload:     json.RawMessage(`{"nomor_surat":"045/WO-PDKB/2026","notes":"Jadwal PDKB terkonfirmasi","tanggal_pdkb":"2026-11-12"}`),
-	})
+func TestWOPDKBLetterUsesPDKBWording(t *testing.T) {
+	completedAt := time.Date(2026, 11, 5, 3, 15, 0, 0, time.UTC)
+	p := entities.Permohonan{NoPermohonan: "PBPD-2026-0044", JenisSambungan: "JTR", WorkflowNodes: []entities.PermohonanActivity{
+		{WorkflowNode: string(workflow.WOKonstruksi), Status: string(workflow.Completed), Payload: `{"tanggal_pdkb":"2026-11-12","perlu_pdkb":true}`},
+		{WorkflowNode: string(workflow.WOPDKB), Status: string(workflow.Completed), CompletedAt: &completedAt, Payload: `{"nomor_surat":"045/WO-PDKB/2026","notes":"Jadwal terkonfirmasi"}`},
+	}}
+	content, filename, err := exportWOPDKBLetter(p)
 	require.NoError(t, err)
+	require.Equal(t, "WO_PDKB_PBPD-2026-0044.pdf", filename)
 	for _, text := range []string{
-		"LAPORAN AKTIVITAS", "WO PDKB", "PBPD-2026-0044", "4 - Pra Pelaksanaan Konstruksi",
-		"Nomor surat", "045/WO-PDKB/2026", "Tanggal PDKB", "12 November 2026", "Catatan", "Jadwal PDKB terkonfirmasi",
-		"Dokumen ini dihasilkan otomatis oleh aplikasi Colabora pada 1 November 2026 14:32 WIB.",
+		"045/WO-PDKB/2026", "05 November 2026", "Tim PDKB UP3 Surabaya Barat", "u.p. Yth. Koordinator PDKB",
+		"Perintah Kerja / Work Order", "Melaksanakan pekerjaan dalam keadaan bertegangan (PDKB)",
+		"Melaksanakan pekerjaan PDKB sesuai jadwal pada tanggal 12 November 2026", "Mematuhi SOP PDKB",
+		"MANAGER PLN UP3 SURABAYA BARAT", "Paraf", "UP3 SBY BARAT",
 	} {
-		require.True(t, pdftext.Contains(content, text), "PDF should contain %q", text)
+		require.True(t, pdftext.Contains(content, text), "WO PDKB should contain %q", text)
 	}
-	for _, text := range []string{"Jawaban Activity", "PEJABAT BERWENANG", "Paraf", "nomor_surat"} {
-		require.False(t, pdftext.Contains(content, text), "PDF must not contain %q", text)
+	for _, text := range []string{"u.p. Yth. Direktur", "konstruksi jaringan", "LAPORAN AKTIVITAS", "Jawaban Activity"} {
+		require.False(t, pdftext.Contains(content, text), "WO PDKB must not contain %q", text)
 	}
+
+	p.WorkflowNodes[1].Status = string(workflow.Available)
+	_, _, err = exportWOPDKBLetter(p)
+	require.ErrorIs(t, err, workflow.ErrNotActionable)
 }
