@@ -1,9 +1,11 @@
 package service
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -299,7 +301,13 @@ func (s *documentService) prepareAndStore(ctx context.Context, uploaderID uuid.U
 		return entities.Document{}, "", dto.ErrFileTooLarge
 	}
 	contentType := mimetype.Detect(content).String()
-	if len(content) == 0 || !validation.IsAllowedMimeType(contentType, allowExcel) || contentType != req.File.Header.Get("Content-Type") {
+	declaredContentType := req.File.Header.Get("Content-Type")
+	// XLSX is a ZIP container, so verify its OOXML manifest before normalizing a generic ZIP MIME.
+	if contentType == validation.MimeTypeZIP && allowExcel && strings.EqualFold(filepath.Ext(req.File.Filename), ".xlsx") && isXLSXPackage(content) {
+		contentType = validation.MimeTypeXLSX
+	}
+	zipDeclaredForXLSX := contentType == validation.MimeTypeXLSX && declaredContentType == validation.MimeTypeZIP
+	if len(content) == 0 || !validation.IsAllowedMimeType(contentType, allowExcel) || (contentType != declaredContentType && !zipDeclaredForXLSX) {
 		return entities.Document{}, "", dto.ErrInvalidFileType
 	}
 	scanner := s.scanner
@@ -333,6 +341,55 @@ func (s *documentService) prepareAndStore(ctx context.Context, uploaderID uuid.U
 		document.ScanCheckedAt = &now
 	}
 	return document, key, nil
+}
+
+func isXLSXPackage(content []byte) bool {
+	archive, err := zip.NewReader(bytes.NewReader(content), int64(len(content)))
+	if err != nil {
+		return false
+	}
+
+	var contentTypesFile *zip.File
+	hasWorkbook := false
+	for _, file := range archive.File {
+		switch file.Name {
+		case "[Content_Types].xml":
+			contentTypesFile = file
+		case "xl/workbook.xml":
+			hasWorkbook = true
+		}
+	}
+	if contentTypesFile == nil || !hasWorkbook {
+		return false
+	}
+
+	manifest, err := contentTypesFile.Open()
+	if err != nil {
+		return false
+	}
+	defer manifest.Close()
+	const maxContentTypesSize = 1 << 20
+	data, err := io.ReadAll(io.LimitReader(manifest, maxContentTypesSize+1))
+	if err != nil || len(data) > maxContentTypesSize {
+		return false
+	}
+
+	var contentTypes struct {
+		XMLName   xml.Name `xml:"Types"`
+		Overrides []struct {
+			PartName    string `xml:"PartName,attr"`
+			ContentType string `xml:"ContentType,attr"`
+		} `xml:"Override"`
+	}
+	if xml.Unmarshal(data, &contentTypes) != nil || contentTypes.XMLName.Space != "http://schemas.openxmlformats.org/package/2006/content-types" {
+		return false
+	}
+	for _, override := range contentTypes.Overrides {
+		if override.PartName == "/xl/workbook.xml" && override.ContentType == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml" {
+			return true
+		}
+	}
+	return false
 }
 
 // AttachToWorkflowNode's ownership check is inline: the node is selected at runtime by

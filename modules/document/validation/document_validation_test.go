@@ -92,6 +92,18 @@ func TestValidateDocumentUploadRequest(t *testing.T) {
 			wantErr: dto.ErrInvalidFileType,
 		},
 		{
+			name: "zip mime accepted as xlsx candidate",
+			req: dto.DocumentUploadRequest{
+				File: func() *multipart.FileHeader {
+					file := fileHeader(1<<20, MimeTypeZIP)
+					file.Filename = "evidence.xlsx"
+					return file
+				}(),
+				Type: "evidence",
+			},
+			wantErr: nil,
+		},
+		{
 			name:    "invalid supersedes id",
 			req:     dto.DocumentUploadRequest{File: fileHeader(10, "application/pdf"), Type: "evidence", SupersedesDocumentID: "not-a-uuid"},
 			wantErr: dto.ErrInvalidSupersedesID,
