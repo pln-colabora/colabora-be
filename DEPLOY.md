@@ -135,6 +135,35 @@ repository-level controls and must be configured once in GitHub Settings.
 The staging nginx port is bound to loopback only. Public API access occurs through
 the Tunnel; no public inbound application port is required on the homeserver.
 
+## DBeaver access to PostgreSQL
+
+The COLABORA PostgreSQL port is bound only to localhost on each server:
+`127.0.0.1:15434` in production and staging. These are
+host ports for operator access. The app continues to use `DB_HOST=postgres` and
+`DB_PORT=5432` on its Docker network.
+
+From a laptop, start one of these SSH tunnels and keep it open while using
+DBeaver:
+
+| Environment | Command on laptop | DBeaver host and port |
+| --- | --- | --- |
+| Production | `ssh -N -L 15434:127.0.0.1:15434 <user>@<production-vps>` | `127.0.0.1:15434` |
+| Staging | `ssh -N -L 15434:127.0.0.1:15434 <staging-ssh-alias>` | `127.0.0.1:15434` |
+
+These commands use the same laptop port, so run only one at a time. To keep
+both tunnels open, use a different port on the left side of one `-L` mapping
+and use that port in its DBeaver connection.
+
+The staging SSH alias must connect through Cloudflare Access as described in
+the staging setup above. In DBeaver, create a PostgreSQL connection with the
+corresponding `DB_NAME`, `DB_USER`, and `DB_PASS` from that server's `.env`.
+Use a separate read-only PostgreSQL user for routine production inspection.
+The terminal tunnel already handles SSH, so leave DBeaver's SSH settings off.
+
+Check that each host port is free before the first deployment. Docker Compose
+will recreate the PostgreSQL container to publish the new loopback port; plan
+for a brief interruption. Keep the existing database volume attached.
+
 ## Deployment behavior
 
 ### Push to `main`
