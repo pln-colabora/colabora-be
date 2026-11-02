@@ -22,6 +22,7 @@ const (
 	MimeTypePNG  = "image/png"
 	MimeTypeXLS  = "application/vnd.ms-excel"
 	MimeTypeXLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+	MimeTypeZIP  = "application/zip"
 )
 
 var baseAllowedMimeTypes = map[string]bool{
@@ -67,7 +68,9 @@ func (v *DocumentValidation) validateDocumentUploadRequest(req dto.DocumentUploa
 		return dto.ErrFileTooLarge
 	}
 
-	if !IsAllowedMimeType(req.File.Header.Get("Content-Type"), allowExcel) {
+	contentType := req.File.Header.Get("Content-Type")
+	zipNamedAsXLSX := allowExcel && contentType == MimeTypeZIP && strings.EqualFold(filepath.Ext(req.File.Filename), ".xlsx")
+	if !IsAllowedMimeType(contentType, allowExcel) && !zipNamedAsXLSX {
 		return dto.ErrInvalidFileType
 	}
 	filename := strings.TrimSpace(filepath.Base(req.File.Filename))

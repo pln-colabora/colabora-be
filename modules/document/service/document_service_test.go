@@ -272,6 +272,7 @@ func TestUploadAcceptsExcelEvidence(t *testing.T) {
 		content     string
 	}{
 		{name: "xlsx", filename: "evidence.xlsx", contentType: validation.MimeTypeXLSX, content: string(xlsxFixture(t))},
+		{name: "xlsx reported as zip", filename: "evidence.xlsx", contentType: validation.MimeTypeZIP, content: string(xlsxFixture(t))},
 		{name: "xls", filename: "evidence.xls", contentType: validation.MimeTypeXLS, content: string(xlsFixture())},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -283,22 +284,45 @@ func TestUploadAcceptsExcelEvidence(t *testing.T) {
 
 			_, err := s.Upload(context.Background(), uuid.NewString(), dto.DocumentUploadRequest{File: file, Type: "evidence"})
 			require.NoError(t, err)
-			require.Equal(t, tc.contentType, store.contentType)
+			wantContentType := tc.contentType
+			if tc.name == "xlsx reported as zip" {
+				wantContentType = validation.MimeTypeXLSX
+			}
+			require.Equal(t, wantContentType, store.contentType)
 		})
 	}
+}
+
+func TestUploadRejectsOrdinaryZipNamedAsXLSX(t *testing.T) {
+	var buffer bytes.Buffer
+	writer := zip.NewWriter(&buffer)
+	entry, err := writer.Create("notes.txt")
+	require.NoError(t, err)
+	_, err = entry.Write([]byte("not an Excel workbook"))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	store := &fakeStorageClient{}
+	s := &documentService{documentRepository: &fakeDocumentRepository{}, userRepository: &fakeUserRepository{user: entities.User{ID: uuid.New()}}, storageClient: store}
+	file := newFileHeader(t, "evidence.xlsx", validation.MimeTypeZIP, buffer.String())
+	_, err = s.Upload(context.Background(), uuid.NewString(), dto.DocumentUploadRequest{File: file, Type: "evidence"})
+	require.ErrorIs(t, err, dto.ErrInvalidFileType)
+	require.Zero(t, store.putCalls)
 }
 
 func xlsxFixture(t *testing.T) []byte {
 	t.Helper()
 	var buffer bytes.Buffer
 	writer := zip.NewWriter(&buffer)
-	for _, name := range []string{"[Content_Types].xml", "xl/", "xl/workbook.xml"} {
+	for _, name := range []string{"[Content_Types].xml", "xl/workbook.xml"} {
 		entry, err := writer.Create(name)
 		require.NoError(t, err)
-		if name != "xl/" {
-			_, err = entry.Write([]byte("synthetic"))
-			require.NoError(t, err)
+		content := []byte("<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"></workbook>")
+		if name == "[Content_Types].xml" {
+			content = []byte("<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/></Types>")
 		}
+		_, err = entry.Write(content)
+		require.NoError(t, err)
 	}
 	require.NoError(t, writer.Close())
 	return buffer.Bytes()
