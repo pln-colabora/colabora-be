@@ -34,7 +34,7 @@ func Authenticate(jwtService service.JWTService) gin.HandlerFunc {
 			return
 		}
 
-		if !token.Valid {
+		if !token.Valid || service.IsPasswordResetToken(token) {
 			response := utils.BuildResponseFailed(dto.MESSAGE_FAILED_PROSES_REQUEST, dto.MESSAGE_FAILED_DENIED_ACCESS, nil)
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, response)
 			return

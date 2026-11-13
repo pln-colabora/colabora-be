@@ -3,6 +3,11 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"html"
+	"net/url"
+	"os"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/pln-colabora/colabora-be/database/entities"
@@ -311,20 +316,32 @@ func (s *authService) VerifyUser(ctx context.Context, userID string, req dto.Ver
 func (s *authService) SendPasswordReset(ctx context.Context, req dto.SendPasswordResetRequest) error {
 	user, err := s.userRepository.GetUserByEmail(ctx, s.db, req.Email)
 	if err != nil {
-		return userDto.ErrEmailNotFound
+		// Same answer for unknown emails so the form cannot be used to probe accounts.
+		return nil
 	}
 
-	resetToken := s.jwtService.GenerateAccessToken(user.ID.String(), "password_reset")
+	resetToken := s.jwtService.GenerateAccessToken(user.ID.String(), PasswordResetTokenRole)
+	link := frontendURL() + "/reset-password?token=" + url.QueryEscape(resetToken)
 
-	subject := "Password Reset"
-	body := "Please reset your password using this token: " + resetToken
+	subject := "COLABORA: Atur ulang kata sandi"
+	body := fmt.Sprintf(
+		`<p>Kami menerima permintaan untuk mengatur ulang kata sandi akun COLABORA Anda.</p><p><a href="%s">Atur ulang kata sandi</a></p><p>Tautan berlaku 15 menit. Abaikan email ini jika Anda tidak memintanya.</p>`,
+		html.EscapeString(link),
+	)
 
 	return utils.SendMail(user.Email, subject, body)
 }
 
+func frontendURL() string {
+	if value := strings.TrimRight(os.Getenv("FRONTEND_URL"), "/"); value != "" {
+		return value
+	}
+	return "http://localhost:3000"
+}
+
 func (s *authService) ResetPassword(ctx context.Context, req dto.ResetPasswordRequest) error {
 	token, err := s.jwtService.ValidateToken(req.Token)
-	if err != nil || !token.Valid {
+	if err != nil || !token.Valid || !IsPasswordResetToken(token) {
 		return dto.ErrPasswordResetToken
 	}
 
@@ -344,10 +361,11 @@ func (s *authService) ResetPassword(ctx context.Context, req dto.ResetPasswordRe
 	}
 
 	user.Password = hashedPassword
-	_, err = s.userRepository.Update(ctx, s.db, user)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	// Revoke sessions too: a reset usually means the old password is compromised.
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if _, err := s.userRepository.Update(ctx, tx, user); err != nil {
+			return err
+		}
+		return s.refreshTokenRepository.DeleteByUserID(ctx, tx, user.ID.String())
+	})
 }

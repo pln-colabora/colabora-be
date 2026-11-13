@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/Caknoooo/go-pagination"
@@ -25,6 +26,8 @@ type (
 		UpdateAccount(ctx *gin.Context)
 		Update(ctx *gin.Context)
 		Delete(ctx *gin.Context)
+		ChangePassword(ctx *gin.Context)
+		ResetPassword(ctx *gin.Context)
 	}
 
 	userController struct {
@@ -177,4 +180,37 @@ func (c *userController) Delete(ctx *gin.Context) {
 
 	res := utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_DELETE_USER, nil)
 	ctx.JSON(http.StatusOK, res)
+}
+
+func (c *userController) ChangePassword(ctx *gin.Context) {
+	var req dto.ChangePasswordRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_DATA_FROM_BODY, err.Error(), nil))
+		return
+	}
+
+	// Wrong current password is a 400, not 401: the client treats 401 as an expired session.
+	if err := c.userService.ChangePassword(ctx.Request.Context(), req, ctx.MustGet("user_id").(string)); err != nil {
+		ctx.JSON(http.StatusBadRequest, utils.BuildResponseFailed(dto.MESSAGE_FAILED_CHANGE_PASSWORD, err.Error(), nil))
+		return
+	}
+	ctx.JSON(http.StatusOK, utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_CHANGE_PASSWORD, nil))
+}
+
+func (c *userController) ResetPassword(ctx *gin.Context) {
+	var req dto.AdminResetPasswordRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_DATA_FROM_BODY, err.Error(), nil))
+		return
+	}
+
+	if err := c.userService.ResetPassword(ctx.Request.Context(), req, ctx.Param("id")); err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, dto.ErrUserNotFound) {
+			status = http.StatusNotFound
+		}
+		ctx.JSON(status, utils.BuildResponseFailed(dto.MESSAGE_FAILED_RESET_PASSWORD, err.Error(), nil))
+		return
+	}
+	ctx.JSON(http.StatusOK, utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_RESET_PASSWORD, nil))
 }

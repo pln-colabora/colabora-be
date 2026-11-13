@@ -12,6 +12,7 @@ import (
 	"github.com/pln-colabora/colabora-be/modules/user/dto"
 	"github.com/pln-colabora/colabora-be/modules/user/query"
 	"github.com/pln-colabora/colabora-be/modules/user/repository"
+	"github.com/pln-colabora/colabora-be/pkg/helpers"
 	"github.com/pln-colabora/colabora-be/pkg/rbac"
 	"gorm.io/gorm"
 )
@@ -23,6 +24,8 @@ type UserService interface {
 	CreateAccount(ctx context.Context, req dto.AccountCreateRequest) (dto.UserResponse, error)
 	UpdateAccount(ctx context.Context, req dto.AccountUpdateRequest, userId string) (dto.UserUpdateResponse, error)
 	Delete(ctx context.Context, userId string) error
+	ChangePassword(ctx context.Context, req dto.ChangePasswordRequest, userId string) error
+	ResetPassword(ctx context.Context, req dto.AdminResetPasswordRequest, userId string) error
 }
 
 type userService struct {
@@ -178,4 +181,42 @@ func toUserUpdateResponse(user entities.User) dto.UserUpdateResponse {
 
 func (s *userService) Delete(ctx context.Context, userId string) error {
 	return s.userRepository.Delete(ctx, s.db, userId)
+}
+
+// ChangePassword lets the signed-in user replace their own password after
+// proving they know the current one.
+func (s *userService) ChangePassword(ctx context.Context, req dto.ChangePasswordRequest, userId string) error {
+	user, err := s.userRepository.GetUserById(ctx, s.db, userId)
+	if err != nil {
+		return dto.ErrUserNotFound
+	}
+	if ok, _ := helpers.CheckPassword(user.Password, []byte(req.CurrentPassword)); !ok {
+		return dto.ErrCurrentPasswordInvalid
+	}
+	return s.setPassword(ctx, user, req.NewPassword)
+}
+
+// ResetPassword is the account-manager override; it does not need the old password.
+func (s *userService) ResetPassword(ctx context.Context, req dto.AdminResetPasswordRequest, userId string) error {
+	user, err := s.userRepository.GetUserById(ctx, s.db, userId)
+	if err != nil {
+		return dto.ErrUserNotFound
+	}
+	return s.setPassword(ctx, user, req.NewPassword)
+}
+
+// setPassword also revokes every refresh token so sessions opened with the
+// old password end at their next refresh.
+func (s *userService) setPassword(ctx context.Context, user entities.User, newPassword string) error {
+	hashed, err := helpers.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	user.Password = hashed
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if _, err := s.userRepository.Update(ctx, tx, user); err != nil {
+			return err
+		}
+		return s.refreshTokenRepository.DeleteByUserID(ctx, tx, user.ID.String())
+	})
 }

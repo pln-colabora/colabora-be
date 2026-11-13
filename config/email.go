@@ -10,6 +10,9 @@ import (
 
 // EmailConfig contains the SMTP connection and sender settings.
 type EmailConfig struct {
+	// Driver "log" prints mail to the server log instead of sending it, for
+	// environments without SMTP credentials. Anything else uses SMTP.
+	Driver     string
 	Host       string
 	Port       int
 	Username   string
@@ -41,6 +44,10 @@ func NewEmailConfig() (*EmailConfig, error) {
 		APIKey:     os.Getenv("RESEND_API_KEY"),
 		SenderName: getEnvOrDefault("SMTP_SENDER_NAME", "COLABORA"),
 		FromEmail:  os.Getenv("SMTP_FROM_EMAIL"),
+		Driver:     os.Getenv("MAIL_DRIVER"),
+	}
+	if config.Driver == "log" {
+		return config, nil
 	}
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("RESEND_API_KEY is required")
