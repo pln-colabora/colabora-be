@@ -21,6 +21,7 @@ type Permohonan struct {
 	NoPermohonan         string                        `json:"no_permohonan"`
 	JenisPermohonan      string                        `json:"jenis_permohonan"`
 	JenisSambungan       string                        `json:"jenis_sambungan"`
+	JenisPembayaran      *string                       `json:"jenis_pembayaran"`
 	Tarif                *string                       `json:"tarif"`
 	DayaLama             *int64                        `json:"daya_lama"`
 	DayaBaru             *int64                        `json:"daya_baru"`

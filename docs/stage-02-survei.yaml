@@ -144,6 +144,7 @@ components:
         no_permohonan: { type: string }
         jenis_permohonan: { type: string }
         jenis_sambungan: { type: string }
+        jenis_pembayaran: { type: string, nullable: true, enum: [pascabayar, prabayar] }
         tarif: { type: string, nullable: true, enum: [rumah_tangga, sosial, bisnis, industri, pemerintah] }
         daya_lama: { type: integer, format: int64, nullable: true }
         daya_baru: { type: integer, format: int64, nullable: true }

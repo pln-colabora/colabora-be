@@ -25,6 +25,7 @@ verified.
 | `NoPermohonan` | varchar(30), unique | `PBPD-{year}-{sequence}` |
 | `JenisPermohonan` | varchar(30) | Pasang Baru or Perubahan Daya |
 | `JenisSambungan` | varchar(30) | JTR, JTM/Gardu, PLG TM <5 GWNG, or PLG TM >5 GWNG |
+| `JenisPembayaran` | nullable varchar(20) | `pascabayar` atau `prabayar`; null untuk data lama |
 | `Tarif` | nullable varchar(30) | `rumah_tangga`, `sosial`, `bisnis`, `industri`, or `pemerintah` |
 | `DayaLama` | nullable bigint | Existing power in VA; used for Perubahan Daya |
 | `DayaBaru` | nullable bigint | Requested power in VA; nullable for legacy records during rollout |

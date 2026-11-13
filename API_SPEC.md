@@ -74,6 +74,8 @@ files are scanned, stored, and attached to Activity #1 in the same database
 transaction. The legacy JSON shape remains accepted during the nullable-field
 rollout, but cannot attach files.
 
+`jenis_pembayaran` wajib untuk permohonan baru (`pascabayar` atau `prabayar`) dan dikembalikan pada daftar/detail; data lama dapat bernilai null. Pilihan ini tidak mengubah aturan pembayaran atau tarif.
+
 Optional typed fields are `tarif`, `daya_lama`, and `daya_baru`; power values are
 expressed in VA. Supplied values are checked against the active tariff/connection
 catalogue.

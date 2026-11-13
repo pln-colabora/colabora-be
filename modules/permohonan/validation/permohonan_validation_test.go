@@ -18,6 +18,7 @@ func TestValidatePermohonanPowerFields(t *testing.T) {
 	base := dto.PermohonanCreateRequest{
 		JenisPermohonan:   rbac.JenisPermohonanPasangBaru,
 		JenisSambungan:    rbac.JenisSambunganJTR,
+		JenisPembayaran:   "pascabayar",
 		Tarif:             stringPointer(rbac.TarifRumahTangga),
 		GolonganTarif:     stringPointer("R1"),
 		DayaBaru:          &newPower,
@@ -28,6 +29,12 @@ func TestValidatePermohonanPowerFields(t *testing.T) {
 		NominalPembayaran: &amount,
 	}
 	require.NoError(t, v.ValidatePermohonanCreateRequest(base))
+	prabayar := base
+	prabayar.JenisPembayaran = "prabayar"
+	require.NoError(t, v.ValidatePermohonanCreateRequest(prabayar))
+	invalidPayment := base
+	invalidPayment.JenisPembayaran = "tunai"
+	require.ErrorContains(t, v.ValidatePermohonanCreateRequest(invalidPayment), "jenis_pembayaran")
 	missingGolongan := base
 	missingGolongan.GolonganTarif = nil
 	require.ErrorContains(t, v.ValidatePermohonanCreateRequest(missingGolongan), "golongan_tarif is required")
@@ -75,7 +82,7 @@ func TestValidatePaymentFields(t *testing.T) {
 	v := NewPermohonanValidation()
 	amount := int64(150000)
 	power := int64(900)
-	req := dto.PermohonanCreateRequest{JenisPermohonan: rbac.JenisPermohonanPasangBaru, JenisSambungan: rbac.JenisSambunganJTR, Tarif: stringPointer(rbac.TarifRumahTangga), GolonganTarif: stringPointer("R1"), DayaBaru: &power, PelangganNama: "Pelanggan", PelangganAlamat: "Alamat", PelangganNoHp: "0800000000", TanggalPembayaran: "2026-09-25", NominalPembayaran: &amount}
+	req := dto.PermohonanCreateRequest{JenisPermohonan: rbac.JenisPermohonanPasangBaru, JenisSambungan: rbac.JenisSambunganJTR, JenisPembayaran: "pascabayar", Tarif: stringPointer(rbac.TarifRumahTangga), GolonganTarif: stringPointer("R1"), DayaBaru: &power, PelangganNama: "Pelanggan", PelangganAlamat: "Alamat", PelangganNoHp: "0800000000", TanggalPembayaran: "2026-09-25", NominalPembayaran: &amount}
 	require.NoError(t, v.ValidatePermohonanCreateRequest(req))
 	req.TanggalPembayaran = "2026-02-30"
 	require.Error(t, v.ValidatePermohonanCreateRequest(req))

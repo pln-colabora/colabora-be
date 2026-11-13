@@ -36,7 +36,7 @@ func tariffTestDB(t *testing.T) *gorm.DB {
 	statements := []string{
 		`CREATE TABLE tariff_power_options (id TEXT PRIMARY KEY, tarif TEXT NOT NULL, golongan_tarif TEXT NOT NULL, jenis_sambungan TEXT NOT NULL, daya_min INTEGER NOT NULL, daya_max INTEGER, label TEXT NOT NULL, daya_label TEXT, pembatas TEXT, active BOOLEAN NOT NULL DEFAULT true, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME)`,
 		`CREATE UNIQUE INDEX idx_tariff_power_option ON tariff_power_options (tarif, golongan_tarif, jenis_sambungan, daya_min, daya_max)`,
-		`CREATE TABLE permohonan (id TEXT PRIMARY KEY, no_permohonan TEXT, jenis_permohonan TEXT, jenis_sambungan TEXT, tarif TEXT, daya_lama INTEGER, daya_baru INTEGER, golongan_tarif TEXT, golongan_tarif_lama TEXT, pembatas_baru TEXT, pembatas_lama TEXT, priority TEXT, ulp_unit TEXT, pelanggan_nama TEXT, pelanggan_alamat TEXT, pelanggan_no_hp TEXT, request_date DATETIME, tanggal_pembayaran DATE, nominal_pembayaran INTEGER, sla_basis TEXT DEFAULT calendar, current_stage INTEGER, status TEXT, kebutuhan_tiang NUMERIC, nps_delegation_status TEXT, perlu_pdkb NUMERIC, legacy_priority_exempt BOOLEAN DEFAULT false, energize_status TEXT, created_by TEXT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME)`,
+		`CREATE TABLE permohonan (id TEXT PRIMARY KEY, no_permohonan TEXT, jenis_permohonan TEXT, jenis_sambungan TEXT, jenis_pembayaran TEXT, tarif TEXT, daya_lama INTEGER, daya_baru INTEGER, golongan_tarif TEXT, golongan_tarif_lama TEXT, pembatas_baru TEXT, pembatas_lama TEXT, priority TEXT, ulp_unit TEXT, pelanggan_nama TEXT, pelanggan_alamat TEXT, pelanggan_no_hp TEXT, request_date DATETIME, tanggal_pembayaran DATE, nominal_pembayaran INTEGER, sla_basis TEXT DEFAULT calendar, current_stage INTEGER, status TEXT, kebutuhan_tiang NUMERIC, nps_delegation_status TEXT, perlu_pdkb NUMERIC, legacy_priority_exempt BOOLEAN DEFAULT false, energize_status TEXT, created_by TEXT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME)`,
 		`CREATE TABLE permohonan_number_counters (request_year INTEGER PRIMARY KEY, last_number INTEGER NOT NULL)`,
 		`CREATE TABLE permohonan_activities (id TEXT PRIMARY KEY, permohonan_id TEXT, workflow_node TEXT, activity_number INTEGER, stage_number INTEGER, status TEXT, sla_deadline DATETIME, sla_basis TEXT DEFAULT calendar, payload TEXT, revision INTEGER DEFAULT 1, completed_by TEXT, completed_at DATETIME, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, UNIQUE(permohonan_id, workflow_node))`,
 		`CREATE TABLE activity_logs (id TEXT PRIMARY KEY, permohonan_id TEXT, activity_number INTEGER, actor TEXT, action TEXT, detail TEXT, workflow_node TEXT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME)`,
@@ -307,7 +307,7 @@ func TestTariffSyncIsIdempotentAndRetiresLegacyBands(t *testing.T) {
 
 func createBody(jenis string, extra map[string]any) map[string]any {
 	body := map[string]any{
-		"jenis_permohonan": jenis, "jenis_sambungan": rbac.JenisSambunganJTR,
+		"jenis_permohonan": jenis, "jenis_sambungan": rbac.JenisSambunganJTR, "jenis_pembayaran": "pascabayar",
 		"pelanggan_nama": "Pelanggan Uji", "pelanggan_alamat": "Alamat sintetis", "pelanggan_no_hp": "0800000000",
 		"tanggal_pembayaran": "2026-09-25", "nominal_pembayaran": 150000,
 	}

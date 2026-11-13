@@ -58,6 +58,7 @@ type (
 	PermohonanCreateRequest struct {
 		JenisPermohonan   string                  `json:"jenis_permohonan" form:"jenis_permohonan" binding:"required"`
 		JenisSambungan    string                  `json:"jenis_sambungan" form:"jenis_sambungan" binding:"required"`
+		JenisPembayaran   string                  `json:"jenis_pembayaran" form:"jenis_pembayaran" binding:"required" validate:"required"`
 		Tarif             *string                 `json:"tarif" form:"tarif"`
 		DayaLama          *int64                  `json:"daya_lama" form:"daya_lama"`
 		DayaBaru          *int64                  `json:"daya_baru" form:"daya_baru"`
@@ -129,6 +130,7 @@ type (
 		NoPermohonan        string                 `json:"no_permohonan"`
 		JenisPermohonan     string                 `json:"jenis_permohonan"`
 		JenisSambungan      string                 `json:"jenis_sambungan"`
+		JenisPembayaran     *string                `json:"jenis_pembayaran"`
 		Tarif               *string                `json:"tarif"`
 		DayaLama            *int64                 `json:"daya_lama"`
 		DayaBaru            *int64                 `json:"daya_baru"`

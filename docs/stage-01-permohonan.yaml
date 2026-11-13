@@ -55,10 +55,11 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [jenis_permohonan, jenis_sambungan, tarif, golongan_tarif, daya_baru, pelanggan_nama, pelanggan_alamat, pelanggan_no_hp, tanggal_pembayaran, nominal_pembayaran, evidence_files]
+              required: [jenis_permohonan, jenis_sambungan, jenis_pembayaran, tarif, golongan_tarif, daya_baru, pelanggan_nama, pelanggan_alamat, pelanggan_no_hp, tanggal_pembayaran, nominal_pembayaran, evidence_files]
               properties:
                 jenis_permohonan: { type: string, enum: ["Pasang Baru (PB)", "Perubahan Daya (PD)"] }
                 jenis_sambungan: { type: string, enum: ["JTR", "JTM/Gardu", "PLG TM <5 GWNG", "PLG TM >5 GWNG"] }
+                jenis_pembayaran: { type: string, enum: [pascabayar, prabayar] }
                 tarif: { type: string, nullable: true, enum: [rumah_tangga, sosial, bisnis, industri, pemerintah] }
                 daya_lama: { type: integer, format: int64, nullable: true, description: Daya lama dalam VA }
                 daya_baru: { type: integer, format: int64, description: Daya baru dalam VA; harus satu langkah daya exact dari golongan_tarif }
@@ -76,6 +77,7 @@ paths:
               example:
                 jenis_permohonan: "Pasang Baru (PB)"
                 jenis_sambungan: "JTR"
+                jenis_pembayaran: "pascabayar"
                 tarif: "rumah_tangga"
                 golongan_tarif: "R1"
                 daya_baru: 2200
@@ -89,10 +91,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [jenis_permohonan, jenis_sambungan, tarif, golongan_tarif, daya_baru, pelanggan_nama, pelanggan_alamat, pelanggan_no_hp, tanggal_pembayaran, nominal_pembayaran]
+              required: [jenis_permohonan, jenis_sambungan, jenis_pembayaran, tarif, golongan_tarif, daya_baru, pelanggan_nama, pelanggan_alamat, pelanggan_no_hp, tanggal_pembayaran, nominal_pembayaran]
               properties:
                 jenis_permohonan: { type: string, enum: ["Pasang Baru (PB)", "Perubahan Daya (PD)"] }
                 jenis_sambungan: { type: string, enum: ["JTR", "JTM/Gardu", "PLG TM <5 GWNG", "PLG TM >5 GWNG"] }
+                jenis_pembayaran: { type: string, enum: [pascabayar, prabayar] }
                 tarif: { type: string, nullable: true, enum: [rumah_tangga, sosial, bisnis, industri, pemerintah] }
                 daya_lama: { type: integer, format: int64, nullable: true }
                 daya_baru: { type: integer, format: int64 }
@@ -109,6 +112,7 @@ paths:
               example:
                 jenis_permohonan: "Perubahan Daya (PD)"
                 jenis_sambungan: "PLG TM <5 GWNG"
+                jenis_pembayaran: "prabayar"
                 tarif: "bisnis"
                 golongan_tarif: "B3"
                 daya_baru: 555000
@@ -314,6 +318,7 @@ components:
         pembatas_baru: { type: string, nullable: true, description: "Pembatas daya baru seperti di Tangga Daya PLN, mis. 1x4 atau 6" }
         pembatas_lama: { type: string, nullable: true, description: Pembatas lama untuk Perubahan Daya (PD) }
         priority: { type: string, nullable: true, enum: [High, Medium, Low], description: Diisi oleh node verifikasi_prioritas }
+        jenis_pembayaran: { type: string, nullable: true, enum: [pascabayar, prabayar] }
         tarif: { type: string, nullable: true, enum: [rumah_tangga, sosial, bisnis, industri, pemerintah] }
         daya_lama: { type: integer, format: int64, nullable: true }
         daya_baru: { type: integer, format: int64, nullable: true }
