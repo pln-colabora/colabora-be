@@ -102,3 +102,12 @@ func (j *jwtService) GetUserIDByToken(token string) (string, error) {
 	id := fmt.Sprintf("%v", claims["user_id"])
 	return id, nil
 }
+
+// PasswordResetTokenRole marks tokens that may only be used to reset a password.
+const PasswordResetTokenRole = "password_reset"
+
+// IsPasswordResetToken reports whether a validated token was issued for password reset.
+func IsPasswordResetToken(token *jwt.Token) bool {
+	claims, ok := token.Claims.(jwt.MapClaims)
+	return ok && claims["role"] == PasswordResetTokenRole
+}

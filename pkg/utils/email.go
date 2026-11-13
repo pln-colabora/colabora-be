@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"log"
 	"net/mail"
 
 	"github.com/pln-colabora/colabora-be/config"
@@ -13,6 +14,10 @@ func SendMail(toEmail string, subject string, body string) error {
 	emailConfig, err := config.NewEmailConfig()
 	if err != nil {
 		return err
+	}
+	if emailConfig.Driver == "log" {
+		log.Printf("MAIL_DRIVER=log, email not sent\nTo: %s\nSubject: %s\n%s", toEmail, subject, body)
+		return nil
 	}
 
 	dialer := gomail.NewDialer(

@@ -20,6 +20,8 @@ const (
 	MESSAGE_FAILED_PROSES_REQUEST     = "failed proses request"
 	MESSAGE_FAILED_DENIED_ACCESS      = "denied access"
 	MESSAGE_FAILED_VERIFY_EMAIL       = "failed verify email"
+	MESSAGE_FAILED_CHANGE_PASSWORD    = "failed change password"
+	MESSAGE_FAILED_RESET_PASSWORD     = "failed reset password"
 
 	// Success
 	MESSAGE_SUCCESS_REGISTER_USER           = "success create user"
@@ -31,6 +33,8 @@ const (
 	MESSAGE_SUCCESS_DELETE_USER             = "success delete user"
 	MESSAGE_SEND_VERIFICATION_EMAIL_SUCCESS = "success send verification email"
 	MESSAGE_SUCCESS_VERIFY_EMAIL            = "success verify email"
+	MESSAGE_SUCCESS_CHANGE_PASSWORD         = "success change password"
+	MESSAGE_SUCCESS_RESET_PASSWORD          = "success reset password"
 )
 
 var (
@@ -46,6 +50,7 @@ var (
 	ErrTokenExpired           = errors.New("token expired")
 	ErrAccountAlreadyVerified = errors.New("account already verified")
 	ErrAccountRoleInvalid     = errors.New("invalid account role or unit")
+	ErrCurrentPasswordInvalid = errors.New("current password is incorrect")
 )
 
 type (
@@ -111,6 +116,15 @@ type (
 	VerifyEmailResponse struct {
 		Email      string `json:"email"`
 		IsVerified bool   `json:"is_verified"`
+	}
+
+	ChangePasswordRequest struct {
+		CurrentPassword string `json:"current_password" binding:"required"`
+		NewPassword     string `json:"new_password" binding:"required,min=8"`
+	}
+
+	AdminResetPasswordRequest struct {
+		NewPassword string `json:"new_password" binding:"required,min=8"`
 	}
 
 	UserLoginRequest struct {
