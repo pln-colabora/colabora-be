@@ -18,6 +18,7 @@ const (
 type AggregateStatus string
 
 const (
+	Draft    AggregateStatus = "draft"
 	Active   AggregateStatus = "in_progress"
 	Finished AggregateStatus = "completed"
 	Returned AggregateStatus = "returned"

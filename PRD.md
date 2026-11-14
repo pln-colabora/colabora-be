@@ -86,7 +86,9 @@ The filenames `forms/03-permohonan-perluasan.html` and `forms/04-rab-kko-kkf.htm
 
 Workflow-node status is one of `locked`, `available`, `in_progress`, `completed`, or `skipped`. SLA state is derived separately as `on_time`, `due_soon`, `overdue`, or `none`. A node without an SLA rule must not receive a fabricated deadline. The exact day offsets remain in [`DEVELOPMENT.md`](./DEVELOPMENT.md) and the `sla_rules` seed.
 
-Aggregate status is `in_progress`, `completed`, or `returned`. `CurrentStage` is the lowest presentation stage containing an applicable unfinished node; clients must use `available_actions` to render actionable work.
+Aggregate status is `draft` for imported requests before Activity #1, then `in_progress`, `completed`, or `returned`. `CurrentStage` is the lowest presentation stage containing an applicable unfinished node for active requests; clients must use `available_actions` to render actionable work.
+
+Import EIS AP2T membuat baris `Permohonan` berstatus `draft` tanpa node workflow atau SLA aktif. Hanya kolom pada pemetaan EIS yang diimpor; pembuat draft melengkapi field yang hilang dan bukti Activity #1 sebelum melanjutkan. Setelah berhasil dilanjutkan, status menjadi `in_progress` dan survei tersedia. Draft hanya dapat dilihat dan diedit oleh pembuatnya.
 
 ## 5. Evidence and audit
 

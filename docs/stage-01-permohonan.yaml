@@ -17,6 +17,81 @@ tags:
   - name: "Tahap 1 — Permohonan PB/PD"
     description: "Activity #1 dan endpoint agregat permohonan"
 paths:
+  /api/permohonan/import-eis:
+    post:
+      tags: ["Tahap 1 — Permohonan PB/PD"]
+      operationId: importEISPermohonan
+      summary: Import EIS XLS menjadi draft permohonan
+      description: Hanya pemilik Activity #1. Impor seluruh file atomik; kolom di luar pemetaan EIS diabaikan.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary, description: XLS maksimal 10 MB dan 5000 baris }
+      responses:
+        "201": { description: Daftar permohonan draft yang dibuat }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { description: Role tidak berhak mengimpor }
+  /api/permohonan/{id}/draft:
+    put:
+      tags: ["Tahap 1 — Permohonan PB/PD"]
+      operationId: editEISDraft
+      summary: Simpan seluruh field draft hasil import
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Field permohonan yang dapat diedit; kirim nilai lengkap saat menyimpan.
+              additionalProperties: false
+              properties:
+                jenis_permohonan: { type: string }
+                jenis_sambungan: { type: string }
+                jenis_pembayaran: { type: string }
+                tarif: { type: string, nullable: true }
+                daya_lama: { type: integer, format: int64, nullable: true }
+                daya_baru: { type: integer, format: int64, nullable: true }
+                golongan_tarif: { type: string, nullable: true }
+                golongan_tarif_lama: { type: string, nullable: true }
+                pembatas_baru: { type: string, nullable: true }
+                pembatas_lama: { type: string, nullable: true }
+                ulp_unit: { type: string }
+                pelanggan_nama: { type: string }
+                pelanggan_alamat: { type: string }
+                pelanggan_no_hp: { type: string }
+                tanggal_pembayaran: { type: string, format: date, nullable: true }
+                nominal_pembayaran: { type: integer, format: int64, nullable: true }
+      responses:
+        "200": { description: Draft tersimpan }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /api/permohonan/{id}/draft/continue:
+    post:
+      tags: ["Tahap 1 — Permohonan PB/PD"]
+      operationId: continueEISDraft
+      summary: Lengkapi Activity #1 dan aktifkan draft
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [evidence_files]
+              properties:
+                evidence_files: { type: array, minItems: 1, items: { type: string, format: binary } }
+      responses:
+        "200": { description: Permohonan in_progress dengan survei tersedia }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { description: Draft sudah dilanjutkan atau tidak tersedia }
   /api/permohonan:
     get:
       tags: ["Tahap 1 — Permohonan PB/PD"]
@@ -33,9 +108,9 @@ paths:
         - { name: ulp, in: query, description: Filter by ULP unit, schema: { type: string } }
         - { name: jenis_sambungan, in: query, schema: { type: string, enum: ["JTR", "JTM/Gardu", "PLG TM <5 GWNG", "PLG TM >5 GWNG"] } }
         - { name: stage, in: query, description: Filter by Tahap 1-7, schema: { type: integer, minimum: 1, maximum: 7 } }
-        - { name: status, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string, enum: [draft, in_progress, completed, returned] } }
         - { name: sla, in: query, description: Buckets by actionable workflow-node deadlines, schema: { type: string, enum: [ontime, duesoon, overdue] } }
-        - { name: scope, in: query, description: mine returns rows with a caller-owned actionable node, schema: { type: string, enum: [mine, all], default: all } }
+        - { name: scope, in: query, description: mine returns rows with a caller-owned actionable node; with status=draft it returns drafts created by the caller, schema: { type: string, enum: [mine, all], default: all } }
       responses:
         "200": { description: Daftar permohonan, content: { application/json: { schema: { $ref: "#/components/schemas/PaginatedPermohonanResponse" } } } }
         "400": { $ref: "#/components/responses/BadRequest" }
@@ -334,7 +409,7 @@ components:
         tanggal_pembayaran: { type: string, format: date, nullable: true }
         nominal_pembayaran: { type: integer, format: int64, nullable: true, description: Nominal pembayaran dalam rupiah }
         current_stage: { type: integer, minimum: 1, maximum: 7 }
-        status: { type: string, enum: [in_progress, completed, returned] }
+        status: { type: string, enum: [draft, in_progress, completed, returned] }
         sla_deadline: { type: string, format: date, nullable: true }
         sla_status: { type: string, enum: [none, on_time, due_soon, overdue, unavailable] }
         kebutuhan_tiang: { type: boolean, nullable: true }

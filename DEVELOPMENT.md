@@ -41,6 +41,7 @@ The remaining hifi forms, detail pages, demo navigation, and client-side RBAC ar
   `account_documents` association, and `is_verified` login gating.
 - SLA-rule persistence and seed data for numbered activities.
 - Connection-specific creation: matching-ULP `pelayanan-pelanggan` for JTR/JTM, and `nps` with a configured target ULP for PLG TM.
+- EIS AP2T XLS bulk import into `permohonan` draft rows using only the approved mapping; draft edit and evidence-backed Activity #1 continuation activate the existing workflow.
 - Paginated list, node-based `scope=mine`, detail with all workflow nodes and caller-owned `available_actions`, plus activity-timeline and audit-log reads.
 - Workflow-node persistence: creation initializes all 20 active canonical nodes, with nullable display/SLA fields for decision and support nodes; retired PK Vendor rows remain historical; logs carry the canonical node code.
 - Exact-node role/unit ownership helpers, plus a compatibility middleware for remaining numbered routes.

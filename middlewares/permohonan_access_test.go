@@ -20,13 +20,13 @@ func TestRequestAccessAndListShareAssignmentBoundary(t *testing.T) {
 	require.NoError(t, err)
 	for _, sql := range []string{
 		"CREATE TABLE users (id TEXT PRIMARY KEY, role TEXT, unit TEXT)",
-		"CREATE TABLE permohonan (id TEXT PRIMARY KEY, ulp_unit TEXT)",
+		"CREATE TABLE permohonan (id TEXT PRIMARY KEY, ulp_unit TEXT, status TEXT, created_by TEXT)",
 		"CREATE TABLE vendor_assignments (permohonan_id TEXT, vendor_role TEXT, vendor_id TEXT)",
 	} {
 		require.NoError(t, db.Exec(sql).Error)
 	}
 	own, other := uuid.NewString(), uuid.NewString()
-	require.NoError(t, db.Exec("INSERT INTO permohonan VALUES (?, ?), (?, ?)", own, "ULP A", other, "ULP B").Error)
+	require.NoError(t, db.Exec("INSERT INTO permohonan (id, ulp_unit, status, created_by) VALUES (?, ?, 'in_progress', ?), (?, ?, 'in_progress', ?)", own, "ULP A", uuid.Nil.String(), other, "ULP B", uuid.Nil.String()).Error)
 	for _, tc := range []struct {
 		role, unit string
 		assigned   bool

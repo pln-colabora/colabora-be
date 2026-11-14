@@ -54,6 +54,15 @@ func RequirePermohonanAccess(db *gorm.DB) gin.HandlerFunc {
 			reject(http.StatusNotFound, "permohonan not found")
 			return
 		}
+		var draft entities.Permohonan
+		if err := db.WithContext(ctx).Select("status", "created_by").Where("id = ?", id).Take(&draft).Error; err != nil {
+			reject(http.StatusInternalServerError, "unable to authorize request")
+			return
+		}
+		if draft.Status == "draft" && draft.CreatedBy != actor.ID {
+			reject(http.StatusNotFound, "permohonan not found")
+			return
+		}
 		ctx.Header("Cache-Control", "no-store")
 		ctx.Next()
 	}

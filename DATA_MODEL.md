@@ -35,7 +35,7 @@ verified.
 | `TanggalPembayaran` | nullable date | Payment date, required on new requests |
 | `NominalPembayaran` | nullable bigint | Positive whole rupiah, required on new requests |
 | `CurrentStage` | smallint | Derived lowest stage containing an applicable unfinished node |
-| `Status` | varchar(20) | `in_progress`, `completed`, or terminal `returned` |
+| `Status` | varchar(20) | `draft` (hanya import EIS), `in_progress`, `completed`, atau terminal `returned` |
 | `KebutuhanTiang` | nullable boolean | Activity #3b branch decision |
 | `NpsDelegationStatus` | nullable varchar(20) | `delegated` or terminal `returned` |
 | `PerluPdkb` | nullable boolean | Decision recorded with WO Konstruksi |

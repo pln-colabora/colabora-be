@@ -69,6 +69,7 @@ type PermohonanFilter struct {
 
 func (f *PermohonanFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
 	query = rbac.ApplyReadScope(query, f.CurrentRole, f.CurrentUnit, f.CurrentUserID)
+	query = query.Where("permohonan.status <> 'draft' OR permohonan.created_by = ?", f.CurrentUserID)
 	if f.Ulp != "" {
 		query = query.Where("ulp_unit = ?", f.Ulp)
 	}
@@ -96,7 +97,11 @@ func (f *PermohonanFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
 	}
 
 	if f.Scope == "mine" {
-		query = rbac.ApplyScopeMine(query, f.CurrentRole, f.CurrentUnit)
+		if f.Status == "draft" {
+			query = query.Where("permohonan.created_by = ?", f.CurrentUserID)
+		} else {
+			query = rbac.ApplyScopeMine(query, f.CurrentRole, f.CurrentUnit)
+		}
 	}
 
 	return query

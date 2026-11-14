@@ -63,6 +63,9 @@ func TestPermohonanStageDocumentsKeepBusinessGrouping(t *testing.T) {
 			tag: "Tahap 1 — Permohonan PB/PD",
 			paths: []string{
 				"/api/permohonan",
+				"/api/permohonan/import-eis",
+				"/api/permohonan/{id}/draft",
+				"/api/permohonan/{id}/draft/continue",
 				"/api/tariffs",
 				"/api/permohonan/{id}",
 				"/api/permohonan/{id}/activities",

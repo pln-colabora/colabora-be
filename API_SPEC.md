@@ -67,6 +67,12 @@ node. Decision/support nodes may have a null `activity_number`.
 
 ## Create contract
 
+### Import EIS AP2T
+
+`POST /api/permohonan/import-eis` menerima `multipart/form-data` dengan field `file` (.xls, maksimal 10 MB, 5000 baris). Setiap baris sheet pertama menjadi `permohonan` berstatus `draft` dan mendapat nomor permohonan; impor satu file atomik. Hanya `pelayanan-pelanggan` dan `nps` dapat mengimpor. Kesalahan baris atau duplikat menolak seluruh file. `GET /api/permohonan?status=draft` dan `GET /api/permohonan/:id` menampilkan draft milik pembuat tanpa workflow atau SLA aktif.
+
+Pemetaan kolom EIS terbatas pada `NAMA`, `NOTELP_PEMOHON`, `TGLBAYAR`, `TOTALBIAYA`, `JENIS_TRANSAKSI`, `NAMAUP`, `ALAMAT`, `TARIF_LAMA`, `DAYA_LAMA`, `TARIF`, `DAYA`, dan `PAKET_SAR` (`jenis_pembayaran`). Kolom lain diabaikan. `PUT /api/permohonan/:id/draft` menyimpan seluruh field permohonan yang dapat diedit. `POST /api/permohonan/:id/draft/continue` menerima `evidence_files` melalui multipart, memvalidasi permohonan lengkap, lalu secara atomik menyelesaikan Activity #1 dan mengubah status menjadi `in_progress`. Hanya pembuat draft dengan role pemilik Activity #1 yang dapat melanjutkan. Pemanggilan ulang ditolak.
+
 `POST /api/permohonan` accepts customer/request fields plus `jenis_sambungan`.
 It also requires `tanggal_pembayaran` (YYYY-MM-DD) and `nominal_pembayaran` (positive whole rupiah). Both are returned in list and detail responses; historical requests may have null values. SLA remains based on `request_date` and calendar days.
 New clients may use `multipart/form-data` with one or more `evidence_files`; the

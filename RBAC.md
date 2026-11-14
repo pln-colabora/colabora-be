@@ -41,6 +41,8 @@ A write is allowed only when all conditions hold:
 
 Activity 1 is special because the aggregate does not yet exist:
 
+- An imported EIS draft is visible and editable only to its creator. Continuing it requires the same connection-specific Activity #1 ownership and ULP rules as ordinary creation, plus the required evidence. Drafts have no actionable workflow nodes.
+
 - JTR/JTM creation requires `pelayanan-pelanggan`; `ulp_unit` is taken from the caller.
 - PLG TM creation requires `nps`; a valid target `ulp_unit` is required in the request.
 

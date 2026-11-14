@@ -341,6 +341,9 @@ func (s *permohonanService) completeWorkflowNodes(
 			}
 			return dto.ErrSubmitActivity
 		}
+		if permohonan.Status == string(workflow.Draft) {
+			return workflow.ErrNotActionable
+		}
 		actor, err = s.userRepository.GetUserById(ctx, tx, userID)
 		if err != nil {
 			return rbac.ErrWorkflowForbidden
@@ -728,6 +731,9 @@ func (s *permohonanService) GetById(ctx context.Context, id string, userId strin
 	if err != nil {
 		return dto.PermohonanResponse{}, dto.ErrPermohonanNotFound
 	}
+	if permohonan.Status == string(workflow.Draft) && permohonan.CreatedBy.String() != userId {
+		return dto.PermohonanResponse{}, dto.ErrPermohonanNotFound
+	}
 
 	requester, err := s.userRepository.GetUserById(ctx, s.db, userId)
 	if err != nil {
@@ -758,6 +764,11 @@ func (s *permohonanService) List(ctx context.Context, filter *query.PermohonanFi
 		return nil, 0, err
 	}
 	for i := range results {
+		if results[i].Status == string(workflow.Draft) {
+			results[i].SlaStatus = "none"
+			results[i].AvailableActions = []dto.AvailableAction{}
+			continue
+		}
 		// Database drivers can render DATE columns with a time component when scanning into strings.
 		if results[i].TanggalPembayaran != nil && len(*results[i].TanggalPembayaran) >= len("2006-01-02") {
 			date := (*results[i].TanggalPembayaran)[:len("2006-01-02")]
@@ -829,6 +840,9 @@ func (s *permohonanService) GetActivities(ctx context.Context, id, userID string
 	if err != nil {
 		return nil, dto.ErrPermohonanNotFound
 	}
+	if p.Status == string(workflow.Draft) {
+		return []dto.WorkflowNodeResponse{}, nil
+	}
 	nodes, err := s.permohonanRepository.ListWorkflowNodes(ctx, s.db, id)
 	if err != nil {
 		return nil, err
@@ -853,6 +867,9 @@ func (s *permohonanService) GetActivity(ctx context.Context, id, workflowNode, u
 	p, err := s.permohonanRepository.GetById(ctx, s.db, id)
 	if err != nil {
 		return dto.WorkflowNodeDetailResponse{}, dto.ErrPermohonanNotFound
+	}
+	if p.Status == string(workflow.Draft) {
+		return dto.WorkflowNodeDetailResponse{}, dto.ErrWorkflowNodeNotFound
 	}
 
 	requester, err := s.userRepository.GetUserById(ctx, s.db, userID)
@@ -1127,6 +1144,18 @@ func (s *permohonanService) creationULP(ctx context.Context, role, callerUnit st
 }
 
 func toPermohonanResponse(p entities.Permohonan, role, unit string, now time.Time) (dto.PermohonanResponse, error) {
+	if p.Status == string(workflow.Draft) {
+		return dto.PermohonanResponse{ID: p.ID.String(), NoPermohonan: p.NoPermohonan,
+			JenisPermohonan: p.JenisPermohonan, JenisSambungan: p.JenisSambungan,
+			JenisPembayaran: p.JenisPembayaran, Tarif: p.Tarif, DayaLama: p.DayaLama,
+			DayaBaru: p.DayaBaru, GolonganTarif: p.GolonganTarif,
+			GolonganTarifLama: p.GolonganTarifLama, UlpUnit: p.UlpUnit,
+			PelangganNama: p.PelangganNama, PelangganAlamat: p.PelangganAlamat,
+			PelangganNoHp: p.PelangganNoHp, RequestDate: p.RequestDate.Format("2006-01-02"),
+			TanggalPembayaran: dateString(p.TanggalPembayaran), NominalPembayaran: p.NominalPembayaran,
+			CurrentStage: 1, Status: string(workflow.Draft), CreatedBy: p.CreatedBy.String(),
+			WorkflowNodes: []dto.WorkflowNodeResponse{}, AvailableActions: []dto.AvailableAction{}}, nil
+	}
 	var paymentDate *string
 	if p.TanggalPembayaran != nil {
 		value := p.TanggalPembayaran.Format("2006-01-02")
@@ -1171,6 +1200,14 @@ func toPermohonanResponse(p entities.Permohonan, role, unit string, now time.Tim
 		WorkflowNodes:       workflowNodeResponses(p.WorkflowNodes, evaluated, now),
 		AvailableActions:    actions,
 	}, nil
+}
+
+func dateString(value *time.Time) *string {
+	if value == nil {
+		return nil
+	}
+	formatted := value.Format("2006-01-02")
+	return &formatted
 }
 
 func workflowNodeResponses(nodes []entities.PermohonanActivity, evaluated workflow.Result, now time.Time) []dto.WorkflowNodeResponse {
