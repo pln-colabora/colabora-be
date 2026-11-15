@@ -61,3 +61,54 @@ func TestImportedDraftCanBeEditedWithoutStartingWorkflow(t *testing.T) {
 	require.NoError(t, db.Take(&saved, "id = ?", p.ID).Error)
 	require.Equal(t, "draft", saved.Status)
 }
+
+func TestDeleteEISDraftOnlyRemovesOwnUnrelatedDraft(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		status     string
+		otherUser  bool
+		related    string
+		wantErr    error
+		wantExists bool
+	}{
+		{name: "own draft", status: "draft"},
+		{name: "another creator", status: "draft", otherUser: true, wantErr: ErrEISDraftNotFound, wantExists: true},
+		{name: "continued draft", status: "in_progress", wantErr: ErrEISDraftConflict, wantExists: true},
+		{name: "workflow node", status: "draft", related: "permohonan_activities", wantErr: ErrEISDraftConflict, wantExists: true},
+		{name: "activity log", status: "draft", related: "activity_logs", wantErr: ErrEISDraftConflict, wantExists: true},
+		{name: "attached document", status: "draft", related: "documents", wantErr: ErrEISDraftConflict, wantExists: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, err := gorm.Open(sqlite.Open("file:"+uuid.NewString()+"?mode=memory&cache=shared"), &gorm.Config{})
+			require.NoError(t, err)
+			require.NoError(t, db.Exec("CREATE TABLE permohonan (id TEXT PRIMARY KEY, created_by TEXT, status TEXT)").Error)
+			for _, table := range []string{"permohonan_activities", "activity_logs", "documents", "document_evidence", "vendor_assignments", "activity_revisions", "pdkb_schedules"} {
+				require.NoError(t, db.Exec("CREATE TABLE "+table+" (permohonan_id TEXT)").Error)
+			}
+			requestID, ownerID := uuid.New(), uuid.New()
+			require.NoError(t, db.Exec("INSERT INTO permohonan (id, created_by, status) VALUES (?, ?, ?)", requestID, ownerID, tc.status).Error)
+			if tc.related != "" {
+				require.NoError(t, db.Exec("INSERT INTO "+tc.related+" (permohonan_id) VALUES (?)", requestID).Error)
+			}
+			callerID := ownerID
+			if tc.otherUser {
+				callerID = uuid.New()
+			}
+			s := &permohonanService{db: db}
+			err = s.DeleteEISDraft(context.Background(), requestID.String(), callerID.String())
+			if tc.wantErr == nil {
+				require.NoError(t, err)
+			} else {
+				require.ErrorIs(t, err, tc.wantErr)
+			}
+			var remaining int64
+			require.NoError(t, db.Table("permohonan").Where("id = ?", requestID).Count(&remaining).Error)
+			if tc.wantExists {
+				require.EqualValues(t, 1, remaining)
+			} else {
+				require.Zero(t, remaining)
+				require.ErrorIs(t, s.DeleteEISDraft(context.Background(), requestID.String(), ownerID.String()), ErrEISDraftNotFound)
+			}
+		})
+	}
+}

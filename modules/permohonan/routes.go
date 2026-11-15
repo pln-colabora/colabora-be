@@ -22,6 +22,7 @@ func RegisterRoutes(server *gin.Engine, injector *do.Injector) {
 		permohonanRoutes.POST("", permohonanController.Create)
 		permohonanRoutes.POST("/import-eis", permohonanController.ImportEIS)
 		permohonanRoutes.PUT("/:id/draft", permohonanController.EditEISDraft)
+		permohonanRoutes.DELETE("/:id/draft", permohonanController.DeleteEISDraft)
 		permohonanRoutes.POST("/:id/draft/continue", permohonanController.ContinueEISDraft)
 		permohonanRoutes.POST("/:id/survei", permohonanController.SubmitSurvey)
 		permohonanRoutes.POST("/:id/verifikasi-prioritas", changes.SubmitPriority)

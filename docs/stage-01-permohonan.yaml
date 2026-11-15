@@ -38,6 +38,17 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "403": { description: Role tidak berhak mengimpor }
   /api/permohonan/{id}/draft:
+    delete:
+      tags: ["Tahap 1 — Permohonan PB/PD"]
+      operationId: deleteEISDraft
+      summary: Hapus permanen satu draft hasil import EIS
+      description: Hanya pembuat draft dapat menghapus sebelum Activity #1 dilanjutkan. Nomor permohonan tidak dipakai ulang. Draft dengan data workflow, dokumen, atau riwayat terkait ditolak.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
+      responses:
+        "200": { description: Draft berhasil dihapus }
+        "404": { description: Draft tidak ada atau bukan milik pemanggil }
+        "409": { description: Draft sudah dilanjutkan atau mempunyai data terkait }
     put:
       tags: ["Tahap 1 — Permohonan PB/PD"]
       operationId: editEISDraft

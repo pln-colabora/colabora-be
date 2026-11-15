@@ -58,6 +58,22 @@ func (c *permohonanController) EditEISDraft(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, utils.BuildResponseSuccess("draft saved", result))
 }
 
+func (c *permohonanController) DeleteEISDraft(ctx *gin.Context) {
+	err := c.eisService().DeleteEISDraft(ctx, ctx.Param("id"), ctx.MustGet("user_id").(string))
+	if err != nil {
+		status := http.StatusInternalServerError
+		switch {
+		case errors.Is(err, service.ErrEISDraftNotFound):
+			status = http.StatusNotFound
+		case errors.Is(err, service.ErrEISDraftConflict):
+			status = http.StatusConflict
+		}
+		ctx.JSON(status, utils.BuildResponseFailed("failed delete draft", err.Error(), nil))
+		return
+	}
+	ctx.JSON(http.StatusOK, utils.BuildResponseSuccess("draft deleted", nil))
+}
+
 func (c *permohonanController) ContinueEISDraft(ctx *gin.Context) {
 	form, err := ctx.MultipartForm()
 	if err != nil {

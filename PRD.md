@@ -88,7 +88,7 @@ Workflow-node status is one of `locked`, `available`, `in_progress`, `completed`
 
 Aggregate status is `draft` for imported requests before Activity #1, then `in_progress`, `completed`, or `returned`. `CurrentStage` is the lowest presentation stage containing an applicable unfinished node for active requests; clients must use `available_actions` to render actionable work.
 
-Import EIS AP2T membuat baris `Permohonan` berstatus `draft` tanpa node workflow atau SLA aktif. Hanya kolom pada pemetaan EIS yang diimpor; pembuat draft melengkapi field yang hilang dan bukti Activity #1 sebelum melanjutkan. Setelah berhasil dilanjutkan, status menjadi `in_progress` dan survei tersedia. Draft hanya dapat dilihat dan diedit oleh pembuatnya.
+Import EIS AP2T membuat baris `Permohonan` berstatus `draft` tanpa node workflow atau SLA aktif. Hanya kolom pada pemetaan EIS yang diimpor; pembuat draft melengkapi field yang hilang dan bukti Activity #1 sebelum melanjutkan. Setelah berhasil dilanjutkan, status menjadi `in_progress` dan survei tersedia. Draft hanya dapat dilihat, diedit, dan dihapus permanen oleh pembuatnya. Penghapusan berlaku sebelum draft dilanjutkan dan hanya jika belum ada data workflow, dokumen terkait, atau riwayat aktivitas.
 
 ## 5. Evidence and audit
 

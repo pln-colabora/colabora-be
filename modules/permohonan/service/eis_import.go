@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pln-colabora/colabora-be/database/entities"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/dto"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/validation"
@@ -20,11 +21,65 @@ import (
 )
 
 var ErrEISDraft = errors.New("draft is not available or already continued")
+var ErrEISDraftNotFound = errors.New("draft not found")
+var ErrEISDraftConflict = errors.New("draft cannot be deleted")
 
 type EISDraftService interface {
 	ImportEIS(context.Context, string, string, io.ReadSeeker) ([]dto.PermohonanResponse, error)
 	EditEISDraft(context.Context, string, string, dto.EISDraftEditRequest) (dto.PermohonanResponse, error)
+	DeleteEISDraft(context.Context, string, string) error
 	ContinueEISDraft(context.Context, string, string, []*multipart.FileHeader) (dto.PermohonanResponse, error)
+}
+
+func (s *permohonanService) DeleteEISDraft(ctx context.Context, id, userID string) error {
+	requestID, err := uuid.Parse(id)
+	if err != nil {
+		return ErrEISDraftNotFound
+	}
+	actorID, err := uuid.Parse(userID)
+	if err != nil {
+		return ErrEISDraftNotFound
+	}
+
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var draft entities.Permohonan
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ? AND created_by = ?", requestID, actorID).Take(&draft).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrEISDraftNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if draft.Status != string(workflow.Draft) {
+			return ErrEISDraftConflict
+		}
+
+		// Imported drafts have no workflow or attached evidence. Refuse to cascade
+		// unexpected related records so a corrupt draft cannot erase history.
+		for _, table := range []string{
+			"permohonan_activities", "activity_logs", "documents", "document_evidence",
+			"vendor_assignments", "activity_revisions", "pdkb_schedules",
+		} {
+			var count int64
+			if err := tx.Table(table).Where("permohonan_id = ?", requestID).Count(&count).Error; err != nil {
+				return err
+			}
+			if count != 0 {
+				return ErrEISDraftConflict
+			}
+		}
+
+		result := tx.Where("id = ? AND created_by = ? AND status = ?", requestID, actorID, workflow.Draft).
+			Delete(&entities.Permohonan{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return ErrEISDraftConflict
+		}
+		return nil
+	})
 }
 
 func (s *permohonanService) ImportEIS(ctx context.Context, userID, format string, reader io.ReadSeeker) ([]dto.PermohonanResponse, error) {

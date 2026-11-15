@@ -73,6 +73,8 @@ node. Decision/support nodes may have a null `activity_number`.
 
 Pemetaan kolom EIS terbatas pada `NAMA`, `NOTELP_PEMOHON`, `TGLBAYAR`, `TOTALBIAYA`, `JENIS_TRANSAKSI`, `NAMAUP`, `ALAMAT`, `TARIF_LAMA`, `DAYA_LAMA`, `TARIF`, `DAYA`, dan `PAKET_SAR` (`jenis_pembayaran`). Kolom lain diabaikan. `PUT /api/permohonan/:id/draft` menyimpan seluruh field permohonan yang dapat diedit. `POST /api/permohonan/:id/draft/continue` menerima `evidence_files` melalui multipart, memvalidasi permohonan lengkap, lalu secara atomik menyelesaikan Activity #1 dan mengubah status menjadi `in_progress`. Hanya pembuat draft dengan role pemilik Activity #1 yang dapat melanjutkan. Pemanggilan ulang ditolak.
 
+`DELETE /api/permohonan/:id/draft` menghapus permanen satu draft hasil impor EIS milik pembuatnya, selama status masih `draft` dan belum ada node workflow, dokumen terkait, atau riwayat aktivitas. Respons sukses 200 memakai envelope standar. Draft yang tidak ada atau bukan milik pemanggil menghasilkan 404; draft yang sudah dilanjutkan atau memiliki data terkait menghasilkan 409. Nomor permohonan yang terhapus tidak digunakan ulang; baris EIS yang sama dapat diimpor kembali jika tidak ada permohonan lain yang dianggap duplikat.
+
 `POST /api/permohonan` accepts customer/request fields plus `jenis_sambungan`.
 It also requires `tanggal_pembayaran` (YYYY-MM-DD) and `nominal_pembayaran` (positive whole rupiah). Both are returned in list and detail responses; historical requests may have null values. SLA remains based on `request_date` and calendar days.
 New clients may use `multipart/form-data` with one or more `evidence_files`; the
