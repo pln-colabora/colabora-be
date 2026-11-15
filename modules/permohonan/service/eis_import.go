@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/extrame/xls"
 	"github.com/pln-colabora/colabora-be/database/entities"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/dto"
 	"github.com/pln-colabora/colabora-be/modules/permohonan/validation"
@@ -23,12 +22,12 @@ import (
 var ErrEISDraft = errors.New("draft is not available or already continued")
 
 type EISDraftService interface {
-	ImportEIS(context.Context, string, io.ReadSeeker) ([]dto.PermohonanResponse, error)
+	ImportEIS(context.Context, string, string, io.ReadSeeker) ([]dto.PermohonanResponse, error)
 	EditEISDraft(context.Context, string, string, dto.EISDraftEditRequest) (dto.PermohonanResponse, error)
 	ContinueEISDraft(context.Context, string, string, []*multipart.FileHeader) (dto.PermohonanResponse, error)
 }
 
-func (s *permohonanService) ImportEIS(ctx context.Context, userID string, reader io.ReadSeeker) ([]dto.PermohonanResponse, error) {
+func (s *permohonanService) ImportEIS(ctx context.Context, userID, format string, reader io.ReadSeeker) ([]dto.PermohonanResponse, error) {
 	actor, err := s.userRepository.GetUserById(ctx, s.db, userID)
 	if err != nil {
 		return nil, err
@@ -36,22 +35,21 @@ func (s *permohonanService) ImportEIS(ctx context.Context, userID string, reader
 	if actor.Role != rbac.RolePelayananPelanggan && actor.Role != rbac.RoleNps {
 		return nil, dto.ErrCreateForbidden
 	}
-	book, err := xls.OpenReader(reader, "utf-8")
-	if err != nil || book.NumSheets() == 0 {
-		return nil, fmt.Errorf("invalid EIS XLS workbook")
+	rows, err := readEISRows(reader, format)
+	if err != nil {
+		return nil, err
 	}
-	sheet := book.GetSheet(0)
-	if sheet == nil || sheet.MaxRow < 1 {
+	if len(rows) < 2 {
 		return nil, fmt.Errorf("EIS sheet has no data")
 	}
-	header := sheet.Row(0)
+	header := rows[0]
 	if header == nil {
 		return nil, fmt.Errorf("EIS header is missing")
 	}
 	allowed := []string{"NAMA", "NOTELP_PEMOHON", "TGLBAYAR", "TOTALBIAYA", "JENIS_TRANSAKSI", "NAMAUP", "ALAMAT", "TARIF_LAMA", "DAYA_LAMA", "TARIF", "DAYA", "PAKET_SAR"}
 	positions := map[string]int{}
-	for col := 0; col < header.LastCol(); col++ {
-		name := strings.ToUpper(strings.TrimSpace(header.Col(col)))
+	for col, cell := range header {
+		name := strings.ToUpper(strings.TrimSpace(cell))
 		for _, key := range allowed {
 			if name == key {
 				positions[key] = col
@@ -63,21 +61,20 @@ func (s *permohonanService) ImportEIS(ctx context.Context, userID string, reader
 			return nil, fmt.Errorf("EIS header %s is missing", key)
 		}
 	}
-	if sheet.MaxRow > 5000 {
-		return nil, fmt.Errorf("EIS import exceeds 5000 rows")
-	}
-	requests := make([]dto.PermohonanCreateRequest, 0, sheet.MaxRow)
+	requests := make([]dto.PermohonanCreateRequest, 0, len(rows)-1)
 	seen := map[string]bool{}
 	var problems []string
-	for index := 1; index <= int(sheet.MaxRow); index++ {
-		row := sheet.Row(index)
+	for index := 1; index < len(rows); index++ {
+		row := rows[index]
 		if row == nil {
 			continue
 		}
 		values := map[string]string{}
 		allBlank := true
 		for _, key := range allowed {
-			values[key] = strings.TrimSpace(row.Col(positions[key]))
+			if positions[key] < len(row) {
+				values[key] = strings.TrimSpace(row[positions[key]])
+			}
 			if values[key] != "" {
 				allBlank = false
 			}
@@ -94,9 +91,13 @@ func (s *permohonanService) ImportEIS(ctx context.Context, userID string, reader
 			problems = append(problems, fmt.Sprintf("row %d: customer name, phone, address, and NAMAUP are required", index+1))
 			continue
 		}
-		if actor.Role == rbac.RolePelayananPelanggan && *req.UlpUnit != actor.Unit {
-			problems = append(problems, fmt.Sprintf("row %d: NAMAUP is outside caller ULP", index+1))
-			continue
+		if actor.Role == rbac.RolePelayananPelanggan {
+			if !strings.EqualFold(*req.UlpUnit, strings.TrimSpace(actor.Unit)) {
+				problems = append(problems, fmt.Sprintf("row %d: NAMAUP is outside caller ULP", index+1))
+				continue
+			}
+			// Use the account's canonical spelling for later exact-match ULP checks.
+			req.UlpUnit = &actor.Unit
 		}
 		parts := make([]string, 0, len(allowed))
 		for _, field := range allowed {

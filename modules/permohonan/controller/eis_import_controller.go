@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -17,8 +18,12 @@ func (c *permohonanController) eisService() service.EISDraftService {
 
 func (c *permohonanController) ImportEIS(ctx *gin.Context) {
 	file, err := ctx.FormFile("file")
-	if err != nil || file == nil || !strings.HasSuffix(strings.ToLower(file.Filename), ".xls") || file.Size > 30<<20 {
-		ctx.JSON(http.StatusBadRequest, utils.BuildResponseFailed("invalid EIS file", "file must be an XLS up to 30 MB", nil))
+	format := ""
+	if file != nil {
+		format = strings.ToLower(filepath.Ext(file.Filename))
+	}
+	if err != nil || file == nil || (format != ".xls" && format != ".xlsx") || file.Size > 30<<20 {
+		ctx.JSON(http.StatusBadRequest, utils.BuildResponseFailed("invalid EIS file", "file must be an XLS or XLSX up to 30 MB", nil))
 		return
 	}
 	opened, err := file.Open()
@@ -27,7 +32,7 @@ func (c *permohonanController) ImportEIS(ctx *gin.Context) {
 		return
 	}
 	defer opened.Close()
-	result, err := c.eisService().ImportEIS(ctx, ctx.MustGet("user_id").(string), opened)
+	result, err := c.eisService().ImportEIS(ctx, ctx.MustGet("user_id").(string), format, opened)
 	if err != nil {
 		status := http.StatusBadRequest
 		if errors.Is(err, dto.ErrCreateForbidden) {

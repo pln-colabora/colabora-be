@@ -21,8 +21,8 @@ paths:
     post:
       tags: ["Tahap 1 — Permohonan PB/PD"]
       operationId: importEISPermohonan
-      summary: Import EIS XLS menjadi draft permohonan
-      description: Hanya pemilik Activity #1. Impor seluruh file atomik; kolom di luar pemetaan EIS diabaikan.
+      summary: Import EIS XLS/XLSX menjadi draft permohonan
+      description: Hanya pemilik Activity #1. Impor seluruh file atomik; kolom di luar pemetaan EIS diabaikan. NAMAUP dicocokkan tanpa membedakan huruf besar/kecil dan disimpan mengikuti ejaan unit akun.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -32,7 +32,7 @@ paths:
               type: object
               required: [file]
               properties:
-                file: { type: string, format: binary, description: XLS maksimal 30 MB dan 5000 baris }
+                file: { type: string, format: binary, description: XLS atau XLSX maksimal 30 MB dan 5000 baris }
       responses:
         "201": { description: Daftar permohonan draft yang dibuat }
         "400": { $ref: "#/components/responses/BadRequest" }
