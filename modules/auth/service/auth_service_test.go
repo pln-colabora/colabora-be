@@ -188,3 +188,51 @@ func TestVerifyUserRejectsVendorRoleWithoutUnit(t *testing.T) {
 	_, err := service.VerifyUser(context.Background(), userID.String(), authDto.VerifyUserRequest{Role: rbac.RoleVendorKonstruksi})
 	require.ErrorIs(t, err, userDto.ErrAccountRoleInvalid)
 }
+
+func newPasswordResetTest(t *testing.T) (*authService, *gorm.DB, uuid.UUID) {
+	t.Helper()
+	service, db := newAuthServiceTest(t)
+	service.jwtService = NewJWTService()
+	password, err := helpers.HashPassword("old-password")
+	require.NoError(t, err)
+	userID := uuid.New()
+	require.NoError(t, db.Exec("INSERT INTO users (id, email, password, role, is_verified) VALUES (?, ?, ?, ?, ?)", userID.String(), "user@example.test", password, rbac.RoleTeknik, true).Error)
+	require.NoError(t, db.Exec("INSERT INTO refresh_tokens (id, user_id, token) VALUES (?, ?, ?)", uuid.NewString(), userID.String(), "old-session").Error)
+	return service, db, userID
+}
+
+func TestResetPasswordRejectsOrdinaryAccessToken(t *testing.T) {
+	service, db, userID := newPasswordResetTest(t)
+	accessToken := service.jwtService.GenerateAccessToken(userID.String(), rbac.RoleTeknik)
+
+	err := service.ResetPassword(context.Background(), authDto.ResetPasswordRequest{Token: accessToken, NewPassword: "new-password"})
+	require.ErrorIs(t, err, authDto.ErrPasswordResetToken)
+
+	var hashed string
+	require.NoError(t, db.Raw("SELECT password FROM users WHERE id = ?", userID.String()).Scan(&hashed).Error)
+	ok, _ := helpers.CheckPassword(hashed, []byte("old-password"))
+	require.True(t, ok)
+}
+
+func TestResetPasswordWithResetTokenSetsPasswordAndRevokesSessions(t *testing.T) {
+	service, db, userID := newPasswordResetTest(t)
+	resetToken := service.jwtService.GenerateAccessToken(userID.String(), PasswordResetTokenRole)
+
+	require.NoError(t, service.ResetPassword(context.Background(), authDto.ResetPasswordRequest{Token: resetToken, NewPassword: "new-password"}))
+
+	var hashed string
+	require.NoError(t, db.Raw("SELECT password FROM users WHERE id = ?", userID.String()).Scan(&hashed).Error)
+	ok, _ := helpers.CheckPassword(hashed, []byte("new-password"))
+	require.True(t, ok)
+	var sessions int64
+	require.NoError(t, db.Raw("SELECT COUNT(*) FROM refresh_tokens WHERE user_id = ?", userID.String()).Scan(&sessions).Error)
+	require.Zero(t, sessions)
+}
+
+func TestSendPasswordResetDoesNotRevealUnknownEmail(t *testing.T) {
+	service, _, _ := newPasswordResetTest(t)
+	t.Setenv("MAIL_DRIVER", "log")
+
+	require.NoError(t, service.SendPasswordReset(context.Background(), authDto.SendPasswordResetRequest{Email: "missing@example.test"}))
+	require.NoError(t, service.SendPasswordReset(context.Background(), authDto.SendPasswordResetRequest{Email: "user@example.test"}))
+}

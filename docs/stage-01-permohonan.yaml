@@ -17,6 +17,92 @@ tags:
   - name: "Tahap 1 — Permohonan PB/PD"
     description: "Activity #1 dan endpoint agregat permohonan"
 paths:
+  /api/permohonan/import-eis:
+    post:
+      tags: ["Tahap 1 — Permohonan PB/PD"]
+      operationId: importEISPermohonan
+      summary: Import EIS XLS/XLSX menjadi draft permohonan
+      description: Hanya pemilik Activity #1. Impor seluruh file atomik; kolom di luar pemetaan EIS diabaikan. NAMAUP dicocokkan tanpa membedakan huruf besar/kecil dan disimpan mengikuti ejaan unit akun.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary, description: XLS atau XLSX maksimal 30 MB dan 5000 baris }
+      responses:
+        "201": { description: Daftar permohonan draft yang dibuat }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { description: Role tidak berhak mengimpor }
+  /api/permohonan/{id}/draft:
+    delete:
+      tags: ["Tahap 1 — Permohonan PB/PD"]
+      operationId: deleteEISDraft
+      summary: Hapus permanen satu draft hasil import EIS
+      description: Hanya pembuat draft dapat menghapus sebelum Activity #1 dilanjutkan. Nomor permohonan tidak dipakai ulang. Draft dengan data workflow, dokumen, atau riwayat terkait ditolak.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
+      responses:
+        "200": { description: Draft berhasil dihapus }
+        "404": { description: Draft tidak ada atau bukan milik pemanggil }
+        "409": { description: Draft sudah dilanjutkan atau mempunyai data terkait }
+    put:
+      tags: ["Tahap 1 — Permohonan PB/PD"]
+      operationId: editEISDraft
+      summary: Simpan seluruh field draft hasil import
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Field permohonan yang dapat diedit; kirim nilai lengkap saat menyimpan.
+              additionalProperties: false
+              properties:
+                jenis_permohonan: { type: string }
+                jenis_sambungan: { type: string }
+                jenis_pembayaran: { type: string }
+                tarif: { type: string, nullable: true }
+                daya_lama: { type: integer, format: int64, nullable: true }
+                daya_baru: { type: integer, format: int64, nullable: true }
+                golongan_tarif: { type: string, nullable: true }
+                golongan_tarif_lama: { type: string, nullable: true }
+                pembatas_baru: { type: string, nullable: true }
+                pembatas_lama: { type: string, nullable: true }
+                ulp_unit: { type: string }
+                pelanggan_nama: { type: string }
+                pelanggan_alamat: { type: string }
+                pelanggan_no_hp: { type: string }
+                tanggal_pembayaran: { type: string, format: date, nullable: true }
+                nominal_pembayaran: { type: integer, format: int64, nullable: true }
+      responses:
+        "200": { description: Draft tersimpan }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /api/permohonan/{id}/draft/continue:
+    post:
+      tags: ["Tahap 1 — Permohonan PB/PD"]
+      operationId: continueEISDraft
+      summary: Lengkapi Activity #1 dan aktifkan draft
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [evidence_files]
+              properties:
+                evidence_files: { type: array, minItems: 1, items: { type: string, format: binary } }
+      responses:
+        "200": { description: Permohonan in_progress dengan survei tersedia }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { description: Draft sudah dilanjutkan atau tidak tersedia }
   /api/permohonan:
     get:
       tags: ["Tahap 1 — Permohonan PB/PD"]
@@ -33,9 +119,9 @@ paths:
         - { name: ulp, in: query, description: Filter by ULP unit, schema: { type: string } }
         - { name: jenis_sambungan, in: query, schema: { type: string, enum: ["JTR", "JTM/Gardu", "PLG TM <5 GWNG", "PLG TM >5 GWNG"] } }
         - { name: stage, in: query, description: Filter by Tahap 1-7, schema: { type: integer, minimum: 1, maximum: 7 } }
-        - { name: status, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string, enum: [draft, in_progress, completed, returned] } }
         - { name: sla, in: query, description: Buckets by actionable workflow-node deadlines, schema: { type: string, enum: [ontime, duesoon, overdue] } }
-        - { name: scope, in: query, description: mine returns rows with a caller-owned actionable node, schema: { type: string, enum: [mine, all], default: all } }
+        - { name: scope, in: query, description: mine returns rows with a caller-owned actionable node; with status=draft it returns drafts created by the caller, schema: { type: string, enum: [mine, all], default: all } }
       responses:
         "200": { description: Daftar permohonan, content: { application/json: { schema: { $ref: "#/components/schemas/PaginatedPermohonanResponse" } } } }
         "400": { $ref: "#/components/responses/BadRequest" }
@@ -55,10 +141,11 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [jenis_permohonan, jenis_sambungan, tarif, golongan_tarif, daya_baru, pelanggan_nama, pelanggan_alamat, pelanggan_no_hp, tanggal_pembayaran, nominal_pembayaran, evidence_files]
+              required: [jenis_permohonan, jenis_sambungan, jenis_pembayaran, tarif, golongan_tarif, daya_baru, pelanggan_nama, pelanggan_alamat, pelanggan_no_hp, tanggal_pembayaran, nominal_pembayaran, evidence_files]
               properties:
                 jenis_permohonan: { type: string, enum: ["Pasang Baru (PB)", "Perubahan Daya (PD)"] }
                 jenis_sambungan: { type: string, enum: ["JTR", "JTM/Gardu", "PLG TM <5 GWNG", "PLG TM >5 GWNG"] }
+                jenis_pembayaran: { type: string, enum: [pascabayar, prabayar] }
                 tarif: { type: string, nullable: true, enum: [rumah_tangga, sosial, bisnis, industri, pemerintah] }
                 daya_lama: { type: integer, format: int64, nullable: true, description: Daya lama dalam VA }
                 daya_baru: { type: integer, format: int64, description: Daya baru dalam VA; harus satu langkah daya exact dari golongan_tarif }
@@ -76,6 +163,7 @@ paths:
               example:
                 jenis_permohonan: "Pasang Baru (PB)"
                 jenis_sambungan: "JTR"
+                jenis_pembayaran: "pascabayar"
                 tarif: "rumah_tangga"
                 golongan_tarif: "R1"
                 daya_baru: 2200
@@ -89,10 +177,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [jenis_permohonan, jenis_sambungan, tarif, golongan_tarif, daya_baru, pelanggan_nama, pelanggan_alamat, pelanggan_no_hp, tanggal_pembayaran, nominal_pembayaran]
+              required: [jenis_permohonan, jenis_sambungan, jenis_pembayaran, tarif, golongan_tarif, daya_baru, pelanggan_nama, pelanggan_alamat, pelanggan_no_hp, tanggal_pembayaran, nominal_pembayaran]
               properties:
                 jenis_permohonan: { type: string, enum: ["Pasang Baru (PB)", "Perubahan Daya (PD)"] }
                 jenis_sambungan: { type: string, enum: ["JTR", "JTM/Gardu", "PLG TM <5 GWNG", "PLG TM >5 GWNG"] }
+                jenis_pembayaran: { type: string, enum: [pascabayar, prabayar] }
                 tarif: { type: string, nullable: true, enum: [rumah_tangga, sosial, bisnis, industri, pemerintah] }
                 daya_lama: { type: integer, format: int64, nullable: true }
                 daya_baru: { type: integer, format: int64 }
@@ -109,6 +198,7 @@ paths:
               example:
                 jenis_permohonan: "Perubahan Daya (PD)"
                 jenis_sambungan: "PLG TM <5 GWNG"
+                jenis_pembayaran: "prabayar"
                 tarif: "bisnis"
                 golongan_tarif: "B3"
                 daya_baru: 555000
@@ -314,6 +404,7 @@ components:
         pembatas_baru: { type: string, nullable: true, description: "Pembatas daya baru seperti di Tangga Daya PLN, mis. 1x4 atau 6" }
         pembatas_lama: { type: string, nullable: true, description: Pembatas lama untuk Perubahan Daya (PD) }
         priority: { type: string, nullable: true, enum: [High, Medium, Low], description: Diisi oleh node verifikasi_prioritas }
+        jenis_pembayaran: { type: string, nullable: true, enum: [pascabayar, prabayar] }
         tarif: { type: string, nullable: true, enum: [rumah_tangga, sosial, bisnis, industri, pemerintah] }
         daya_lama: { type: integer, format: int64, nullable: true }
         daya_baru: { type: integer, format: int64, nullable: true }
@@ -329,7 +420,7 @@ components:
         tanggal_pembayaran: { type: string, format: date, nullable: true }
         nominal_pembayaran: { type: integer, format: int64, nullable: true, description: Nominal pembayaran dalam rupiah }
         current_stage: { type: integer, minimum: 1, maximum: 7 }
-        status: { type: string, enum: [in_progress, completed, returned] }
+        status: { type: string, enum: [draft, in_progress, completed, returned] }
         sla_deadline: { type: string, format: date, nullable: true }
         sla_status: { type: string, enum: [none, on_time, due_soon, overdue, unavailable] }
         kebutuhan_tiang: { type: boolean, nullable: true }

@@ -15,8 +15,10 @@ import (
 )
 
 type deleteUserService struct {
-	deletedUserID string
-	updatedUserID string
+	deletedUserID         string
+	updatedUserID         string
+	passwordChangedUserID string
+	passwordResetUserID   string
 }
 
 func (s *deleteUserService) ListAccounts(context.Context, *query.UserFilter) ([]query.User, int64, error) {
@@ -44,6 +46,42 @@ func (s *deleteUserService) UpdateAccount(_ context.Context, _ dto.AccountUpdate
 func (s *deleteUserService) Delete(_ context.Context, userID string) error {
 	s.deletedUserID = userID
 	return nil
+}
+
+func (s *deleteUserService) ChangePassword(_ context.Context, _ dto.ChangePasswordRequest, userID string) error {
+	s.passwordChangedUserID = userID
+	return nil
+}
+
+func (s *deleteUserService) ResetPassword(_ context.Context, _ dto.AdminResetPasswordRequest, userID string) error {
+	s.passwordResetUserID = userID
+	return nil
+}
+
+func TestPasswordRoutesSeparateSelfChangeFromAdminReset(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	service := &deleteUserService{}
+	controller := &userController{userService: service}
+	server := gin.New()
+	setUser := func(ctx *gin.Context) { ctx.Set("user_id", "authenticated-user-id") }
+	// Same patterns as routes.go: static "me" must win over the ":id" param.
+	server.PATCH("/api/user/me/password", setUser, controller.ChangePassword)
+	server.PATCH("/api/user/:id", setUser, controller.UpdateAccount)
+	server.PATCH("/api/user/:id/password", setUser, controller.ResetPassword)
+
+	send := func(path, body string) int {
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodPatch, path, bytes.NewBufferString(body))
+		request.Header.Set("Content-Type", "application/json")
+		server.ServeHTTP(recorder, request)
+		return recorder.Code
+	}
+
+	require.Equal(t, http.StatusOK, send("/api/user/me/password", `{"current_password":"old-password","new_password":"new-password"}`))
+	require.Equal(t, "authenticated-user-id", service.passwordChangedUserID)
+	require.Equal(t, http.StatusOK, send("/api/user/target-user-id/password", `{"new_password":"new-password"}`))
+	require.Equal(t, "target-user-id", service.passwordResetUserID)
+	require.Equal(t, http.StatusBadRequest, send("/api/user/target-user-id/password", `{"new_password":"short"}`))
 }
 
 func TestDeleteUsesPathUserIDRatherThanAuthenticatedUserID(t *testing.T) {

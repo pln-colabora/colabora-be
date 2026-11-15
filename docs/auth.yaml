@@ -201,7 +201,12 @@ paths:
   /api/auth/send-password-reset:
     post:
       tags: [Auth]
-      summary: Send a password reset token to the given email
+      summary: Email a password reset link to the given address
+      description: >-
+        Sends `FRONTEND_URL/reset-password?token=...` (token valid 15 minutes).
+        Unknown emails get the same 200 response so the endpoint cannot be used
+        to check which accounts exist. With `MAIL_DRIVER=log` the email is
+        printed to the server log instead of being sent.
       requestBody:
         required: true
         content:
@@ -226,6 +231,9 @@ paths:
     post:
       tags: [Auth]
       summary: Reset a password using the token from send-password-reset
+      description: >-
+        Only accepts tokens issued by send-password-reset; ordinary access tokens
+        are rejected. Revokes all of the account's refresh tokens on success.
       requestBody:
         required: true
         content:

@@ -26,6 +26,10 @@ type (
 	PermohonanController interface {
 		AssignVendor(ctx *gin.Context)
 		Create(ctx *gin.Context)
+		ImportEIS(ctx *gin.Context)
+		EditEISDraft(ctx *gin.Context)
+		DeleteEISDraft(ctx *gin.Context)
+		ContinueEISDraft(ctx *gin.Context)
 		GetTariffOptions(ctx *gin.Context)
 		GetAll(ctx *gin.Context)
 		GetById(ctx *gin.Context)

@@ -58,6 +58,7 @@ type (
 	PermohonanCreateRequest struct {
 		JenisPermohonan   string                  `json:"jenis_permohonan" form:"jenis_permohonan" binding:"required"`
 		JenisSambungan    string                  `json:"jenis_sambungan" form:"jenis_sambungan" binding:"required"`
+		JenisPembayaran   string                  `json:"jenis_pembayaran" form:"jenis_pembayaran" binding:"required" validate:"required"`
 		Tarif             *string                 `json:"tarif" form:"tarif"`
 		DayaLama          *int64                  `json:"daya_lama" form:"daya_lama"`
 		DayaBaru          *int64                  `json:"daya_baru" form:"daya_baru"`
@@ -72,6 +73,24 @@ type (
 		TanggalPembayaran string                  `json:"tanggal_pembayaran" form:"tanggal_pembayaran" binding:"required" validate:"required"`
 		NominalPembayaran *int64                  `json:"nominal_pembayaran" form:"nominal_pembayaran" binding:"required" validate:"required"`
 		EvidenceFiles     []*multipart.FileHeader `json:"-" form:"evidence_files"`
+	}
+	EISDraftEditRequest struct {
+		JenisPermohonan   string  `json:"jenis_permohonan"`
+		JenisSambungan    string  `json:"jenis_sambungan"`
+		JenisPembayaran   string  `json:"jenis_pembayaran"`
+		Tarif             *string `json:"tarif"`
+		DayaLama          *int64  `json:"daya_lama"`
+		DayaBaru          *int64  `json:"daya_baru"`
+		GolonganTarif     *string `json:"golongan_tarif"`
+		GolonganTarifLama *string `json:"golongan_tarif_lama"`
+		PembatasBaru      *string `json:"pembatas_baru"`
+		PembatasLama      *string `json:"pembatas_lama"`
+		UlpUnit           string  `json:"ulp_unit"`
+		PelangganNama     string  `json:"pelanggan_nama"`
+		PelangganAlamat   string  `json:"pelanggan_alamat"`
+		PelangganNoHp     string  `json:"pelanggan_no_hp"`
+		TanggalPembayaran string  `json:"tanggal_pembayaran"`
+		NominalPembayaran *int64  `json:"nominal_pembayaran"`
 	}
 
 	SurveySubmitRequest struct {
@@ -129,6 +148,7 @@ type (
 		NoPermohonan        string                 `json:"no_permohonan"`
 		JenisPermohonan     string                 `json:"jenis_permohonan"`
 		JenisSambungan      string                 `json:"jenis_sambungan"`
+		JenisPembayaran     *string                `json:"jenis_pembayaran"`
 		Tarif               *string                `json:"tarif"`
 		DayaLama            *int64                 `json:"daya_lama"`
 		DayaBaru            *int64                 `json:"daya_baru"`

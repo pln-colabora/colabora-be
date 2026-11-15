@@ -67,12 +67,22 @@ node. Decision/support nodes may have a null `activity_number`.
 
 ## Create contract
 
+### Import EIS AP2T
+
+`POST /api/permohonan/import-eis` menerima `multipart/form-data` dengan field `file` (.xls atau .xlsx, maksimal 30 MB, 5000 baris). Setiap baris sheet pertama menjadi `permohonan` berstatus `draft` dan mendapat nomor permohonan; impor satu file atomik. Hanya `pelayanan-pelanggan` dan `nps` dapat mengimpor. `NAMAUP` dicocokkan dengan ULP akun tanpa membedakan huruf besar/kecil dan disimpan memakai ejaan unit akun. Kesalahan baris atau duplikat menolak seluruh file. `GET /api/permohonan?status=draft` dan `GET /api/permohonan/:id` menampilkan draft milik pembuat tanpa workflow atau SLA aktif.
+
+Pemetaan kolom EIS terbatas pada `NAMA`, `NOTELP_PEMOHON`, `TGLBAYAR`, `TOTALBIAYA`, `JENIS_TRANSAKSI`, `NAMAUP`, `ALAMAT`, `TARIF_LAMA`, `DAYA_LAMA`, `TARIF`, `DAYA`, dan `PAKET_SAR` (`jenis_pembayaran`). Kolom lain diabaikan. `PUT /api/permohonan/:id/draft` menyimpan seluruh field permohonan yang dapat diedit. `POST /api/permohonan/:id/draft/continue` menerima `evidence_files` melalui multipart, memvalidasi permohonan lengkap, lalu secara atomik menyelesaikan Activity #1 dan mengubah status menjadi `in_progress`. Hanya pembuat draft dengan role pemilik Activity #1 yang dapat melanjutkan. Pemanggilan ulang ditolak.
+
+`DELETE /api/permohonan/:id/draft` menghapus permanen satu draft hasil impor EIS milik pembuatnya, selama status masih `draft` dan belum ada node workflow, dokumen terkait, atau riwayat aktivitas. Respons sukses 200 memakai envelope standar. Draft yang tidak ada atau bukan milik pemanggil menghasilkan 404; draft yang sudah dilanjutkan atau memiliki data terkait menghasilkan 409. Nomor permohonan yang terhapus tidak digunakan ulang; baris EIS yang sama dapat diimpor kembali jika tidak ada permohonan lain yang dianggap duplikat.
+
 `POST /api/permohonan` accepts customer/request fields plus `jenis_sambungan`.
 It also requires `tanggal_pembayaran` (YYYY-MM-DD) and `nominal_pembayaran` (positive whole rupiah). Both are returned in list and detail responses; historical requests may have null values. SLA remains based on `request_date` and calendar days.
 New clients may use `multipart/form-data` with one or more `evidence_files`; the
 files are scanned, stored, and attached to Activity #1 in the same database
 transaction. The legacy JSON shape remains accepted during the nullable-field
 rollout, but cannot attach files.
+
+`jenis_pembayaran` wajib untuk permohonan baru (`pascabayar` atau `prabayar`) dan dikembalikan pada daftar/detail; data lama dapat bernilai null. Pilihan ini tidak mengubah aturan pembayaran atau tarif.
 
 Optional typed fields are `tarif`, `daya_lama`, and `daya_baru`; power values are
 expressed in VA. Supplied values are checked against the active tariff/connection

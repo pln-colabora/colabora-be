@@ -8,9 +8,12 @@ import (
 	"github.com/Caknoooo/go-pagination"
 	"github.com/google/uuid"
 	"github.com/pln-colabora/colabora-be/database/entities"
+	authRepository "github.com/pln-colabora/colabora-be/modules/auth/repository"
 	documentRepository "github.com/pln-colabora/colabora-be/modules/document/repository"
+	"github.com/pln-colabora/colabora-be/modules/user/dto"
 	"github.com/pln-colabora/colabora-be/modules/user/query"
 	userRepository "github.com/pln-colabora/colabora-be/modules/user/repository"
+	"github.com/pln-colabora/colabora-be/pkg/helpers"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -64,4 +67,67 @@ func TestListAccountsIncludesOnlyRegistrationDocumentForItsAccount(t *testing.T)
 	require.NotNil(t, byID[registeredID.String()].AccountDocumentURL)
 	require.Equal(t, "/api/documents/"+documentID.String()+"/download", *byID[registeredID.String()].AccountDocumentURL)
 	require.Nil(t, byID[operationalID.String()].AccountDocumentURL)
+}
+
+func newPasswordServiceTest(t *testing.T) (UserService, *gorm.DB, uuid.UUID) {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.Exec(`CREATE TABLE users (
+		id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL, telp_number TEXT,
+		password TEXT NOT NULL, role TEXT NOT NULL, unit TEXT, image_url TEXT,
+		is_verified BOOLEAN, created_at DATETIME, updated_at DATETIME
+	)`).Error)
+	require.NoError(t, db.Exec(`CREATE TABLE refresh_tokens (
+		id TEXT PRIMARY KEY, user_id TEXT NOT NULL, token TEXT NOT NULL,
+		expires_at DATETIME, created_at DATETIME, updated_at DATETIME
+	)`).Error)
+
+	userID := uuid.New()
+	require.NoError(t, db.Create(&entities.User{ID: userID, Name: "Pengguna", Email: "pengguna@example.test", Password: "old-password", Role: "teknik", Unit: "ULP Taman", IsVerified: true}).Error)
+	require.NoError(t, db.Create(&entities.RefreshToken{ID: uuid.New(), UserID: userID, Token: "old-session", ExpiresAt: time.Now().Add(time.Hour)}).Error)
+
+	service := NewUserService(userRepository.NewUserRepository(db), authRepository.NewRefreshTokenRepository(db), nil, db)
+	return service, db, userID
+}
+
+func requireStoredPassword(t *testing.T, db *gorm.DB, userID uuid.UUID, password string) {
+	t.Helper()
+	var hashed string
+	require.NoError(t, db.Raw("SELECT password FROM users WHERE id = ?", userID.String()).Scan(&hashed).Error)
+	ok, _ := helpers.CheckPassword(hashed, []byte(password))
+	require.True(t, ok, "stored password should match %q", password)
+}
+
+func requireRefreshTokenCount(t *testing.T, db *gorm.DB, userID uuid.UUID, want int64) {
+	t.Helper()
+	var count int64
+	require.NoError(t, db.Raw("SELECT COUNT(*) FROM refresh_tokens WHERE user_id = ?", userID.String()).Scan(&count).Error)
+	require.Equal(t, want, count)
+}
+
+func TestChangePasswordRequiresCurrentPassword(t *testing.T) {
+	service, db, userID := newPasswordServiceTest(t)
+
+	err := service.ChangePassword(context.Background(), dto.ChangePasswordRequest{CurrentPassword: "wrong-password", NewPassword: "new-password"}, userID.String())
+	require.ErrorIs(t, err, dto.ErrCurrentPasswordInvalid)
+	requireStoredPassword(t, db, userID, "old-password")
+	requireRefreshTokenCount(t, db, userID, 1)
+
+	err = service.ChangePassword(context.Background(), dto.ChangePasswordRequest{CurrentPassword: "old-password", NewPassword: "new-password"}, userID.String())
+	require.NoError(t, err)
+	requireStoredPassword(t, db, userID, "new-password")
+	requireRefreshTokenCount(t, db, userID, 0)
+}
+
+func TestResetPasswordSetsNewPasswordAndRevokesSessions(t *testing.T) {
+	service, db, userID := newPasswordServiceTest(t)
+
+	err := service.ResetPassword(context.Background(), dto.AdminResetPasswordRequest{NewPassword: "reset-password"}, userID.String())
+	require.NoError(t, err)
+	requireStoredPassword(t, db, userID, "reset-password")
+	requireRefreshTokenCount(t, db, userID, 0)
+
+	err = service.ResetPassword(context.Background(), dto.AdminResetPasswordRequest{NewPassword: "reset-password"}, uuid.NewString())
+	require.ErrorIs(t, err, dto.ErrUserNotFound)
 }

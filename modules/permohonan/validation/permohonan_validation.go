@@ -143,6 +143,9 @@ func (v *PermohonanValidation) ValidatePermohonanCreateRequest(req dto.Permohona
 	if !contains(rbac.AllJenisSambungan, req.JenisSambungan) {
 		return fmt.Errorf("jenis_sambungan must be one of: %s", strings.Join(rbac.AllJenisSambungan, ", "))
 	}
+	if req.JenisPembayaran != "pascabayar" && req.JenisPembayaran != "prabayar" {
+		return fmt.Errorf("jenis_pembayaran must be pascabayar or prabayar")
+	}
 	if req.Tarif != nil {
 		if !contains(rbac.AllTarif, *req.Tarif) {
 			return fmt.Errorf("tarif must be one of: %s", strings.Join(rbac.AllTarif, ", "))

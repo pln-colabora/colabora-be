@@ -12,6 +12,7 @@ type Permohonan struct {
 	NoPermohonan         string     `gorm:"type:varchar(30);uniqueIndex;not null" json:"no_permohonan"`
 	JenisPermohonan      string     `gorm:"type:varchar(30);not null" json:"jenis_permohonan"`
 	JenisSambungan       string     `gorm:"type:varchar(30);not null" json:"jenis_sambungan"`
+	JenisPembayaran      *string    `gorm:"type:varchar(20)" json:"jenis_pembayaran"`
 	Tarif                *string    `gorm:"type:varchar(30)" json:"tarif"`
 	DayaLama             *int64     `gorm:"type:bigint" json:"daya_lama"`
 	DayaBaru             *int64     `gorm:"type:bigint" json:"daya_baru"`

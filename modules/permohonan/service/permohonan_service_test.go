@@ -160,7 +160,7 @@ func phase3DB(t *testing.T) *gorm.DB {
 func baseCreateRequest(connection string) dto.PermohonanCreateRequest {
 	amount := int64(150000)
 	return dto.PermohonanCreateRequest{
-		JenisPermohonan: rbac.JenisPermohonanPasangBaru, JenisSambungan: connection,
+		JenisPermohonan: rbac.JenisPermohonanPasangBaru, JenisSambungan: connection, JenisPembayaran: "pascabayar",
 		PelangganNama: "Pelanggan Uji", PelangganAlamat: "Alamat sintetis", PelangganNoHp: "0800000000",
 		TanggalPembayaran: "2026-09-25", NominalPembayaran: &amount,
 	}
@@ -841,7 +841,7 @@ func phase4IntegrationDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 	statements := []string{
 		`CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, email TEXT, telp_number TEXT, password TEXT, role TEXT, unit TEXT, image_url TEXT, is_verified NUMERIC, created_at DATETIME, updated_at DATETIME)`,
-		`CREATE TABLE permohonan (id TEXT PRIMARY KEY, no_permohonan TEXT, jenis_permohonan TEXT, jenis_sambungan TEXT, tarif TEXT, daya_lama INTEGER, daya_baru INTEGER, golongan_tarif TEXT, golongan_tarif_lama TEXT, pembatas_baru TEXT, pembatas_lama TEXT, priority TEXT, ulp_unit TEXT, pelanggan_nama TEXT, pelanggan_alamat TEXT, pelanggan_no_hp TEXT, request_date DATETIME, tanggal_pembayaran DATE, nominal_pembayaran INTEGER, sla_basis TEXT DEFAULT calendar, current_stage INTEGER, status TEXT, kebutuhan_tiang NUMERIC, nps_delegation_status TEXT, perlu_pdkb NUMERIC, legacy_priority_exempt BOOLEAN DEFAULT false, energize_status TEXT, created_by TEXT, created_at DATETIME, updated_at DATETIME)`,
+		`CREATE TABLE permohonan (id TEXT PRIMARY KEY, no_permohonan TEXT, jenis_permohonan TEXT, jenis_sambungan TEXT, jenis_pembayaran TEXT, tarif TEXT, daya_lama INTEGER, daya_baru INTEGER, golongan_tarif TEXT, golongan_tarif_lama TEXT, pembatas_baru TEXT, pembatas_lama TEXT, priority TEXT, ulp_unit TEXT, pelanggan_nama TEXT, pelanggan_alamat TEXT, pelanggan_no_hp TEXT, request_date DATETIME, tanggal_pembayaran DATE, nominal_pembayaran INTEGER, sla_basis TEXT DEFAULT calendar, current_stage INTEGER, status TEXT, kebutuhan_tiang NUMERIC, nps_delegation_status TEXT, perlu_pdkb NUMERIC, legacy_priority_exempt BOOLEAN DEFAULT false, energize_status TEXT, created_by TEXT, created_at DATETIME, updated_at DATETIME)`,
 		`CREATE TABLE permohonan_activities (id TEXT PRIMARY KEY, permohonan_id TEXT, workflow_node TEXT, activity_number INTEGER, stage_number INTEGER, status TEXT, sla_deadline DATETIME, sla_basis TEXT DEFAULT calendar, payload TEXT, revision INTEGER DEFAULT 1, completed_by TEXT, completed_at DATETIME, created_at DATETIME, updated_at DATETIME, UNIQUE(permohonan_id, workflow_node))`,
 		`CREATE TABLE documents (id TEXT PRIMARY KEY, type TEXT, file_path TEXT, original_filename TEXT, mime_type TEXT, size_bytes INTEGER, checksum_sha256 TEXT, source TEXT, classification TEXT, scan_status TEXT, scan_checked_at DATETIME, revision INTEGER, supersedes_id TEXT, superseded_by_id TEXT, uploaded_by TEXT, permohonan_id TEXT, created_at DATETIME, updated_at DATETIME)`,
 		`CREATE TABLE document_evidence (id TEXT PRIMARY KEY, document_id TEXT, permohonan_id TEXT, workflow_node TEXT, attached_by TEXT, is_current BOOLEAN DEFAULT true, created_at DATETIME, updated_at DATETIME, UNIQUE(document_id, workflow_node))`,
