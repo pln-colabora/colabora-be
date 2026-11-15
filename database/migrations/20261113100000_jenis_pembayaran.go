@@ -8,6 +8,9 @@ import (
 
 func init() {
 	database.RegisterMigration("20261113100000_jenis_pembayaran", func(db *gorm.DB) error {
+		if db.Migrator().HasColumn(&entities.Permohonan{}, "JenisPembayaran") {
+			return nil
+		}
 		return db.Migrator().AddColumn(&entities.Permohonan{}, "JenisPembayaran")
 	}, func(db *gorm.DB) error {
 		return db.Migrator().DropColumn(&entities.Permohonan{}, "JenisPembayaran")
