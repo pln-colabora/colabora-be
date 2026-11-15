@@ -17,8 +17,8 @@ func (c *permohonanController) eisService() service.EISDraftService {
 
 func (c *permohonanController) ImportEIS(ctx *gin.Context) {
 	file, err := ctx.FormFile("file")
-	if err != nil || file == nil || !strings.HasSuffix(strings.ToLower(file.Filename), ".xls") || file.Size > 10<<20 {
-		ctx.JSON(http.StatusBadRequest, utils.BuildResponseFailed("invalid EIS file", "file must be an XLS up to 10 MB", nil))
+	if err != nil || file == nil || !strings.HasSuffix(strings.ToLower(file.Filename), ".xls") || file.Size > 30<<20 {
+		ctx.JSON(http.StatusBadRequest, utils.BuildResponseFailed("invalid EIS file", "file must be an XLS up to 30 MB", nil))
 		return
 	}
 	opened, err := file.Open()

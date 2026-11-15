@@ -32,7 +32,7 @@ paths:
               type: object
               required: [file]
               properties:
-                file: { type: string, format: binary, description: XLS maksimal 10 MB dan 5000 baris }
+                file: { type: string, format: binary, description: XLS maksimal 30 MB dan 5000 baris }
       responses:
         "201": { description: Daftar permohonan draft yang dibuat }
         "400": { $ref: "#/components/responses/BadRequest" }
