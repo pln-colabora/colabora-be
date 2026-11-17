@@ -205,3 +205,10 @@ func TestEISXLSXRejectsInvalidWorkbook(t *testing.T) {
 	_, err := readEISRows(strings.NewReader("not a workbook"), ".xlsx")
 	require.ErrorContains(t, err, "invalid EIS XLSX workbook")
 }
+
+func TestCleanEISCellRemovesNULAndControls(t *testing.T) {
+	require.Equal(t, "Jl. Raya Taman 48", cleanEISCell("Jl. Raya\x00 Taman 48"))
+	require.Equal(t, "Blok A Blok B", cleanEISCell("Blok A\nBlok B"))
+	require.Equal(t, "A B", cleanEISCell("A\x01B"))
+	require.Equal(t, "Gg. Mawar No. 5", cleanEISCell("Gg. Mawar No. 5"))
+}
