@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -11,7 +12,8 @@ import (
 	"github.com/pln-colabora/colabora-be/pkg/rbac"
 )
 
-// mapEISRow reads only the approved EIS columns. Connection type, tariff
+// mapEISRow reads only the approved EIS columns, plus NOTELP_HP_PEMOHON as the
+// phone fallback when NOTELP_PEMOHON is blank. Connection type, tariff
 // category and evidence must be completed by the operator before activation.
 func mapEISRow(row map[string]string) (dto.PermohonanCreateRequest, error) {
 	get := func(key string) string { return strings.TrimSpace(row[key]) }
@@ -22,11 +24,21 @@ func mapEISRow(row map[string]string) (dto.PermohonanCreateRequest, error) {
 		}
 		return &value
 	}
+	phone := get("NOTELP_PEMOHON")
+	if phone == "" {
+		phone = get("NOTELP_HP_PEMOHON")
+	}
 	req := dto.PermohonanCreateRequest{
-		PelangganNama: get("NAMA"), PelangganNoHp: get("NOTELP_PEMOHON"),
+		PelangganNama: get("NAMA"), PelangganNoHp: phone,
 		PelangganAlamat: get("ALAMAT"), UlpUnit: optional("NAMAUP"),
-		GolonganTarif: optional("TARIF"), GolonganTarifLama: optional("TARIF_LAMA"),
-		JenisPembayaran: strings.ToLower(get("PAKET_SAR")),
+	}
+	golongan, token := normalizeEISGolongan(get("TARIF"))
+	golonganLama, _ := normalizeEISGolongan(get("TARIF_LAMA"))
+	if golongan != "" {
+		req.GolonganTarif = &golongan
+	}
+	if golonganLama != "" {
+		req.GolonganTarifLama = &golonganLama
 	}
 	switch strings.ToUpper(get("JENIS_TRANSAKSI")) {
 	case "PASANG BARU", "PASANG BARU (PB)", "PB":
@@ -36,8 +48,13 @@ func mapEISRow(row map[string]string) (dto.PermohonanCreateRequest, error) {
 	default:
 		return req, fmt.Errorf("JENIS_TRANSAKSI is not supported")
 	}
-	if req.JenisPembayaran != "pascabayar" && req.JenisPembayaran != "prabayar" {
+	jenisPembayaran, ok := normalizeJenisPembayaran(get("PAKET_SAR"))
+	if !ok {
 		return req, fmt.Errorf("PAKET_SAR must be Pascabayar or Prabayar")
+	}
+	req.JenisPembayaran = jenisPembayaran
+	if token && jenisPembayaran != "prabayar" {
+		return req, fmt.Errorf("TARIF %s is Token (prabayar) but PAKET_SAR is %s", get("TARIF"), get("PAKET_SAR"))
 	}
 	for _, field := range []struct {
 		key string
@@ -68,4 +85,36 @@ func mapEISRow(row map[string]string) (dto.PermohonanCreateRequest, error) {
 		req.TanggalPembayaran = time.Date(1899, 12, 30, 0, 0, 0, 0, time.UTC).AddDate(0, 0, int(serial)).Format("2006-01-02")
 	}
 	return req, nil
+}
+
+var eisGolonganPattern = regexp.MustCompile(`^([RBSPI][1-4])(M?)(T?)$`)
+
+// normalizeEISGolongan reduces an EIS tariff code to the catalogue golongan:
+// "R1MT" becomes "R1". The M suffix (Mampu, non-subsidised) has no separate
+// catalogue entry; the T suffix (Token) is reported so the caller can check it
+// against PAKET_SAR. Codes outside the known shape are returned uppercased for
+// the operator to correct in the draft.
+func normalizeEISGolongan(raw string) (golongan string, token bool) {
+	value := strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(raw), "-", ""))
+	match := eisGolonganPattern.FindStringSubmatch(value)
+	if match == nil {
+		return value, false
+	}
+	return match[1], match[3] == "T"
+}
+
+// normalizeJenisPembayaran maps an EIS PAKET_SAR label such as
+// "Prabayar (Prepaid) Satu Arah" to "prabayar" or "pascabayar". A label that
+// names both payment kinds, or neither, is rejected rather than guessed.
+func normalizeJenisPembayaran(raw string) (string, bool) {
+	value := strings.ToLower(raw)
+	prepaid := strings.Contains(value, "prabayar") || strings.Contains(value, "prepaid")
+	postpaid := strings.Contains(value, "pascabayar") || strings.Contains(value, "postpaid")
+	switch {
+	case prepaid && !postpaid:
+		return "prabayar", true
+	case postpaid && !prepaid:
+		return "pascabayar", true
+	}
+	return "", false
 }

@@ -21,7 +21,7 @@ func TestImportedDraftCanBeEditedWithoutStartingWorkflow(t *testing.T) {
 	require.NoError(t, db.Exec("CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, email TEXT, role TEXT, unit TEXT)").Error)
 	require.NoError(t, db.Exec(`CREATE TABLE permohonan (id TEXT PRIMARY KEY, no_permohonan TEXT, status TEXT, current_stage INTEGER,
 		jenis_permohonan TEXT, jenis_sambungan TEXT, jenis_pembayaran TEXT, tarif TEXT, daya_lama INTEGER, daya_baru INTEGER,
-		golongan_tarif TEXT, golongan_tarif_lama TEXT, pembatas_baru TEXT, pembatas_lama TEXT, ulp_unit TEXT,
+		golongan_tarif TEXT, golongan_tarif_lama TEXT, pembatas_baru TEXT, pembatas_lama TEXT, eis_no_agenda TEXT, ulp_unit TEXT,
 		pelanggan_nama TEXT, pelanggan_alamat TEXT, pelanggan_no_hp TEXT, request_date DATETIME,
 		tanggal_pembayaran DATETIME, nominal_pembayaran INTEGER, created_by TEXT, created_at DATETIME, updated_at DATETIME)`).Error)
 	actor := entities.User{ID: uuid.New(), Name: "Synthetic Operator", Email: "operator@example.invalid", Role: rbac.RolePelayananPelanggan, Unit: "ULP Test"}

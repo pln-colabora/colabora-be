@@ -3,6 +3,8 @@ package service
 import (
 	"fmt"
 	"io"
+	"strings"
+	"unicode"
 
 	"github.com/extrame/xls"
 	"github.com/xuri/excelize/v2"
@@ -34,7 +36,7 @@ func readEISRows(reader io.ReadSeeker, format string) ([][]string, error) {
 			}
 			cells := make([]string, row.LastCol())
 			for col := range cells {
-				cells[col] = row.Col(col)
+				cells[col] = cleanEISCell(row.Col(col))
 			}
 			rows[index] = cells
 		}
@@ -64,6 +66,9 @@ func readEISRows(reader io.ReadSeeker, format string) ([][]string, error) {
 			if err != nil {
 				return nil, fmt.Errorf("invalid EIS XLSX workbook: %w", err)
 			}
+			for col := range cells {
+				cells[col] = cleanEISCell(cells[col])
+			}
 			rows = append(rows, cells)
 		}
 		if err := iterator.Error(); err != nil {
@@ -73,4 +78,19 @@ func readEISRows(reader io.ReadSeeker, format string) ([][]string, error) {
 	default:
 		return nil, fmt.Errorf("unsupported EIS workbook format")
 	}
+}
+
+// cleanEISCell drops NUL bytes, which EIS exports can leave inside text cells
+// and PostgreSQL rejects in text columns, and turns other control characters
+// into spaces.
+func cleanEISCell(value string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r == 0:
+			return -1
+		case unicode.IsControl(r):
+			return ' '
+		}
+		return r
+	}, value)
 }

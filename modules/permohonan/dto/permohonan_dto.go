@@ -74,6 +74,20 @@ type (
 		NominalPembayaran *int64                  `json:"nominal_pembayaran" form:"nominal_pembayaran" binding:"required" validate:"required"`
 		EvidenceFiles     []*multipart.FileHeader `json:"-" form:"evidence_files"`
 	}
+	// EISImportResult lists the drafts created by an EIS import and the rows
+	// skipped because the same EIS application was already imported.
+	EISImportResult struct {
+		Created []PermohonanResponse  `json:"created"`
+		Skipped []EISImportSkippedRow `json:"skipped"`
+	}
+
+	EISImportSkippedRow struct {
+		Row                  int    `json:"row"`
+		NoAgenda             string `json:"no_agenda"`
+		ExistingNoPermohonan string `json:"existing_no_permohonan"`
+		Reason               string `json:"reason"`
+	}
+
 	EISDraftEditRequest struct {
 		JenisPermohonan   string  `json:"jenis_permohonan"`
 		JenisSambungan    string  `json:"jenis_sambungan"`
