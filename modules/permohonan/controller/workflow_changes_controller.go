@@ -16,6 +16,7 @@ type WorkflowChangesController interface {
 	ListPDKBSchedules(*gin.Context)
 	SavePDKBSchedule(*gin.Context)
 	DeletePDKBSchedule(*gin.Context)
+	DeletePermohonan(*gin.Context)
 }
 
 func (c *permohonanController) changes() service.WorkflowChangesService {
@@ -56,5 +57,9 @@ func (c *permohonanController) SavePDKBSchedule(ctx *gin.Context) {
 }
 func (c *permohonanController) DeletePDKBSchedule(ctx *gin.Context) {
 	err := c.changes().DeletePDKBSchedule(ctx, ctx.Param("schedule_id"), ctx.MustGet("user_id").(string))
+	changesResult(ctx, nil, err)
+}
+func (c *permohonanController) DeletePermohonan(ctx *gin.Context) {
+	err := c.changes().DeletePermohonan(ctx, ctx.Param("id"), ctx.MustGet("user_id").(string))
 	changesResult(ctx, nil, err)
 }
