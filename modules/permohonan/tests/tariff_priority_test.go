@@ -211,9 +211,10 @@ func TestTariffsReturnExactPowerSteps(t *testing.T) {
 	grouped := byGolongan(items)
 
 	require.Len(t, items, 211)
-	for _, golongan := range []string{"R1", "R2", "R3", "B1", "B2", "B3", "S1", "S2", "S3", "P1", "P2", "I1", "I2", "I3", "I4"} {
+	for _, golongan := range []string{"R1", "R2", "R3", "B1", "B2", "B3", "S1", "S2", "P1", "P2", "I1", "I2", "I3", "I4"} {
 		require.NotEmpty(t, grouped[golongan], golongan)
 	}
+	require.Empty(t, grouped["S3"], "S3 is not part of the corrected Tangga Daya")
 	for _, item := range items {
 		require.NotContains(t, item.Label, "s.d.")
 		require.NotContains(t, item.DayaLabel, "s.d.")
@@ -233,13 +234,17 @@ func TestTariffsReturnExactPowerSteps(t *testing.T) {
 	require.Equal(t, "450 VA", grouped["R1"][0].DayaLabel)
 	require.Equal(t, "1x2", *grouped["R1"][0].Pembatas)
 	require.Equal(t, []int64{3500, 3900, 4400, 5500}, powers(grouped["R2"]))
-	require.Equal(t, []int64{220}, powers(grouped["S1"]))
-	require.Equal(t, "1X1", *grouped["S1"][0].Pembatas)
-	require.Equal(t, rbac.TarifSosial, grouped["S1"][0].Tarif)
-	require.Len(t, grouped["S2"], 25)
-	require.Equal(t, int64(450), grouped["S2"][0].DayaMin)
-	require.Equal(t, int64(197000), grouped["S2"][24].DayaMin)
-	require.Equal(t, powers(grouped["S2"]), powers(grouped["P1"]))
+	// S1 covers 220 VA up to 197.000 VA; S2 starts at 210.000 VA.
+	s1 := grouped["S1"]
+	require.Len(t, s1, 26)
+	require.Equal(t, int64(220), s1[0].DayaMin)
+	require.Equal(t, "1X1", *s1[0].Pembatas)
+	require.Equal(t, rbac.TarifSosial, s1[0].Tarif)
+	require.Equal(t, powers(grouped["P1"]), powers(s1[1:]))
+	require.Equal(t, int64(197000), s1[25].DayaMin)
+	require.Contains(t, powers(s1), int64(53000))
+	require.Len(t, grouped["P1"], 25)
+	require.Equal(t, int64(450), grouped["P1"][0].DayaMin)
 	require.Equal(t, powers(grouped["R3"]), powers(grouped["B2"]))
 	require.Equal(t, []int64{450, 900, 1300, 2200, 3500, 3900, 4400, 5500}, powers(grouped["B1"]))
 
@@ -250,7 +255,7 @@ func TestTariffsReturnExactPowerSteps(t *testing.T) {
 	require.Equal(t, int64(16500), grouped["I2"][0].DayaMin)
 	require.Equal(t, int64(197000), grouped["I2"][len(grouped["I2"])-1].DayaMin)
 
-	for _, golongan := range []string{"B3", "S3", "P2", "I3"} {
+	for _, golongan := range []string{"B3", "S2", "P2", "I3"} {
 		steps := grouped[golongan]
 		require.Len(t, steps, 21, golongan)
 		require.Equal(t, int64(210000), steps[0].DayaMin)
@@ -272,6 +277,37 @@ func TestTariffsReturnExactPowerSteps(t *testing.T) {
 	// Every connection type keeps the full catalogue, as before.
 	for _, connection := range rbac.AllJenisSambungan {
 		require.Len(t, h.tariffs(t, connection), 211, connection)
+	}
+}
+
+func TestTariffSyncAppliesCorrectedSosialSteps(t *testing.T) {
+	db := tariffTestDB(t)
+	// Rows from the previous catalogue: S2 started at 450 VA and S3 existed.
+	for _, old := range []struct {
+		golongan string
+		daya     int64
+	}{{"S2", 450}, {"S3", 210000}} {
+		daya := old.daya
+		require.NoError(t, db.Create(&entities.TariffPowerOption{
+			Tarif: rbac.TarifSosial, GolonganTarif: old.golongan, JenisSambungan: rbac.JenisSambunganJTR,
+			DayaMin: daya, DayaMax: &daya, Label: seeds.FormatDayaLabel(daya), Active: true,
+		}).Error)
+	}
+
+	require.NoError(t, seeds.SyncTariffPowerCatalogue(db))
+	repo := repository.NewTariffPowerRepository(db)
+	for _, check := range []struct {
+		golongan string
+		daya     int64
+		allowed  bool
+	}{
+		{"S1", 220, true}, {"S1", 53000, true}, {"S1", 197000, true}, {"S1", 210000, false},
+		{"S2", 450, false}, {"S2", 210000, true}, {"S2", 13800000, true},
+		{"S3", 210000, false},
+	} {
+		allowed, err := repo.IsGolonganAllowed(context.Background(), db, rbac.TarifSosial, check.golongan, rbac.JenisSambunganJTR, check.daya)
+		require.NoError(t, err)
+		require.Equal(t, check.allowed, allowed, "%s %d", check.golongan, check.daya)
 	}
 }
 
