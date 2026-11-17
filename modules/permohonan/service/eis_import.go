@@ -25,7 +25,7 @@ var ErrEISDraftNotFound = errors.New("draft not found")
 var ErrEISDraftConflict = errors.New("draft cannot be deleted")
 
 type EISDraftService interface {
-	ImportEIS(context.Context, string, string, io.ReadSeeker) ([]dto.PermohonanResponse, error)
+	ImportEIS(context.Context, string, string, io.ReadSeeker) (dto.EISImportResult, error)
 	EditEISDraft(context.Context, string, string, dto.EISDraftEditRequest) (dto.PermohonanResponse, error)
 	DeleteEISDraft(context.Context, string, string) error
 	ContinueEISDraft(context.Context, string, string, []*multipart.FileHeader) (dto.PermohonanResponse, error)
@@ -82,29 +82,31 @@ func (s *permohonanService) DeleteEISDraft(ctx context.Context, id, userID strin
 	})
 }
 
-func (s *permohonanService) ImportEIS(ctx context.Context, userID, format string, reader io.ReadSeeker) ([]dto.PermohonanResponse, error) {
+func (s *permohonanService) ImportEIS(ctx context.Context, userID, format string, reader io.ReadSeeker) (dto.EISImportResult, error) {
+	var nothing dto.EISImportResult
 	actor, err := s.userRepository.GetUserById(ctx, s.db, userID)
 	if err != nil {
-		return nil, err
+		return nothing, err
 	}
 	if actor.Role != rbac.RolePelayananPelanggan && actor.Role != rbac.RoleNps {
-		return nil, dto.ErrCreateForbidden
+		return nothing, dto.ErrCreateForbidden
 	}
 	rows, err := readEISRows(reader, format)
 	if err != nil {
-		return nil, err
+		return nothing, err
 	}
 	if len(rows) < 2 {
-		return nil, fmt.Errorf("EIS sheet has no data")
+		return nothing, fmt.Errorf("EIS sheet has no data")
 	}
 	header := rows[0]
 	if header == nil {
-		return nil, fmt.Errorf("EIS header is missing")
+		return nothing, fmt.Errorf("EIS header is missing")
 	}
 	allowed := []string{"NAMA", "NOTELP_PEMOHON", "TGLBAYAR", "TOTALBIAYA", "JENIS_TRANSAKSI", "NAMAUP", "ALAMAT", "TARIF_LAMA", "DAYA_LAMA", "TARIF", "DAYA", "PAKET_SAR"}
-	// Optional columns are read when present; NOTELP_HP_PEMOHON is the phone
-	// fallback for rows whose NOTELP_PEMOHON is blank.
-	optionalColumns := []string{"NOTELP_HP_PEMOHON"}
+	// Optional columns are read when present: NOTELP_HP_PEMOHON is the phone
+	// fallback for rows whose NOTELP_PEMOHON is blank, and NOAGENDA identifies
+	// the EIS application for duplicate detection.
+	optionalColumns := []string{"NOTELP_HP_PEMOHON", "NOAGENDA"}
 	positions := map[string]int{}
 	for col, cell := range header {
 		name := strings.ToUpper(strings.TrimSpace(cell))
@@ -116,10 +118,12 @@ func (s *permohonanService) ImportEIS(ctx context.Context, userID, format string
 	}
 	for _, key := range allowed {
 		if _, ok := positions[key]; !ok {
-			return nil, fmt.Errorf("EIS header %s is missing", key)
+			return nothing, fmt.Errorf("EIS header %s is missing", key)
 		}
 	}
 	requests := make([]dto.PermohonanCreateRequest, 0, len(rows)-1)
+	rowNumbers := make([]int, 0, len(rows)-1)
+	noAgendas := make([]string, 0, len(rows)-1)
 	seen := map[string]bool{}
 	var problems []string
 	for index := 1; index < len(rows); index++ {
@@ -177,14 +181,17 @@ func (s *permohonanService) ImportEIS(ctx context.Context, userID, format string
 		}
 		seen[key] = true
 		requests = append(requests, req)
+		rowNumbers = append(rowNumbers, index+1)
+		noAgendas = append(noAgendas, values["NOAGENDA"])
 	}
 	if len(problems) > 0 {
-		return nil, fmt.Errorf("%s", strings.Join(problems, "; "))
+		return nothing, fmt.Errorf("%s", strings.Join(problems, "; "))
 	}
 	if len(requests) == 0 {
-		return nil, fmt.Errorf("EIS sheet has no nonempty data rows")
+		return nothing, fmt.Errorf("EIS sheet has no nonempty data rows")
 	}
 	created := make([]entities.Permohonan, 0, len(requests))
+	var skipped []dto.EISImportSkippedRow
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Serialize EIS imports so duplicate checks also hold across concurrent files.
 		if tx.Dialector.Name() == "postgres" {
@@ -194,12 +201,14 @@ func (s *permohonanService) ImportEIS(ctx context.Context, userID, format string
 		}
 		for index, req := range requests {
 			payment, _ := time.Parse("2006-01-02", req.TanggalPembayaran)
-			var duplicate int64
-			if err := tx.Model(&entities.Permohonan{}).Where("pelanggan_nama = ? AND pelanggan_no_hp = ? AND pelanggan_alamat = ? AND tanggal_pembayaran = ? AND nominal_pembayaran = ? AND jenis_permohonan = ? AND ulp_unit = ? AND jenis_pembayaran = ? AND golongan_tarif IS NOT DISTINCT FROM ? AND golongan_tarif_lama IS NOT DISTINCT FROM ? AND daya_baru IS NOT DISTINCT FROM ? AND daya_lama IS NOT DISTINCT FROM ?", req.PelangganNama, req.PelangganNoHp, req.PelangganAlamat, payment, *req.NominalPembayaran, req.JenisPermohonan, *req.UlpUnit, req.JenisPembayaran, req.GolonganTarif, req.GolonganTarifLama, req.DayaBaru, req.DayaLama).Count(&duplicate).Error; err != nil {
+			noAgenda := noAgendas[index]
+			existing, reason, err := findEISDuplicate(tx, req, payment, noAgenda)
+			if err != nil {
 				return err
 			}
-			if duplicate > 0 {
-				return fmt.Errorf("row %d: duplicate permohonan", index+2)
+			if existing != "" {
+				skipped = append(skipped, dto.EISImportSkippedRow{Row: rowNumbers[index], NoAgenda: noAgenda, ExistingNoPermohonan: existing, Reason: reason})
+				continue
 			}
 			number, err := s.permohonanRepository.AllocateNoPermohonan(ctx, tx, time.Now().Year())
 			if err != nil {
@@ -212,6 +221,9 @@ func (s *permohonanService) ImportEIS(ctx context.Context, userID, format string
 				GolonganTarifLama: req.GolonganTarifLama, DayaLama: req.DayaLama, DayaBaru: req.DayaBaru,
 				TanggalPembayaran: &payment, NominalPembayaran: req.NominalPembayaran,
 				RequestDate: time.Now(), SlaBasis: businessday.PaymentBasis, CreatedBy: actor.ID}
+			if noAgenda != "" {
+				p.EISNoAgenda = &noAgenda
+			}
 			if err := tx.Create(&p).Error; err != nil {
 				return err
 			}
@@ -220,14 +232,47 @@ func (s *permohonanService) ImportEIS(ctx context.Context, userID, format string
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return nothing, err
 	}
-	responses := make([]dto.PermohonanResponse, 0, len(created))
+	result := dto.EISImportResult{Created: make([]dto.PermohonanResponse, 0, len(created)), Skipped: skipped}
+	if result.Skipped == nil {
+		result.Skipped = []dto.EISImportSkippedRow{}
+	}
 	for _, p := range created {
 		response, _ := toPermohonanResponse(p, actor.Role, actor.Unit, time.Now())
-		responses = append(responses, response)
+		result.Created = append(result.Created, response)
 	}
-	return responses, nil
+	return result, nil
+}
+
+// findEISDuplicate returns the number of an existing permohonan for the same
+// EIS application. NOAGENDA is authoritative when present, so one customer's
+// separate applications with identical details are all imported. Rows without
+// NOAGENDA, and drafts imported before NOAGENDA was stored, fall back to the
+// full customer, payment, tariff and power match.
+func findEISDuplicate(tx *gorm.DB, req dto.PermohonanCreateRequest, payment time.Time, noAgenda string) (string, string, error) {
+	var existing entities.Permohonan
+	if noAgenda != "" {
+		found := tx.Select("no_permohonan").Where("eis_no_agenda = ?", noAgenda).Limit(1).Find(&existing)
+		if found.Error != nil {
+			return "", "", found.Error
+		}
+		if found.RowsAffected > 0 {
+			return existing.NoPermohonan, "NOAGENDA sudah pernah di-import", nil
+		}
+	}
+	query := tx.Select("no_permohonan").Where("pelanggan_nama = ? AND pelanggan_no_hp = ? AND pelanggan_alamat = ? AND tanggal_pembayaran = ? AND nominal_pembayaran = ? AND jenis_permohonan = ? AND ulp_unit = ? AND jenis_pembayaran = ? AND golongan_tarif IS NOT DISTINCT FROM ? AND golongan_tarif_lama IS NOT DISTINCT FROM ? AND daya_baru IS NOT DISTINCT FROM ? AND daya_lama IS NOT DISTINCT FROM ?", req.PelangganNama, req.PelangganNoHp, req.PelangganAlamat, payment, *req.NominalPembayaran, req.JenisPermohonan, *req.UlpUnit, req.JenisPembayaran, req.GolonganTarif, req.GolonganTarifLama, req.DayaBaru, req.DayaLama)
+	if noAgenda != "" {
+		query = query.Where("eis_no_agenda IS NULL")
+	}
+	found := query.Limit(1).Find(&existing)
+	if found.Error != nil {
+		return "", "", found.Error
+	}
+	if found.RowsAffected > 0 {
+		return existing.NoPermohonan, "data sama dengan permohonan yang sudah ada", nil
+	}
+	return "", "", nil
 }
 
 func (s *permohonanService) EditEISDraft(ctx context.Context, id, userID string, req dto.EISDraftEditRequest) (dto.PermohonanResponse, error) {

@@ -41,7 +41,15 @@ func (c *permohonanController) ImportEIS(ctx *gin.Context) {
 		ctx.JSON(status, utils.BuildResponseFailed("failed import EIS", err.Error(), nil))
 		return
 	}
-	ctx.JSON(http.StatusCreated, utils.BuildResponseSuccess("EIS drafts imported", result))
+	// data keeps the created drafts as before; meta reports rows skipped
+	// because the same EIS application was already imported.
+	response := utils.BuildResponseSuccess("EIS drafts imported", result.Created)
+	response.Meta = map[string]any{
+		"created_count": len(result.Created),
+		"skipped_count": len(result.Skipped),
+		"skipped":       result.Skipped,
+	}
+	ctx.JSON(http.StatusCreated, response)
 }
 
 func (c *permohonanController) EditEISDraft(ctx *gin.Context) {

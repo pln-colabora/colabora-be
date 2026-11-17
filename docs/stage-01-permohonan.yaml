@@ -22,7 +22,16 @@ paths:
       tags: ["Tahap 1 — Permohonan PB/PD"]
       operationId: importEISPermohonan
       summary: Import EIS XLS/XLSX menjadi draft permohonan
-      description: Hanya pemilik Activity #1. Impor seluruh file atomik; kolom di luar pemetaan EIS diabaikan. NAMAUP dicocokkan tanpa membedakan huruf besar/kecil dan disimpan mengikuti ejaan unit akun.
+      description: >-
+        Hanya pemilik Activity #1. Baris yang tidak valid membuat seluruh file
+        ditolak; kolom di luar pemetaan EIS diabaikan. NAMAUP dicocokkan tanpa
+        membedakan huruf besar/kecil dan disimpan mengikuti ejaan unit akun.
+        NOAGENDA (opsional) disimpan dan menjadi kunci duplikat: baris dengan
+        NOAGENDA yang sudah pernah di-import dilewati, bukan ditolak. Baris tanpa
+        NOAGENDA, atau draft lama yang belum menyimpan NOAGENDA, dicocokkan dari
+        data pelanggan, pembayaran, tarif, dan daya. Baris yang dilewati
+        dilaporkan di meta.skipped beserta nomor baris file dan No. Permohonan
+        yang sudah ada.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -34,7 +43,19 @@ paths:
               properties:
                 file: { type: string, format: binary, description: XLS atau XLSX maksimal 30 MB dan 5000 baris }
       responses:
-        "201": { description: Daftar permohonan draft yang dibuat }
+        "201":
+          description: data berisi draft yang dibuat; meta melaporkan baris yang dilewati
+          content:
+            application/json:
+              example:
+                status: true
+                message: EIS drafts imported
+                data: []
+                meta:
+                  created_count: 0
+                  skipped_count: 1
+                  skipped:
+                    - { row: 3, no_agenda: "512345678901", existing_no_permohonan: "PBPD-2026-0042", reason: "NOAGENDA sudah pernah di-import" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "403": { description: Role tidak berhak mengimpor }
   /api/permohonan/{id}/draft:
