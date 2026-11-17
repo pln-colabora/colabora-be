@@ -30,6 +30,12 @@ func TestEISMappingUsesApprovedColumns(t *testing.T) {
 	fourth, err := mapEISRow(row)
 	require.NoError(t, err)
 	require.Equal(t, "prabayar", fourth.JenisPembayaran)
+	require.Equal(t, "080000000000", fourth.PelangganNoHp)
+	row["NOTELP_PEMOHON"] = ""
+	row["NOTELP_HP_PEMOHON"] = "081111111111"
+	fifth, err := mapEISRow(row)
+	require.NoError(t, err)
+	require.Equal(t, "081111111111", fifth.PelangganNoHp)
 }
 
 func TestNormalizeJenisPembayaran(t *testing.T) {

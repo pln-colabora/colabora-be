@@ -102,10 +102,13 @@ func (s *permohonanService) ImportEIS(ctx context.Context, userID, format string
 		return nil, fmt.Errorf("EIS header is missing")
 	}
 	allowed := []string{"NAMA", "NOTELP_PEMOHON", "TGLBAYAR", "TOTALBIAYA", "JENIS_TRANSAKSI", "NAMAUP", "ALAMAT", "TARIF_LAMA", "DAYA_LAMA", "TARIF", "DAYA", "PAKET_SAR"}
+	// Optional columns are read when present; NOTELP_HP_PEMOHON is the phone
+	// fallback for rows whose NOTELP_PEMOHON is blank.
+	optionalColumns := []string{"NOTELP_HP_PEMOHON"}
 	positions := map[string]int{}
 	for col, cell := range header {
 		name := strings.ToUpper(strings.TrimSpace(cell))
-		for _, key := range allowed {
+		for _, key := range append(allowed, optionalColumns...) {
 			if name == key {
 				positions[key] = col
 			}
@@ -137,13 +140,22 @@ func (s *permohonanService) ImportEIS(ctx context.Context, userID, format string
 		if allBlank {
 			continue
 		}
+		for _, key := range optionalColumns {
+			if position, ok := positions[key]; ok && position < len(row) {
+				values[key] = strings.TrimSpace(row[position])
+			}
+		}
 		req, rowErr := mapEISRow(values)
 		if rowErr != nil {
 			problems = append(problems, fmt.Sprintf("row %d: %v", index+1, rowErr))
 			continue
 		}
-		if req.PelangganNama == "" || req.PelangganNoHp == "" || req.PelangganAlamat == "" || req.UlpUnit == nil {
-			problems = append(problems, fmt.Sprintf("row %d: customer name, phone, address, and NAMAUP are required", index+1))
+		if missing := missingEISCustomerFields(req); len(missing) > 0 {
+			verb := "is"
+			if len(missing) > 1 {
+				verb = "are"
+			}
+			problems = append(problems, fmt.Sprintf("row %d: %s %s required", index+1, strings.Join(missing, ", "), verb))
 			continue
 		}
 		if actor.Role == rbac.RolePelayananPelanggan {
@@ -154,8 +166,8 @@ func (s *permohonanService) ImportEIS(ctx context.Context, userID, format string
 			// Use the account's canonical spelling for later exact-match ULP checks.
 			req.UlpUnit = &actor.Unit
 		}
-		parts := make([]string, 0, len(allowed))
-		for _, field := range allowed {
+		parts := make([]string, 0, len(allowed)+len(optionalColumns))
+		for _, field := range append(allowed, optionalColumns...) {
 			parts = append(parts, strings.ToUpper(strings.TrimSpace(values[field])))
 		}
 		key := strings.Join(parts, "\x00")
@@ -385,4 +397,23 @@ func validateDraftForContinue(req dto.PermohonanCreateRequest) error {
 		return fmt.Errorf("invalid daya_lama for perubahan daya")
 	}
 	return nil
+}
+
+// missingEISCustomerFields names the EIS columns that left a required customer
+// field empty, so an operator can fix the right cell.
+func missingEISCustomerFields(req dto.PermohonanCreateRequest) []string {
+	var missing []string
+	if req.PelangganNama == "" {
+		missing = append(missing, "NAMA")
+	}
+	if req.PelangganNoHp == "" {
+		missing = append(missing, "NOTELP_PEMOHON or NOTELP_HP_PEMOHON")
+	}
+	if req.PelangganAlamat == "" {
+		missing = append(missing, "ALAMAT")
+	}
+	if req.UlpUnit == nil {
+		missing = append(missing, "NAMAUP")
+	}
+	return missing
 }

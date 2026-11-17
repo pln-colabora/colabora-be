@@ -11,7 +11,8 @@ import (
 	"github.com/pln-colabora/colabora-be/pkg/rbac"
 )
 
-// mapEISRow reads only the approved EIS columns. Connection type, tariff
+// mapEISRow reads only the approved EIS columns, plus NOTELP_HP_PEMOHON as the
+// phone fallback when NOTELP_PEMOHON is blank. Connection type, tariff
 // category and evidence must be completed by the operator before activation.
 func mapEISRow(row map[string]string) (dto.PermohonanCreateRequest, error) {
 	get := func(key string) string { return strings.TrimSpace(row[key]) }
@@ -22,8 +23,12 @@ func mapEISRow(row map[string]string) (dto.PermohonanCreateRequest, error) {
 		}
 		return &value
 	}
+	phone := get("NOTELP_PEMOHON")
+	if phone == "" {
+		phone = get("NOTELP_HP_PEMOHON")
+	}
 	req := dto.PermohonanCreateRequest{
-		PelangganNama: get("NAMA"), PelangganNoHp: get("NOTELP_PEMOHON"),
+		PelangganNama: get("NAMA"), PelangganNoHp: phone,
 		PelangganAlamat: get("ALAMAT"), UlpUnit: optional("NAMAUP"),
 		GolonganTarif: optional("TARIF"), GolonganTarifLama: optional("TARIF_LAMA"),
 	}
