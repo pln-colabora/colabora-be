@@ -26,6 +26,37 @@ func TestEISMappingUsesApprovedColumns(t *testing.T) {
 	row["PAKET_SAR"] = "unknown"
 	_, err = mapEISRow(row)
 	require.Error(t, err)
+	row["PAKET_SAR"] = "Prabayar (Prepaid) Satu Arah"
+	fourth, err := mapEISRow(row)
+	require.NoError(t, err)
+	require.Equal(t, "prabayar", fourth.JenisPembayaran)
+}
+
+func TestNormalizeJenisPembayaran(t *testing.T) {
+	tests := []struct {
+		raw  string
+		want string
+		ok   bool
+	}{
+		{"Prabayar", "prabayar", true},
+		{"PRABAYAR", "prabayar", true},
+		{"Prabayar (Prepaid) Satu Arah", "prabayar", true},
+		{"prepaid", "prabayar", true},
+		{"Pascabayar", "pascabayar", true},
+		{"Pascabayar (Postpaid)", "pascabayar", true},
+		{"postpaid", "pascabayar", true},
+		{"", "", false},
+		{"Lainnya", "", false},
+		{"Prabayar / Pascabayar", "", false},
+		{"Prepaid / Postpaid", "", false},
+	}
+	for _, test := range tests {
+		t.Run(test.raw, func(t *testing.T) {
+			got, ok := normalizeJenisPembayaran(test.raw)
+			require.Equal(t, test.ok, ok)
+			require.Equal(t, test.want, got)
+		})
+	}
 }
 
 func TestDraftContinuationRequiresCompletedFields(t *testing.T) {

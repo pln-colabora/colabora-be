@@ -26,7 +26,6 @@ func mapEISRow(row map[string]string) (dto.PermohonanCreateRequest, error) {
 		PelangganNama: get("NAMA"), PelangganNoHp: get("NOTELP_PEMOHON"),
 		PelangganAlamat: get("ALAMAT"), UlpUnit: optional("NAMAUP"),
 		GolonganTarif: optional("TARIF"), GolonganTarifLama: optional("TARIF_LAMA"),
-		JenisPembayaran: strings.ToLower(get("PAKET_SAR")),
 	}
 	switch strings.ToUpper(get("JENIS_TRANSAKSI")) {
 	case "PASANG BARU", "PASANG BARU (PB)", "PB":
@@ -36,9 +35,11 @@ func mapEISRow(row map[string]string) (dto.PermohonanCreateRequest, error) {
 	default:
 		return req, fmt.Errorf("JENIS_TRANSAKSI is not supported")
 	}
-	if req.JenisPembayaran != "pascabayar" && req.JenisPembayaran != "prabayar" {
+	jenisPembayaran, ok := normalizeJenisPembayaran(get("PAKET_SAR"))
+	if !ok {
 		return req, fmt.Errorf("PAKET_SAR must be Pascabayar or Prabayar")
 	}
+	req.JenisPembayaran = jenisPembayaran
 	for _, field := range []struct {
 		key string
 		dst **int64
@@ -68,4 +69,20 @@ func mapEISRow(row map[string]string) (dto.PermohonanCreateRequest, error) {
 		req.TanggalPembayaran = time.Date(1899, 12, 30, 0, 0, 0, 0, time.UTC).AddDate(0, 0, int(serial)).Format("2006-01-02")
 	}
 	return req, nil
+}
+
+// normalizeJenisPembayaran maps an EIS PAKET_SAR label such as
+// "Prabayar (Prepaid) Satu Arah" to "prabayar" or "pascabayar". A label that
+// names both payment kinds, or neither, is rejected rather than guessed.
+func normalizeJenisPembayaran(raw string) (string, bool) {
+	value := strings.ToLower(raw)
+	prepaid := strings.Contains(value, "prabayar") || strings.Contains(value, "prepaid")
+	postpaid := strings.Contains(value, "pascabayar") || strings.Contains(value, "postpaid")
+	switch {
+	case prepaid && !postpaid:
+		return "prabayar", true
+	case postpaid && !prepaid:
+		return "pascabayar", true
+	}
+	return "", false
 }
