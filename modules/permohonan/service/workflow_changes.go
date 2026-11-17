@@ -25,6 +25,7 @@ type WorkflowChangesService interface {
 	ListPDKBSchedules(context.Context, string, string, string) ([]dto.PDKBScheduleResponse, error)
 	SavePDKBSchedule(context.Context, string, string, dto.PDKBScheduleRequest) (dto.PDKBScheduleResponse, error)
 	DeletePDKBSchedule(context.Context, string, string) error
+	DeletePermohonan(context.Context, string, string) error
 }
 
 var wib = time.FixedZone("WIB", 7*60*60)
@@ -110,6 +111,31 @@ func (s *permohonanService) DeletePDKBSchedule(ctx context.Context, id, userID s
 		return dto.ErrInvalidActivity
 	}
 	return s.db.Transaction(func(tx *gorm.DB) error { return (repository.WorkflowChangesRepository{}).DeleteSchedule(ctx, tx, id) })
+}
+
+func (s *permohonanService) DeletePermohonan(ctx context.Context, id, userID string) error {
+	actor, err := s.userRepository.GetUserById(ctx, s.db, userID)
+	if err != nil || !rbac.CanDeletePermohonan(actor.Role) {
+		return rbac.ErrWorkflowForbidden
+	}
+	if _, err := uuid.Parse(id); err != nil {
+		return dto.ErrPermohonanNotFound
+	}
+	var keys []string
+	err = s.db.Transaction(func(tx *gorm.DB) (txErr error) {
+		keys, txErr = (repository.WorkflowChangesRepository{}).DeletePermohonan(ctx, tx, id)
+		return txErr
+	})
+	if err != nil {
+		return err
+	}
+	// Files are removed only after commit; a failed delete leaves an orphan object, never a broken row.
+	if s.workflowDocumentUploader != nil {
+		for _, key := range keys {
+			_ = s.workflowDocumentUploader.DeleteStoredObject(ctx, key)
+		}
+	}
+	return nil
 }
 
 func (s *permohonanService) EditSurvey(ctx context.Context, id, userID string, req dto.SurveyRevisionRequest) (dto.PermohonanResponse, error) {
