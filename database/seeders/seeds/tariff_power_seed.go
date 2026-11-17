@@ -87,7 +87,7 @@ func FormatDayaLabel(daya int64) string {
 func TariffPowerCatalogue() []TariffPowerStep {
 	r3 := powerRange(6600, 197000)
 	b3 := powerRange(210000, 13800000)
-	s2 := powerRange(450, 197000)
+	p1 := powerRange(450, 197000)
 	golongan := []struct {
 		code  string
 		steps []int64
@@ -98,10 +98,9 @@ func TariffPowerCatalogue() []TariffPowerStep {
 		{"B1", powerRange(450, 5500)},
 		{"B2", r3},
 		{"B3", b3},
-		{"S1", []int64{220}},
-		{"S2", s2},
-		{"S3", b3},
-		{"P1", s2},
+		{"S1", powerRange(220, 197000)},
+		{"S2", b3},
+		{"P1", p1},
 		{"P2", b3},
 		{"I1", powerRange(450, 13200)},
 		{"I2", powerRange(16500, 197000)},
