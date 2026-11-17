@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -30,7 +31,14 @@ func mapEISRow(row map[string]string) (dto.PermohonanCreateRequest, error) {
 	req := dto.PermohonanCreateRequest{
 		PelangganNama: get("NAMA"), PelangganNoHp: phone,
 		PelangganAlamat: get("ALAMAT"), UlpUnit: optional("NAMAUP"),
-		GolonganTarif: optional("TARIF"), GolonganTarifLama: optional("TARIF_LAMA"),
+	}
+	golongan, token := normalizeEISGolongan(get("TARIF"))
+	golonganLama, _ := normalizeEISGolongan(get("TARIF_LAMA"))
+	if golongan != "" {
+		req.GolonganTarif = &golongan
+	}
+	if golonganLama != "" {
+		req.GolonganTarifLama = &golonganLama
 	}
 	switch strings.ToUpper(get("JENIS_TRANSAKSI")) {
 	case "PASANG BARU", "PASANG BARU (PB)", "PB":
@@ -45,6 +53,9 @@ func mapEISRow(row map[string]string) (dto.PermohonanCreateRequest, error) {
 		return req, fmt.Errorf("PAKET_SAR must be Pascabayar or Prabayar")
 	}
 	req.JenisPembayaran = jenisPembayaran
+	if token && jenisPembayaran != "prabayar" {
+		return req, fmt.Errorf("TARIF %s is Token (prabayar) but PAKET_SAR is %s", get("TARIF"), get("PAKET_SAR"))
+	}
 	for _, field := range []struct {
 		key string
 		dst **int64
@@ -74,6 +85,22 @@ func mapEISRow(row map[string]string) (dto.PermohonanCreateRequest, error) {
 		req.TanggalPembayaran = time.Date(1899, 12, 30, 0, 0, 0, 0, time.UTC).AddDate(0, 0, int(serial)).Format("2006-01-02")
 	}
 	return req, nil
+}
+
+var eisGolonganPattern = regexp.MustCompile(`^([RBSPI][1-4])(M?)(T?)$`)
+
+// normalizeEISGolongan reduces an EIS tariff code to the catalogue golongan:
+// "R1MT" becomes "R1". The M suffix (Mampu, non-subsidised) has no separate
+// catalogue entry; the T suffix (Token) is reported so the caller can check it
+// against PAKET_SAR. Codes outside the known shape are returned uppercased for
+// the operator to correct in the draft.
+func normalizeEISGolongan(raw string) (golongan string, token bool) {
+	value := strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(raw), "-", ""))
+	match := eisGolonganPattern.FindStringSubmatch(value)
+	if match == nil {
+		return value, false
+	}
+	return match[1], match[3] == "T"
 }
 
 // normalizeJenisPembayaran maps an EIS PAKET_SAR label such as
