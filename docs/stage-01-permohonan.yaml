@@ -267,6 +267,21 @@ paths:
         "200": { description: Detail permohonan, content: { application/json: { schema: { $ref: "#/components/schemas/PermohonanEnvelope" } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: ["Tahap 1 — Permohonan PB/PD"]
+      operationId: deletePermohonan
+      summary: Hapus permohonan (khusus super-user)
+      description: >-
+        Menghapus permanen permohonan beserta aktivitas, log, dokumen, evidence,
+        revisi, dan penugasan vendor. Jadwal PDKB yang terkait dilepas (tidak dihapus).
+        Hanya role `super-user`; role lain mendapat 403.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/PermohonanID" }]
+      responses:
+        "200": { description: Permohonan dihapus, content: { application/json: { schema: { $ref: "#/components/schemas/ApiResponse" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /api/permohonan/{id}/activities:
     get:
       tags: ["Tahap 1 — Permohonan PB/PD"]

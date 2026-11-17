@@ -72,6 +72,11 @@ func CanManageAccounts(role string) bool {
 	return role == RoleAdmin || role == RoleSuperUser
 }
 
+// CanDeletePermohonan is an administrative action outside the workflow; only super-user may do it.
+func CanDeletePermohonan(role string) bool {
+	return role == RoleSuperUser
+}
+
 // ValidateRoleUnit ensures operational accounts have an organizational scope.
 // Unit names themselves remain configuration data, so this only enforces the
 // required/optional relationship to the selected role.

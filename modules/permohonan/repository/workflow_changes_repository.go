@@ -53,6 +53,28 @@ func (WorkflowChangesRepository) DeleteSchedule(ctx context.Context, db *gorm.DB
 	return db.WithContext(ctx).Delete(&item).Error
 }
 
+// DeletePermohonan removes a request and returns the storage keys of its documents.
+// Activities, logs, documents, evidence and vendor assignments go via ON DELETE CASCADE;
+// revisions have no FK, and a linked PDKB booking is released rather than deleted.
+func (WorkflowChangesRepository) DeletePermohonan(ctx context.Context, db *gorm.DB, id string) ([]string, error) {
+	db = db.WithContext(ctx)
+	var item entities.Permohonan
+	if err := db.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).Take(&item).Error; err != nil {
+		return nil, err
+	}
+	var keys []string
+	if err := db.Model(&entities.Document{}).Where("permohonan_id = ?", id).Pluck("file_path", &keys).Error; err != nil {
+		return nil, err
+	}
+	if err := db.Where("permohonan_id = ?", id).Delete(&entities.ActivityRevision{}).Error; err != nil {
+		return nil, err
+	}
+	if err := db.Model(&entities.PDKBSchedule{}).Where("permohonan_id = ?", id).Update("permohonan_id", nil).Error; err != nil {
+		return nil, err
+	}
+	return keys, db.Delete(&item).Error
+}
+
 func (WorkflowChangesRepository) Revisions(ctx context.Context, db *gorm.DB, id, code string) ([]entities.ActivityRevision, error) {
 	rows := []entities.ActivityRevision{}
 	err := db.WithContext(ctx).Where("permohonan_id = ? AND workflow_node = ?", id, code).Order("revision").Find(&rows).Error

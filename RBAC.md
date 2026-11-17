@@ -8,7 +8,7 @@ The living ownership source is `hifi-colabora/workflow/jtr-jtm.html` plus `hifi-
 
 `pelayanan-pelanggan`, `teknik`, `perencanaan`, `konstruksi`, `transaksi-energi`, `jaringan`, `nps`, `pdkb`, `vendor-tiang`, `vendor-konstruksi`, `vendor-sr-app`, and `super-user`.
 
-`super-user` has cross-unit read access and no workflow write access.
+`super-user` has cross-unit read access and no workflow write access. Outside the workflow, `super-user` is the only role that may permanently delete a request (`DELETE /api/permohonan/{id}`).
 
 ## Node ownership
 
