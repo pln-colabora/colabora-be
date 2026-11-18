@@ -54,7 +54,8 @@ func (WorkflowChangesRepository) DeleteSchedule(ctx context.Context, db *gorm.DB
 }
 
 // DeletePermohonan removes a request and returns the storage keys of its documents.
-// Activities, logs, documents, evidence and vendor assignments go via ON DELETE CASCADE;
+// Logs, documents and vendor assignments go via ON DELETE CASCADE. Evidence and
+// activities are deleted first because GORM's has-many FKs on them are NO ACTION;
 // revisions have no FK, and a linked PDKB booking is released rather than deleted.
 func (WorkflowChangesRepository) DeletePermohonan(ctx context.Context, db *gorm.DB, id string) ([]string, error) {
 	db = db.WithContext(ctx)
@@ -64,6 +65,12 @@ func (WorkflowChangesRepository) DeletePermohonan(ctx context.Context, db *gorm.
 	}
 	var keys []string
 	if err := db.Model(&entities.Document{}).Where("permohonan_id = ?", id).Pluck("file_path", &keys).Error; err != nil {
+		return nil, err
+	}
+	if err := db.Where("permohonan_id = ?", id).Delete(&entities.DocumentEvidence{}).Error; err != nil {
+		return nil, err
+	}
+	if err := db.Where("permohonan_id = ?", id).Delete(&entities.PermohonanActivity{}).Error; err != nil {
 		return nil, err
 	}
 	if err := db.Where("permohonan_id = ?", id).Delete(&entities.ActivityRevision{}).Error; err != nil {
