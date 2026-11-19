@@ -789,6 +789,7 @@ func (s *permohonanService) List(ctx context.Context, filter *query.PermohonanFi
 		}
 		results[i].CurrentStage = evaluated.CurrentStage
 		results[i].Status = string(evaluated.Status)
+		results[i].HplDays = hplDays(results[i].TanggalPembayaran, evaluated.Status, results[i].WorkflowNodes, results[i].UpdatedAt, time.Now())
 		results[i].SlaDeadline, results[i].SlaStatus = aggregateSLA(results[i].WorkflowNodes, evaluated, time.Now())
 		if results[i].SlaDeadline != nil {
 			for _, node := range results[i].WorkflowNodes {

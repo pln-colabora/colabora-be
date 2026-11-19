@@ -15,6 +15,7 @@ type Permohonan struct {
 	SlaBasis             string                        `json:"sla_basis"`
 	SlaRemainingDays     *int                          `gorm:"-" json:"sla_remaining_days"`
 	SlaCalendarError     string                        `gorm:"-" json:"sla_calendar_error,omitempty"`
+	HplDays              *int                          `gorm:"-" json:"hpl_days"`
 	LegacyPriorityExempt bool                          `json:"-"`
 	EnergizeStatus       *string                       `json:"energize_status"`
 	ID                   string                        `json:"id"`

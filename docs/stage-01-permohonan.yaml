@@ -453,6 +453,7 @@ components:
         sla_basis: { type: string, enum: [calendar, payment_workdays_v1] }
         sla_remaining_days: { type: integer, nullable: true }
         sla_calendar_error: { type: string }
+        hpl_days: { type: integer, nullable: true, description: "Hanya di daftar. Hari kerja sejak tanggal pembayaran hingga hari ini; berhenti saat permohonan selesai atau dikembalikan (returned). Null jika belum ada tanggal pembayaran." }
         tanggal_pembayaran: { type: string, format: date, nullable: true }
         nominal_pembayaran: { type: integer, format: int64, nullable: true, description: Nominal pembayaran dalam rupiah }
         current_stage: { type: integer, minimum: 1, maximum: 7 }
